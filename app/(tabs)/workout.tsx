@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -10,7 +10,7 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, count, eq } from 'drizzle-orm';
 import { Play, Plus, Trash2 } from 'lucide-react-native';
 
 import * as schema from '@/db/schema';
@@ -41,15 +41,20 @@ export default function WorkoutScreen() {
         id: routines.id,
         name: routines.name,
         description: routines.description,
-        exerciseCount: sql<number>`(
-          SELECT COUNT(*) FROM ${routineExercises}
-          WHERE ${routineExercises.routineId} = ${routines.id}
-        )`.as('exercise_count'),
+        exerciseCount: count(routineExercises.id),
       })
       .from(routines)
+      .leftJoin(routineExercises, eq(routineExercises.routineId, routines.id))
       .where(eq(routines.isArchived, false))
+      .groupBy(routines.id)
       .orderBy(asc(routines.name))
   );
+
+  useEffect(() => {
+    if (routineList) {
+      console.log('[ROUTINE-LIST]', JSON.stringify(routineList, null, 2));
+    }
+  }, [routineList]);
 
   const handleStartRoutine = async (routine: Routine) => {
     if (starting) return;
