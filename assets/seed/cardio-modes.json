@@ -1,0 +1,143 @@
+[
+  {
+    "id": "cardio_running_outdoor",
+    "name": "Running (Outdoor)",
+    "name_tr": "Koşu (Açık Hava)",
+    "primary_muscles": ["quadriceps", "hamstrings", "calves", "glutes"],
+    "secondary_muscles": ["core"],
+    "equipment": "none",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Açık havada düz veya hafif eğimli bir parkur seç.",
+      "Isınma için 5 dakika yürüyüşle başla.",
+      "Hedef temponda koşmaya başla, omuzlar gevşek, kollar 90 derece bükük.",
+      "Burnundan nefes al, ağzından bırak. Tempoya uygun bir nefes ritmi yakala.",
+      "Bitirirken son 5 dakikayı yürüyerek soğut."
+    ]
+  },
+  {
+    "id": "cardio_running_treadmill",
+    "name": "Running (Treadmill)",
+    "name_tr": "Koşu (Koşu Bandı)",
+    "primary_muscles": ["quadriceps", "hamstrings", "calves", "glutes"],
+    "secondary_muscles": ["core"],
+    "equipment": "treadmill",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Hız 5-6 km/saatte yürüyüşle başla, 5 dakika ısın.",
+      "Hedef tempoya kademeli çık (ör. 9-10 km/saat).",
+      "Eğim 1-2% tutmak açık hava koşusunu daha gerçekçi taklit eder.",
+      "Korkuluğu sürekli tutma, doğal kol salınımı uygula.",
+      "Soğuma için tempoyu yürüyüşe indir."
+    ]
+  },
+  {
+    "id": "cardio_cycling_outdoor",
+    "name": "Cycling (Outdoor)",
+    "name_tr": "Bisiklet (Açık Hava)",
+    "primary_muscles": ["quadriceps", "hamstrings", "glutes", "calves"],
+    "secondary_muscles": ["core"],
+    "equipment": "bicycle",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Sele yüksekliğini ayarla — pedal en alttayken diz hafif bükük olmalı.",
+      "Düşük vites ve düşük direnç ile 5 dakika ısın.",
+      "Pedal kadansını 80-100 RPM arasında tut.",
+      "Yokuşlarda ayağa kalkma, oturarak vites küçülterek devam et."
+    ]
+  },
+  {
+    "id": "cardio_cycling_indoor",
+    "name": "Cycling (Indoor / Stationary)",
+    "name_tr": "Sabit Bisiklet",
+    "primary_muscles": ["quadriceps", "hamstrings", "glutes", "calves"],
+    "secondary_muscles": ["core"],
+    "equipment": "exercise bike",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Sele ve gidon yüksekliğini ayarla.",
+      "Düşük dirençle 5 dakika ısın.",
+      "Hedef kadans (80-100 RPM) ve direnci hedef kalp atış bölgene göre ayarla."
+    ]
+  },
+  {
+    "id": "cardio_rowing",
+    "name": "Rowing",
+    "name_tr": "Kürek Çekme",
+    "primary_muscles": ["lats", "middle back", "lower back", "quadriceps", "hamstrings"],
+    "secondary_muscles": ["biceps", "core", "glutes"],
+    "equipment": "rowing machine",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Ayaklarını sabitle, dizlerin bükük, gövdeniz hafif öne eğik (catch pozisyonu).",
+      "İtiş: önce bacaklar, sonra gövde geriye, son olarak kollar göğse çekilir.",
+      "Geri dönüş: kollar uzanır, gövde öne eğilir, dizler bükülür.",
+      "Stroke ritminin sıralaması kritik — bacak, sırt, kol."
+    ]
+  },
+  {
+    "id": "cardio_stair_climber",
+    "name": "Stair Climber",
+    "name_tr": "Merdiven Tırmanma Cihazı",
+    "primary_muscles": ["quadriceps", "glutes", "hamstrings", "calves"],
+    "secondary_muscles": ["core"],
+    "equipment": "stair climber",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Korkuluğu hafifçe tut, vücudunu dik tut, öne eğilme.",
+      "Tüm ayağı basamağa bas, sadece parmak uçlarıyla değil.",
+      "Adımları kısalt, hızlandır — uzun adım dizlerini zorlar."
+    ]
+  },
+  {
+    "id": "cardio_elliptical",
+    "name": "Elliptical",
+    "name_tr": "Eliptik Bisiklet",
+    "primary_muscles": ["quadriceps", "hamstrings", "glutes", "calves"],
+    "secondary_muscles": ["chest", "biceps", "triceps", "core"],
+    "equipment": "elliptical machine",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Kolları aktif kullan — bütün vücudu çalıştırır.",
+      "Vücudunu dik tut, kambur durma.",
+      "Ters yönde de kullanabilirsin — farklı kas gruplarını vurgular."
+    ]
+  },
+  {
+    "id": "cardio_swimming",
+    "name": "Swimming",
+    "name_tr": "Yüzme",
+    "primary_muscles": ["lats", "shoulders", "core", "glutes"],
+    "secondary_muscles": ["chest", "triceps", "biceps", "quadriceps"],
+    "equipment": "pool",
+    "category": "cardio",
+    "level": "intermediate",
+    "instructions": [
+      "Stil seç (serbest, sırt, kelebek, kurbağalama).",
+      "Nefes ritmini stille senkronize et.",
+      "Mesafeyi havuz boyu × tur sayısı olarak takip et."
+    ]
+  },
+  {
+    "id": "cardio_walking",
+    "name": "Walking",
+    "name_tr": "Yürüyüş",
+    "primary_muscles": ["quadriceps", "hamstrings", "calves", "glutes"],
+    "secondary_muscles": ["core"],
+    "equipment": "none",
+    "category": "cardio",
+    "level": "beginner",
+    "instructions": [
+      "Hızlı yürüyüş tempoda — sohbet edebileceğin ama şarkı söyleyemeyeceğin hızda.",
+      "Kolları doğal salla, kambur durma.",
+      "Yokuşlarda kalp atışı doğal olarak artacaktır."
+    ]
+  }
+]
