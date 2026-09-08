@@ -12,6 +12,7 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
+import { eq, sql } from 'drizzle-orm';
 import { GripVertical, Plus, Trash2 } from 'lucide-react-native';
 
 import * as schema from '@/db/schema';
@@ -90,11 +91,7 @@ export default function NewRoutineScreen() {
     setSaving(true);
     try {
       const routineId = newId();
-      await db.insert(routines).values({
-        id: routineId,
-        name: name.trim(),
-        description: description.trim() || null,
-      });
+      const expectedCount = draftExercises.length;
 
       const routineExerciseRows = draftExercises.map((d, idx) => ({
         id: d.id,
@@ -107,12 +104,55 @@ export default function NewRoutineScreen() {
         targetDurationSeconds: parseIntOrNull(d.targetDurationSeconds),
         restSeconds: parseIntOrNull(d.restSeconds) ?? 90,
       }));
-      await db.insert(routineExercises).values(routineExerciseRows);
+
+      // DEBUG: Metro konsoluna her şeyi yaz
+      console.log('[ROUTINE-SAVE] Başlıyor', {
+        routineId,
+        name: name.trim(),
+        expectedCount,
+      });
+      console.log(
+        '[ROUTINE-SAVE] Egzersiz satırları:',
+        JSON.stringify(routineExerciseRows, null, 2)
+      );
+
+      // Atomik transaction — ya hepsi başarılı ya hiçbiri
+      await db.transaction(async (tx) => {
+        await tx.insert(routines).values({
+          id: routineId,
+          name: name.trim(),
+          description: description.trim() || null,
+        });
+        console.log('[ROUTINE-SAVE] routines insert OK');
+
+        await tx.insert(routineExercises).values(routineExerciseRows);
+        console.log('[ROUTINE-SAVE] routine_exercises insert OK');
+      });
+
+      // Doğrulama: gerçekten kaç satır var?
+      const verifyResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(routineExercises)
+        .where(eq(routineExercises.routineId, routineId));
+      const actualCount = verifyResult[0]?.count ?? 0;
+
+      console.log('[ROUTINE-SAVE] Doğrulama:', {
+        expected: expectedCount,
+        actual: actualCount,
+      });
+
+      if (actualCount !== expectedCount) {
+        Alert.alert(
+          'Uyumsuzluk',
+          `${expectedCount} egzersiz göndermeye çalıştık ama veritabanında ${actualCount} bulundu. Metro loglarını paylaş — orada sebep gözükecek.`
+        );
+        return; // Form'u temizleme, kullanıcı tekrar deneyebilsin
+      }
 
       router.back();
     } catch (err) {
-      console.error('Rutin kaydedilirken hata:', err);
-      Alert.alert('Hata', String(err));
+      console.error('[ROUTINE-SAVE] HATA:', err);
+      Alert.alert('Kaydetme hatası', String(err));
     } finally {
       setSaving(false);
     }
