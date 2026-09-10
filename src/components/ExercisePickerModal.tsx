@@ -9,12 +9,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, asc, eq, like, or } from 'drizzle-orm';
 import { Check, Search, X } from 'lucide-react-native';
 
-import * as schema from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
 import { getExerciseCoverUrl } from '@/lib/exerciseImage';
 
@@ -46,8 +45,7 @@ export function ExercisePickerModal({
   initiallySelectedIds = [],
   singleSelect = false,
 }: Props) {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');

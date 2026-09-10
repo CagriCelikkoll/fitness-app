@@ -11,7 +11,7 @@
  * Her şey tek transaction içinde.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,12 +24,10 @@ import {
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { asc, eq, sql } from 'drizzle-orm';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react-native';
 
-import * as schema from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import {
   exercises as exercisesTable,
   routineExercises,
@@ -55,8 +53,7 @@ interface DraftExercise {
 export default function RoutineEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const sqliteDb = useSQLiteContext();
-  const db = useMemo(() => drizzle(sqliteDb, { schema }), [sqliteDb]);
+  const db = useDb();
 
   const isNew = !id || id === 'new';
 

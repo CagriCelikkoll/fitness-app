@@ -1,17 +1,15 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import { Play, Plus } from 'lucide-react-native';
 
-import * as schema from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import { exercises, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 
 export default function HomeScreen() {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
 

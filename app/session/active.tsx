@@ -11,13 +11,12 @@ import {
   View,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, asc, eq } from 'drizzle-orm';
 import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import * as schema from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import {
   exercises as exercisesTable,
   routineExercises,
@@ -34,8 +33,7 @@ import { RestTimer } from '@/components/RestTimer';
 
 export default function ActiveSessionScreen() {
   const router = useRouter();
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
   const currentExerciseIndex = useActiveWorkoutStore(
@@ -83,8 +81,7 @@ export default function ActiveSessionScreen() {
 
 function SessionContent({ sessionId }: { sessionId: string }) {
   const router = useRouter();
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const currentExerciseIndex = useActiveWorkoutStore(
     (s) => s.currentExerciseIndex
@@ -250,8 +247,7 @@ function ExerciseSetEditor({
   sessionExerciseId,
   exercise,
 }: ExerciseSetEditorProps) {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const [lastSession, setLastSession] = useState<LastSessionData | null>(null);
   const [restSeconds, setRestSeconds] = useState<number>(90);
@@ -381,8 +377,7 @@ interface SetRowProps {
 }
 
 function SetRow({ set, previousSet, restSeconds }: SetRowProps) {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
   const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
 
   // Lokal state — daha akıcı UI, complete olunca DB'ye yazılır

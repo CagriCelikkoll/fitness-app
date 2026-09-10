@@ -1,17 +1,15 @@
 import { Image, ScrollView, Text, View, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq } from 'drizzle-orm';
 
-import * as schema from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import { exercises } from '@/db/schema';
 import { getExerciseImageUrls } from '@/lib/exerciseImage';
 
 export default function ExerciseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const { data } = useLiveQuery(
     db.select().from(exercises).where(eq(exercises.id, id ?? '')).limit(1),

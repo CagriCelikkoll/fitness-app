@@ -9,12 +9,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Link } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, eq, like, or, asc } from 'drizzle-orm';
 import { Search, X } from 'lucide-react-native';
 
-import * as schema from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
 import { getExerciseCoverUrl } from '@/lib/exerciseImage';
 
@@ -28,8 +27,7 @@ const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
 ];
 
 export default function ExercisesScreen() {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');

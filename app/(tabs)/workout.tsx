@@ -8,12 +8,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, count, eq } from 'drizzle-orm';
 import { Pencil, Play, Plus, Trash2 } from 'lucide-react-native';
 
-import * as schema from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import {
   routineExercises,
   routines,
@@ -27,8 +26,7 @@ import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 
 export default function WorkoutScreen() {
   const router = useRouter();
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
   const startSession = useActiveWorkoutStore((s) => s.startSession);
