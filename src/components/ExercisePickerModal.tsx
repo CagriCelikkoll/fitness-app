@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -54,6 +54,18 @@ export function ExercisePickerModal({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(initiallySelectedIds)
   );
+
+  // Modal her açıldığında seçimleri sıfırla — kapatıp tekrar açınca
+  // önceki seçimler yapışık kalmasın.
+  useEffect(() => {
+    if (visible) {
+      setSelectedIds(new Set(initiallySelectedIds));
+      setSearch('');
+    }
+    // initiallySelectedIds referansı her render'da değişebileceği için
+    // bağımlılığa sadece visible koyuyoruz (açılış anındaki değer yeterli).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const query = useMemo(() => {
     const conditions = [eq(exercises.isArchived, false)];

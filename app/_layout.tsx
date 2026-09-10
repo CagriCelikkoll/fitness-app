@@ -122,9 +122,9 @@ export default function RootLayout() {
                   options={{ title: 'Egzersiz' }}
                 />
                 <Stack.Screen
-                  name="routine/new"
+                  name="routine/[id]"
                   options={{
-                    title: 'Yeni Rutin',
+                    title: 'Rutin',
                     presentation: 'modal',
                   }}
                 />

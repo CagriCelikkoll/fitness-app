@@ -11,7 +11,7 @@ import { Link, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { drizzle, useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, count, eq } from 'drizzle-orm';
-import { Play, Plus, Trash2 } from 'lucide-react-native';
+import { Pencil, Play, Plus, Trash2 } from 'lucide-react-native';
 
 import * as schema from '@/db/schema';
 import {
@@ -255,9 +255,19 @@ function RoutineCard({
             {exerciseCount} egzersiz
           </Text>
         </View>
-        <Pressable onPress={onDelete} hitSlop={10} className="p-1">
-          <Trash2 color="#ef4444" size={18} />
-        </Pressable>
+        <View className="flex-row items-center gap-1">
+          <Link
+            href={{ pathname: '/routine/[id]', params: { id: routine.id } }}
+            asChild
+          >
+            <Pressable hitSlop={10} className="p-1">
+              <Pencil color="#94a3b8" size={18} />
+            </Pressable>
+          </Link>
+          <Pressable onPress={onDelete} hitSlop={10} className="p-1">
+            <Trash2 color="#ef4444" size={18} />
+          </Pressable>
+        </View>
       </View>
 
       <Pressable
