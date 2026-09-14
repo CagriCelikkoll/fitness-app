@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -121,6 +121,91 @@ function SessionContent({ sessionId }: { sessionId: string }) {
   const safeIndex = Math.min(currentExerciseIndex, Math.max(0, seData.length - 1));
   const current = seData[safeIndex];
 
+  /**
+   * Seansı kapatır. Tek transaction: onaylanmamış setlerin akıbeti,
+   * boş setlerin silinmesi ve session'ın bitirilmesi ya hep ya hiç.
+   *
+   * pendingFilledIds: değer girilmiş ama ✓ ile onaylanmamış setler.
+   * mode 'complete' ise bunlar tamamlanmış sayılır, 'delete' ise
+   * diğer boş setlerle birlikte silinir.
+   */
+  const finishSession = async (
+    pendingFilledIds: string[],
+    mode: 'complete' | 'delete'
+  ) => {
+    const now = new Date().toISOString();
+    const sessionExerciseIds = seData.map((s) => s.se.id);
+
+    try {
+      await db.transaction(async (tx) => {
+        const session = await tx
+          .select()
+          .from(workoutSessions)
+          .where(eq(workoutSessions.id, sessionId))
+          .limit(1);
+        const startedAt = session[0]?.startedAt;
+        const durationSeconds = startedAt
+          ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
+          : null;
+
+        // Kullanıcı "tamamlanmış say" dediyse önce bunları onayla ki
+        // aşağıdaki silme onlara dokunmasın.
+        if (mode === 'complete' && pendingFilledIds.length > 0) {
+          await tx
+            .update(setsTable)
+            .set({ isCompleted: true, completedAt: now })
+            .where(inArray(setsTable.id, pendingFilledIds));
+        }
+
+        // Geriye kalan onaylanmamış setleri sil (gereksiz kayıt olmasın)
+        if (sessionExerciseIds.length > 0) {
+          await tx
+            .delete(setsTable)
+            .where(
+              and(
+                inArray(setsTable.sessionExerciseId, sessionExerciseIds),
+                eq(setsTable.isCompleted, false)
+              )
+            );
+        }
+
+        await tx
+          .update(workoutSessions)
+          .set({ endedAt: now, durationSeconds })
+          .where(eq(workoutSessions.id, sessionId));
+      });
+    } catch (err) {
+      // Transaction geri alındı; kullanıcı ekranda kalsın, verisi kaybolmasın.
+      console.error('[SESSION-FINISH] HATA:', err);
+      Alert.alert('Hata', 'Antrenman kaydedilemedi: ' + String(err));
+      return;
+    }
+
+    endSession();
+    router.replace('/(tabs)/workout');
+  };
+
+  /** Değer girilmiş ama onaylanmamış setlerin id'leri */
+  const findPendingFilledSets = async (): Promise<string[]> => {
+    const sessionExerciseIds = seData.map((s) => s.se.id);
+    if (sessionExerciseIds.length === 0) return [];
+
+    const pending = await db
+      .select({ id: setsTable.id, reps: setsTable.reps })
+      .from(setsTable)
+      .where(
+        and(
+          inArray(setsTable.sessionExerciseId, sessionExerciseIds),
+          eq(setsTable.isCompleted, false)
+        )
+      );
+
+    // "Dolu" kriteri: tekrar girilmiş olması. Ağırlık, rutindeki hedef
+    // değerden otomatik doluyor — kullanıcı hiçbir şey yazmasa bile dolu
+    // görünebilir. Tekrar alanı ise yalnızca kullanıcı yazınca doluyor.
+    return pending.filter((s) => s.reps != null).map((s) => s.id);
+  };
+
   const handleFinishWorkout = () => {
     Alert.alert('Antrenmanı bitir', 'Bu seansı tamamlamak istiyor musun?', [
       { text: 'Devam et', style: 'cancel' },
@@ -128,38 +213,29 @@ function SessionContent({ sessionId }: { sessionId: string }) {
         text: 'Bitir',
         style: 'destructive',
         onPress: async () => {
-          const now = new Date().toISOString();
-          const session = await db
-            .select()
-            .from(workoutSessions)
-            .where(eq(workoutSessions.id, sessionId))
-            .limit(1);
-          const startedAt = session[0]?.startedAt;
-          const durationSeconds = startedAt
-            ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
-            : null;
+          const pendingFilledIds = await findPendingFilledSets();
 
-          await db
-            .update(workoutSessions)
-            .set({ endedAt: now, durationSeconds })
-            .where(eq(workoutSessions.id, sessionId));
-
-          // Tamamlanmamış setleri sil (gereksiz kayıt olmasın)
-          // Buradaki silme: is_completed=false olan tüm set'leri sil
-          const sessionExerciseIds = seData.map((s) => s.se.id);
-          for (const seId of sessionExerciseIds) {
-            await db
-              .delete(setsTable)
-              .where(
-                and(
-                  eq(setsTable.sessionExerciseId, seId),
-                  eq(setsTable.isCompleted, false)
-                )
-              );
+          if (pendingFilledIds.length === 0) {
+            await finishSession([], 'delete');
+            return;
           }
 
-          endSession();
-          router.replace('/(tabs)/workout');
+          Alert.alert(
+            'Onaylanmamış setler',
+            `${pendingFilledIds.length} sette değer girilmiş ama onaylanmamış. Ne yapmak istersin?`,
+            [
+              {
+                text: 'Tamamlanmış say',
+                onPress: () => finishSession(pendingFilledIds, 'complete'),
+              },
+              {
+                text: 'Sil',
+                style: 'destructive',
+                onPress: () => finishSession(pendingFilledIds, 'delete'),
+              },
+              { text: 'Vazgeç', style: 'cancel' },
+            ]
+          );
         },
       },
     ]);
