@@ -6,7 +6,11 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
+import {
+  SQLiteProvider,
+  useSQLiteContext,
+  type SQLiteDatabase,
+} from 'expo-sqlite';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,6 +29,25 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// SQLiteProvider'ın açtığı bağlantı için başlangıç ayarları.
+// foreign_keys bağlantı düzeyinde bir pragma ve SQLite'ta varsayılan
+// KAPALI; açılmadığı sürece şemadaki onDelete cascade/set null kuralları
+// hiç tetiklenmiyor. onInit, children render edilmeden — yani
+// DatabaseInitializer'daki migration'lardan önce — çalışır.
+const initDatabase = async (db: SQLiteDatabase) => {
+  await db.execAsync('PRAGMA journal_mode = WAL;');
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+  const fk = await db.getFirstAsync<{ foreign_keys: number }>(
+    'PRAGMA foreign_keys;'
+  );
+  console.log('[DB-INIT] foreign_keys =', fk?.foreign_keys);
+};
+
+// Referansları modül düzeyinde sabit tutuyoruz: SQLiteProvider bunları
+// kendi effect'inin bağımlılığında kullanıyor, her render'da yeni nesne
+// verirsek veritabanını kapatıp yeniden açıyor.
+const SQLITE_OPTIONS = { enableChangeListener: true };
 
 /**
  * Migrations'ları çalıştırır ve seed eder.
@@ -101,7 +124,8 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <SQLiteProvider
           databaseName={DATABASE_NAME}
-          options={{ enableChangeListener: true }}
+          options={SQLITE_OPTIONS}
+          onInit={initDatabase}
         >
           <DatabaseInitializer>
             <QueryClientProvider client={queryClient}>
@@ -110,6 +134,7 @@ export default function RootLayout() {
                 screenOptions={{
                   headerStyle: { backgroundColor: '#0f172a' },
                   headerTintColor: '#fff',
+                  headerBackButtonDisplayMode: 'minimal',
                   contentStyle: { backgroundColor: '#0f172a' },
                 }}
               >
@@ -127,6 +152,14 @@ export default function RootLayout() {
                     title: 'Rutin',
                     presentation: 'modal',
                   }}
+                />
+                <Stack.Screen
+                  name="history"
+                  options={{ title: 'Antrenman Geçmişi' }}
+                />
+                <Stack.Screen
+                  name="session/[id]"
+                  options={{ title: 'Antrenman' }}
                 />
                 <Stack.Screen
                   name="session/active"
