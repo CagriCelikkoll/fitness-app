@@ -2,7 +2,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
-import { Play, Plus } from 'lucide-react-native';
+import { ChevronRight, Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, routines, workoutSessions } from '@/db/schema';
@@ -95,7 +95,16 @@ export default function HomeScreen() {
 
       {/* Son antrenmanlar */}
       <View className="bg-bg-surface rounded-xl p-4">
-        <Text className="text-white font-semibold mb-3">Son Antrenmanlar</Text>
+        <View className="flex-row items-center justify-between mb-3">
+          <Text className="text-white font-semibold">Son Antrenmanlar</Text>
+          <Link href="/history" asChild>
+            <Pressable hitSlop={8}>
+              <Text className="text-accent text-xs font-medium">
+                Tümünü gör →
+              </Text>
+            </Pressable>
+          </Link>
+        </View>
         {!recentSessions.data || recentSessions.data.length === 0 ? (
           <Text className="text-muted text-sm">
             Henüz tamamlanmış antrenman yok. İlk antrenmanını başlat!
@@ -103,21 +112,25 @@ export default function HomeScreen() {
         ) : (
           <View className="gap-2">
             {recentSessions.data.map((session) => (
-              <View
+              <Link
                 key={session.id}
-                className="flex-row items-center py-2 border-t border-bg-elevated first:border-t-0"
+                href={{ pathname: '/session/[id]', params: { id: session.id } }}
+                asChild
               >
-                <View className="flex-1">
-                  <Text className="text-white text-sm font-medium">
-                    {session.name}
-                  </Text>
-                  <Text className="text-muted text-xs mt-0.5">
-                    {formatRelativeDate(session.startedAt)}
-                    {session.durationSeconds &&
-                      `  •  ${formatDuration(session.durationSeconds)}`}
-                  </Text>
-                </View>
-              </View>
+                <Pressable className="flex-row items-center py-2 border-t border-bg-elevated first:border-t-0">
+                  <View className="flex-1">
+                    <Text className="text-white text-sm font-medium">
+                      {session.name}
+                    </Text>
+                    <Text className="text-muted text-xs mt-0.5">
+                      {formatRelativeDate(session.startedAt)}
+                      {session.durationSeconds &&
+                        `  •  ${formatDuration(session.durationSeconds)}`}
+                    </Text>
+                  </View>
+                  <ChevronRight color="#64748b" size={18} />
+                </Pressable>
+              </Link>
             ))}
           </View>
         )}
