@@ -45,3 +45,5 @@ yarn-error.*
 *.db-journal
 *.db-wal
 *.db-shm
+
+docs/

@@ -154,6 +154,10 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen
+                  name="metrics/[date]"
+                  options={{ title: 'Ölçüm', presentation: 'modal' }}
+                />
+                <Stack.Screen
                   name="history"
                   options={{ title: 'Antrenman Geçmişi' }}
                 />
