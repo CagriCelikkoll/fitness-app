@@ -17,11 +17,12 @@
  *
  * Ekran bu modülü sadece çağırır; iş mantığı burada kalsın ki ileride
  * otomatik yedek / senkronizasyon gibi başka bağlamlarda da kullanılabilsin.
+ *
+ * **Bu dosyada Expo importu yok.** Dosya yazma / paylaşma ve uygulama
+ * sürümünü okuma `src/lib/backupFile.ts` içinde; böylece buradaki mantık
+ * Node'da (testlerde) gerçek SQLite'a karşı doğrudan çalıştırılabiliyor.
  */
 
-import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import Constants from 'expo-constants';
 import { getTableColumns } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 
@@ -107,8 +108,17 @@ function batchSizeFor(table: SQLiteTable): number {
   return Math.max(1, Math.floor(MAX_BIND_PARAMS / columnCount));
 }
 
-/** Tüm tabloları okuyup BackupFile nesnesi üretir */
-export async function buildBackup(db: Db): Promise<BackupFile> {
+/**
+ * Tüm tabloları okuyup BackupFile nesnesi üretir.
+ *
+ * `appVersion` dışarıdan veriliyor: uygulama sürümünü okumak
+ * `expo-constants` gerektiriyor, bu modül Expo'ya bağlı kalmasın diye
+ * çağıran taraf (`src/lib/backupFile.ts`) geçiriyor.
+ */
+export async function buildBackup(
+  db: Db,
+  appVersion: string = '0.0.0'
+): Promise<BackupFile> {
   const tables: Record<string, unknown[]> = {};
   for (const { key, table } of BACKUP_TABLES) {
     tables[key] = await db.select().from(table);
@@ -116,7 +126,7 @@ export async function buildBackup(db: Db): Promise<BackupFile> {
 
   return {
     formatVersion: BACKUP_FORMAT_VERSION,
-    appVersion: getAppVersion(),
+    appVersion,
     exportedAt: new Date().toISOString(),
     tables,
   };
@@ -125,36 +135,6 @@ export async function buildBackup(db: Db): Promise<BackupFile> {
 /** `fitness-yedek-2026-09-15.json` */
 export function backupFileName(date: Date = new Date()): string {
   return `fitness-yedek-${toDateKey(date)}.json`;
-}
-
-/**
- * Yedeği önbellek dizinine yazar ve paylaşım sayfasını açar.
- * Dosya yolunu döndürür; paylaşım iptal edilse bile dosya orada kalır.
- */
-export async function exportBackup(db: Db): Promise<string> {
-  return shareBackup(await buildBackup(db));
-}
-
-/**
- * Hazır bir yedek nesnesini dosyaya yazıp paylaşır. Ekran kaç kayıt
- * aktarıldığını söyleyebilmek için yedeği kendisi kurup buraya veriyor;
- * böylece veritabanı iki kez okunmuyor.
- */
-export async function shareBackup(backup: BackupFile): Promise<string> {
-  const file = new File(Paths.cache, backupFileName());
-  // Aynı gün ikinci kez yedek alınırsa üstüne yaz
-  file.create({ overwrite: true });
-  file.write(JSON.stringify(backup));
-
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(file.uri, {
-      mimeType: 'application/json',
-      UTI: 'public.json',
-      dialogTitle: 'Yedeği kaydet veya paylaş',
-    });
-  }
-
-  return file.uri;
 }
 
 /** Yedek dosyasındaki kayıt sayıları — özet göstermek için */
@@ -308,8 +288,4 @@ async function insertBatched(
     const batch = rows.slice(i, i + size) as Record<string, unknown>[];
     await tx.insert(table).values(batch);
   }
-}
-
-function getAppVersion(): string {
-  return Constants.expoConfig?.version ?? '0.0.0';
 }
