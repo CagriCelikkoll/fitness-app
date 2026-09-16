@@ -8,9 +8,10 @@
  * Profil düzenleme İlerleme sekmesinden buraya taşındı; ölçüm
  * hesaplarında kullanılan boy/yaş/cinsiyet artık tek yerden giriliyor.
  *
- * Tema ve dil `app_settings` şemasında duruyor ama arayüzde yok:
- * uygulama şu an sabit koyu tema ve Türkçe, çalışmayan bir anahtar
- * göstermek kullanıcıyı yanıltır.
+ * Tema, dil ve dinlenme sesi `app_settings` şemasında duruyor ama
+ * arayüzde yok: uygulama şu an sabit koyu tema ve Türkçe, ses de
+ * henüz çalmıyor (expo-audio kurulmadı). Çalışmayan bir anahtar
+ * göstermek kullanıcıyı yanıltır; ses eklenince anahtar geri gelir.
  */
 
 import { useState } from 'react';
@@ -51,11 +52,11 @@ import {
   buildBackup,
   countRecords,
   restoreBackup,
-  shareBackup,
   validateBackup,
   wipeUserData,
   type BackupFile,
 } from '@/lib/backup';
+import { getAppVersion, shareBackup } from '@/lib/backupFile';
 import { DateInput } from '@/components/DateInput';
 import {
   dateKeyToParts,
@@ -438,7 +439,6 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
   const db = useDb();
 
   const [rest, setRest] = useState(String(settings?.defaultRestSeconds ?? 90));
-  const [sound, setSound] = useState(settings?.restTimerSound ?? true);
   const [vibrate, setVibrate] = useState(settings?.restTimerVibrate ?? true);
 
   const persist = async (values: Partial<typeof appSettings.$inferInsert>) => {
@@ -480,14 +480,8 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
         </Text>
       </View>
 
-      <ToggleRow
-        label="Dinlenme bitiminde ses"
-        value={sound}
-        onChange={(v) => {
-          setSound(v);
-          void persist({ restTimerSound: v });
-        }}
-      />
+      {/* "Dinlenme bitiminde ses" anahtarı kaldırıldı: ses çalma henüz
+          uygulanmadı, restTimerSound alanı şemada duruyor. */}
       <ToggleRow
         label="Dinlenme bitiminde titreşim"
         value={vibrate}
@@ -560,7 +554,7 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const backup = await buildBackup(db);
+      const backup = await buildBackup(db, getAppVersion());
       await shareBackup(backup);
       Alert.alert(
         'Yedek hazır',

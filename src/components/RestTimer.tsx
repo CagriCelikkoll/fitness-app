@@ -4,13 +4,15 @@ import * as Haptics from 'expo-haptics';
 import { Pause, Plus, Minus, X } from 'lucide-react-native';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
+import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
 
 /**
  * Aktif antrenmanın altında sabit görünen dinlenme zamanlayıcısı.
  * Zustand store'daki restTimer state'i null değilken otomatik render edilir.
  *
  * Sıfıra ulaştığında:
- * - Haptic notification çalar (Android'de titreşim)
+ * - Ayarlardaki "dinlenme bitiminde titreşim" açıksa haptic notification
+ *   çalar (Android'de titreşim)
  * - "Dinlenme tamamlandı" uyarısı 3 saniye görünür kalır
  *
  * Kullanıcı sürebilir: +/- 15 saniye, manuel iptal.
@@ -19,6 +21,9 @@ export function RestTimer() {
   const restTimer = useActiveWorkoutStore((s) => s.restTimer);
   const stopRestTimer = useActiveWorkoutStore((s) => s.stopRestTimer);
   const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
+
+  const { settings } = useAppSettings();
+  const vibrate = settings?.restTimerVibrate ?? FALLBACK_REST_VIBRATE;
 
   const [elapsedMs, setElapsedMs] = useState(0);
   const [completed, setCompleted] = useState(false);
@@ -38,13 +43,17 @@ export function RestTimer() {
       const totalMs = restTimer.durationSeconds * 1000;
       if (elapsed >= totalMs && !completed) {
         setCompleted(true);
-        // Bitiş haptic'i
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Bitiş haptic'i — kullanıcı titreşimi kapattıysa atlanır
+        if (vibrate) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
       }
     }, 250);
 
     return () => clearInterval(interval);
-  }, [restTimer, completed]);
+    // vibrate dep'te: interval yeniden kurulsa da sayım startedAt'ten
+    // hesaplandığı için görünürde bir sıçrama olmuyor.
+  }, [restTimer, completed, vibrate]);
 
   // Bitince 3 saniye sonra otomatik kapat
   useEffect(() => {

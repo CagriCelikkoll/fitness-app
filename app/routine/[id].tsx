@@ -28,6 +28,7 @@ import { asc, eq, sql } from 'drizzle-orm';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { FALLBACK_REST_SECONDS, useAppSettings } from '@/hooks/useAppSettings';
 import {
   exercises as exercisesTable,
   routineExercises,
@@ -54,6 +55,7 @@ export default function RoutineEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useDb();
+  const { settings } = useAppSettings();
 
   const isNew = !id || id === 'new';
 
@@ -152,6 +154,10 @@ export default function RoutineEditorScreen() {
   }, [db, id, isNew]);
 
   const addExercises = (selected: Exercise[]) => {
+    // Ayarlardaki öntanımlı dinlenme süresi; ayar henüz okunmadıysa 90
+    const defaultRest = String(
+      settings?.defaultRestSeconds ?? FALLBACK_REST_SECONDS
+    );
     const newDrafts: DraftExercise[] = selected.map((ex) => ({
       id: newId(),
       exerciseId: ex.id,
@@ -161,7 +167,7 @@ export default function RoutineEditorScreen() {
       targetReps: ex.category === 'cardio' ? '' : '10',
       targetWeightKg: '',
       targetDurationSeconds: ex.category === 'cardio' ? '1200' : '',
-      restSeconds: ex.category === 'cardio' ? '0' : '90',
+      restSeconds: ex.category === 'cardio' ? '0' : defaultRest,
     }));
     setDraftExercises((prev) => [...prev, ...newDrafts]);
     setPickerOpen(false);

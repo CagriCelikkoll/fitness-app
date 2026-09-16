@@ -17,6 +17,7 @@ import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useDb } from '@/hooks/useDb';
+import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
 import {
   exercises as exercisesTable,
   routineExercises,
@@ -325,6 +326,11 @@ function ExerciseSetEditor({
 }: ExerciseSetEditorProps) {
   const db = useDb();
 
+  // Titreşim tercihi burada okunup SetRow'a geçiliyor; her set satırı
+  // ayrı canlı sorgu açmasın diye (aynı anda tek editör render ediliyor).
+  const { settings } = useAppSettings();
+  const vibrate = settings?.restTimerVibrate ?? FALLBACK_REST_VIBRATE;
+
   const [lastSession, setLastSession] = useState<LastSessionData | null>(null);
   const [restSeconds, setRestSeconds] = useState<number>(90);
 
@@ -431,6 +437,7 @@ function ExerciseSetEditor({
           set={set}
           previousSet={lastSession?.sets[idx]}
           restSeconds={restSeconds}
+          vibrate={vibrate}
         />
       ))}
 
@@ -450,9 +457,11 @@ interface SetRowProps {
   set: WorkoutSet;
   previousSet?: WorkoutSet;
   restSeconds: number;
+  /** Ayarlardaki titreşim tercihi; kapalıysa set tamamlamada haptic olmaz */
+  vibrate: boolean;
 }
 
-function SetRow({ set, previousSet, restSeconds }: SetRowProps) {
+function SetRow({ set, previousSet, restSeconds, vibrate }: SetRowProps) {
   const db = useDb();
   const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
 
@@ -494,7 +503,9 @@ function SetRow({ set, previousSet, restSeconds }: SetRowProps) {
           completedAt: new Date().toISOString(),
         })
         .where(eq(setsTable.id, set.id));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (vibrate) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
       if (restSeconds > 0) {
         startRestTimer(restSeconds);
       }
