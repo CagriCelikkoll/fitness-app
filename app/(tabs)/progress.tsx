@@ -1,29 +1,21 @@
 /**
  * İlerleme sekmesi — vücut ölçümleri.
  *
- * Yukarıdan aşağıya: profil kartı (boy/doğum tarihi/cinsiyet),
- * güncel durum, türetilmiş metrikler, 90 günlük ağırlık grafiği,
- * ölçüm geçmişi. Profil alanları Ayarlar sekmesi yazılana kadar
- * burada duruyor (app_settings, id = 1).
+ * Yukarıdan aşağıya: güncel durum, türetilmiş metrikler, 90 günlük
+ * ağırlık grafiği, ölçüm geçmişi. Profil (boy/doğum tarihi/cinsiyet)
+ * artık Ayarlar sekmesinde; burada yalnızca eksikse oraya yönlendiren
+ * bir satır görünüyor.
  *
  * Bilinçli olarak yalnızca ölçüm ve hesap gösteriliyor; hedef kilo,
  * kalori açığı gibi yönlendirmeler yok.
  */
 
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, eq } from 'drizzle-orm';
-import { ChevronRight, Pencil, Plus } from 'lucide-react-native';
+import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
 import { useDb } from '@/hooks/useDb';
@@ -36,50 +28,12 @@ import {
   leanBodyMass,
   waistToHeightRatio,
 } from '@/lib/bodyMetrics';
-import { DateInput } from '@/components/DateInput';
 import {
-  dateKeyToParts,
   formatDateKey,
   formatDecimal,
   formatSignedKg,
-  getDateInputError,
-  partsToDateKey,
-  sanitizeDecimalInput,
   toDateKey,
-  type DateParts,
 } from '@/lib/format';
-
-type Gender = 'male' | 'female' | 'unspecified';
-
-/** Doğum tarihi için en erken yıl */
-const BIRTH_DATE_MIN_YEAR = 1900;
-
-const EMPTY_DATE_PARTS: DateParts = { day: '', month: '', year: '' };
-
-/**
- * Doğum tarihi opsiyonel: üç alan da boşsa hata yok. Aksi halde ortak
- * tarih doğrulaması, ardından yaşın 0-129 aralığında olması.
- */
-function getBirthDateError(parts: DateParts, submitted: boolean): string | null {
-  if (!parts.day && !parts.month && !parts.year) return null;
-
-  const error = getDateInputError(parts, {
-    minYear: BIRTH_DATE_MIN_YEAR,
-    submitted,
-    futureError: 'Doğum tarihi ileri bir tarih olamaz.',
-  });
-  if (error != null) return error;
-
-  const key = partsToDateKey(parts);
-  if (key != null && calculateAge(key) == null) return 'Geçerli bir doğum tarihi gir.';
-  return null;
-}
-
-const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: 'male', label: 'Erkek' },
-  { value: 'female', label: 'Kadın' },
-  { value: 'unspecified', label: 'Belirtmek istemiyorum' },
-];
 
 interface Profile {
   heightCm: number | null;
@@ -97,9 +51,8 @@ export default function ProgressScreen() {
     db.select().from(bodyMetrics).orderBy(desc(bodyMetrics.date))
   );
 
-  // İlk yüklemede data [] geldiği için updatedAt ile ayırt ediyoruz.
-  // Profil kartı açık/kapalı kararını ilk render'da verdiği için ayarlar
-  // yüklenmeden kart render edilmemeli.
+  // İlk yüklemede data [] geldiği için updatedAt ile ayırt ediyoruz;
+  // ayarlar gelmeden "profilin eksik" uyarısı yanlışlıkla görünmesin.
   if (!settingsLoadedAt || !metricsLoadedAt) {
     return (
       <View className="flex-1 bg-bg items-center justify-center">
@@ -122,8 +75,8 @@ export default function ProgressScreen() {
   return (
     <View className="flex-1 bg-bg">
       <ScrollView contentContainerClassName="p-4 gap-4 pb-28">
-        <ProfileCard profile={profile} />
         <CurrentCard withWeight={withWeight} />
+        <ProfileHint profile={profile} />
         <DerivedMetricsCard
           profile={profile}
           metrics={metrics}
@@ -143,171 +96,26 @@ export default function ProgressScreen() {
 }
 
 // ============================================================================
-// a) Profil kartı
+// a) Profil yönlendirmesi
 // ============================================================================
 
-function ProfileCard({ profile }: { profile: Profile }) {
-  const db = useDb();
-  const isComplete =
-    profile.heightCm != null && profile.birthDate != null && profile.gender != null;
-
-  const [editing, setEditing] = useState(false);
-  const [height, setHeight] = useState('');
-  const [birthParts, setBirthParts] = useState<DateParts>(EMPTY_DATE_PARTS);
-  const [birthSubmitted, setBirthSubmitted] = useState(false);
-  const [gender, setGender] = useState<Gender | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const startEditing = () => {
-    setHeight(profile.heightCm != null ? String(profile.heightCm) : '');
-    setBirthParts(
-      profile.birthDate ? dateKeyToParts(profile.birthDate) : EMPTY_DATE_PARTS
-    );
-    setBirthSubmitted(false);
-    setGender((profile.gender as Gender | null) ?? null);
-    setEditing(true);
-  };
-
-  const birthError = getBirthDateError(birthParts, birthSubmitted);
-
-  // Profil eksikse form açık gelsin; kullanıcı kaydedince kompakt görünüme geçer
-  useEffect(() => {
-    if (!isComplete && !editing) startEditing();
-    // Yalnızca ilk render'da; sonraki profil güncellemeleri formu ezmesin
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleSave = async () => {
-    const heightCm = parseFloatOrNull(height);
-    if (heightCm != null && (heightCm < 50 || heightCm > 272)) {
-      Alert.alert('Hata', 'Boyu santimetre olarak gir (ör. 178).');
-      return;
-    }
-    // Doğum tarihi hatası Alert yerine alanların altında gösteriliyor
-    setBirthSubmitted(true);
-    if (getBirthDateError(birthParts, true) != null) return;
-    const birth = partsToDateKey(birthParts); // üç alan da boşsa null
-
-    const values = {
-      heightCm,
-      birthDate: birth,
-      gender,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setSaving(true);
-    try {
-      // Satır seed'de oluşturuluyor ama yoksa da çalışsın diye upsert
-      await db
-        .insert(appSettings)
-        .values({ id: 1, ...values })
-        .onConflictDoUpdate({ target: appSettings.id, set: values });
-      setEditing(false);
-    } catch (err) {
-      console.error('[PROFILE-SAVE] HATA:', err);
-      Alert.alert('Kaydetme hatası', String(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!editing) {
-    const age = profile.birthDate ? calculateAge(profile.birthDate) : null;
-    const genderLabel = GENDER_OPTIONS.find((g) => g.value === profile.gender)?.label;
-    const parts = [
-      profile.heightCm != null ? `${formatDecimal(profile.heightCm)} cm` : 'Boy yok',
-      age != null ? `${age} yaş` : 'Doğum tarihi yok',
-      genderLabel ?? 'Cinsiyet yok',
-    ];
-    return (
-      <Pressable
-        onPress={startEditing}
-        className="bg-bg-surface rounded-xl px-4 py-3 flex-row items-center"
-      >
-        <View className="flex-1">
-          <Text className="text-muted text-xs">Profil</Text>
-          <Text className="text-white mt-0.5">{parts.join('  •  ')}</Text>
-        </View>
-        <Pencil color="#94a3b8" size={16} />
-      </Pressable>
-    );
-  }
+/**
+ * Boy ya da doğum tarihi eksikse metriklerin hesaplanamadığını söyleyip
+ * Ayarlar sekmesine gönderir. Profil doluysa hiçbir şey göstermez.
+ */
+function ProfileHint({ profile }: { profile: Profile }) {
+  if (profile.heightCm != null && profile.birthDate != null) return null;
 
   return (
-    <View className="bg-bg-surface rounded-xl p-4 gap-3 border border-accent/40">
-      <View>
-        <Text className="text-white font-semibold">Profil</Text>
-        <Text className="text-muted text-xs mt-0.5">
-          VKİ ve bazal metabolizma hesapları için kullanılır.
+    <Link href="/(tabs)/settings" asChild>
+      <Pressable className="bg-bg-surface rounded-xl px-4 py-3 flex-row items-center">
+        <SettingsIcon color="#22c55e" size={18} />
+        <Text className="text-white text-sm flex-1 ml-3">
+          Hesaplamalar için profil bilgilerini Ayarlar'dan gir
         </Text>
-      </View>
-
-      {/* DateInput üç alanıyla yarım satıra sığmadığı için boy ayrı satırda */}
-      <View>
-        <Text className="text-muted text-xs mb-1">Boy (cm)</Text>
-        <TextInput
-          value={height}
-          onChangeText={(v) => setHeight((prev) => sanitizeDecimalInput(v, prev))}
-          placeholder="178"
-          placeholderTextColor="#64748b"
-          keyboardType="decimal-pad"
-          className="bg-bg-elevated text-white px-3 py-2 rounded-lg w-28"
-        />
-      </View>
-
-      <DateInput
-        label="Doğum tarihi"
-        value={birthParts}
-        onChange={setBirthParts}
-        error={birthError}
-      />
-
-      <View>
-        <Text className="text-muted text-xs mb-1">Cinsiyet</Text>
-        <View className="flex-row flex-wrap gap-2">
-          {GENDER_OPTIONS.map((opt) => {
-            const selected = gender === opt.value;
-            return (
-              <Pressable
-                key={opt.value}
-                onPress={() => setGender(opt.value)}
-                className={`px-3 py-1.5 rounded-full ${
-                  selected ? 'bg-accent' : 'bg-bg-elevated'
-                }`}
-              >
-                <Text
-                  className={`text-sm ${selected ? 'text-bg font-semibold' : 'text-white'}`}
-                >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      <View className="flex-row gap-2">
-        {isComplete && (
-          <Pressable
-            onPress={() => setEditing(false)}
-            className="flex-1 bg-bg-elevated rounded-lg py-2.5 items-center"
-          >
-            <Text className="text-white font-semibold">Vazgeç</Text>
-          </Pressable>
-        )}
-        <Pressable
-          onPress={handleSave}
-          disabled={saving}
-          className={`flex-1 rounded-lg py-2.5 items-center ${
-            saving ? 'bg-bg-elevated' : 'bg-accent'
-          }`}
-        >
-          <Text className={`font-semibold ${saving ? 'text-muted' : 'text-bg'}`}>
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </Text>
-        </Pressable>
-      </View>
-    </View>
+        <ChevronRight color="#64748b" size={18} />
+      </Pressable>
+    </Link>
   );
 }
 
@@ -378,7 +186,7 @@ function DerivedMetricsCard({
   const { heightCm, birthDate, gender } = profile;
   const age = birthDate ? calculateAge(birthDate) : null;
 
-  const missingHeight = 'Hesaplamak için profilde boyunu gir';
+  const missingHeight = 'Hesaplamak için Ayarlar sekmesinde boyunu gir';
   const missingWeight = 'Hesaplamak için bir ağırlık ölçümü ekle';
 
   // VKİ
@@ -421,9 +229,15 @@ function DerivedMetricsCard({
   if (!latestWeight) bmr = { label: bmrLabel, hint: missingWeight };
   else if (heightCm == null) bmr = { label: bmrLabel, hint: missingHeight };
   else if (age == null) {
-    bmr = { label: bmrLabel, hint: 'Hesaplamak için profilde doğum tarihini gir' };
+    bmr = {
+      label: bmrLabel,
+      hint: 'Hesaplamak için Ayarlar sekmesinde doğum tarihini gir',
+    };
   } else if (gender == null) {
-    bmr = { label: bmrLabel, hint: 'Hesaplamak için profilde cinsiyet seç' };
+    bmr = {
+      label: bmrLabel,
+      hint: 'Hesaplamak için Ayarlar sekmesinde cinsiyet seç',
+    };
   } else {
     const value = calculateBmr(latestWeight.weightKg, heightCm, age, gender);
     bmr =
@@ -625,9 +439,3 @@ function HistoryCard({ metrics }: { metrics: BodyMetric[] }) {
   );
 }
 
-function parseFloatOrNull(v: string): number | null {
-  const trimmed = v.trim().replace(',', '.');
-  if (!trimmed) return null;
-  const n = parseFloat(trimmed);
-  return isNaN(n) ? null : n;
-}
