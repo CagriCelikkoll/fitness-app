@@ -19,6 +19,7 @@ import migrations from '../drizzle/migrations';
 import { DATABASE_NAME } from '@/db/client';
 import * as schema from '@/db/schema';
 import { seedIfEmpty } from '@/db/seed';
+import { COLORS } from '@/theme';
 
 // React Query client — server/local DB state için
 const queryClient = new QueryClient({
@@ -85,7 +86,7 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
   if (error) {
     return (
       <View className="flex-1 items-center justify-center bg-bg p-6">
-        <Text className="text-red-400 text-center">
+        <Text className="text-danger text-center">
           Migration hatası: {error.message}
         </Text>
       </View>
@@ -95,8 +96,8 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
   if (!success || seedState === 'seeding') {
     return (
       <View className="flex-1 items-center justify-center bg-bg gap-4">
-        <ActivityIndicator size="large" color="#22c55e" />
-        <Text className="text-white">
+        <ActivityIndicator size="large" color={COLORS.accent} />
+        <Text className="text-muted text-sm tracking-wide">
           {!success
             ? 'Veritabanı hazırlanıyor...'
             : 'Egzersiz kütüphanesi yükleniyor...'}
@@ -108,7 +109,7 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
   if (seedState === 'error') {
     return (
       <View className="flex-1 items-center justify-center bg-bg p-6">
-        <Text className="text-red-400 text-center">
+        <Text className="text-danger text-center">
           Seed hatası: {seedError}
         </Text>
       </View>
@@ -132,10 +133,12 @@ export default function RootLayout() {
               <StatusBar style="light" />
               <Stack
                 screenOptions={{
-                  headerStyle: { backgroundColor: '#0f172a' },
-                  headerTintColor: '#fff',
+                  headerStyle: { backgroundColor: COLORS.bg },
+                  headerShadowVisible: false,
+                  headerTintColor: COLORS.text,
+                  headerTitleStyle: { fontWeight: '600' },
                   headerBackButtonDisplayMode: 'minimal',
-                  contentStyle: { backgroundColor: '#0f172a' },
+                  contentStyle: { backgroundColor: COLORS.bg },
                 }}
               >
                 <Stack.Screen

@@ -16,7 +16,7 @@ import { Link } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, eq } from 'drizzle-orm';
 import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
-import Svg, { Circle, Polyline } from 'react-native-svg';
+import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { useDb } from '@/hooks/useDb';
 import { appSettings, bodyMetrics, type BodyMetric } from '@/db/schema';
@@ -34,6 +34,8 @@ import {
   formatSignedKg,
   toDateKey,
 } from '@/lib/format';
+import { COLORS } from '@/theme';
+import { Card, ListRow, SectionHeader, StatTile } from '@/components/ui';
 
 interface Profile {
   heightCm: number | null;
@@ -56,7 +58,7 @@ export default function ProgressScreen() {
   if (!settingsLoadedAt || !metricsLoadedAt) {
     return (
       <View className="flex-1 bg-bg items-center justify-center">
-        <ActivityIndicator color="#22c55e" />
+        <ActivityIndicator color={COLORS.accent} />
       </View>
     );
   }
@@ -74,7 +76,7 @@ export default function ProgressScreen() {
 
   return (
     <View className="flex-1 bg-bg">
-      <ScrollView contentContainerClassName="p-4 gap-4 pb-28">
+      <ScrollView contentContainerClassName="px-5 pt-4 gap-3 pb-28">
         <CurrentCard withWeight={withWeight} />
         <ProfileHint profile={profile} />
         <DerivedMetricsCard
@@ -87,8 +89,8 @@ export default function ProgressScreen() {
       </ScrollView>
 
       <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
-        <Pressable className="absolute bottom-6 right-6 bg-accent w-14 h-14 rounded-full items-center justify-center shadow-lg">
-          <Plus color="#0f172a" size={28} strokeWidth={3} />
+        <Pressable className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80">
+          <Plus color={COLORS.accentFg} size={26} strokeWidth={2.5} />
         </Pressable>
       </Link>
     </View>
@@ -108,13 +110,13 @@ function ProfileHint({ profile }: { profile: Profile }) {
 
   return (
     <Link href="/(tabs)/settings" asChild>
-      <Pressable className="bg-bg-surface rounded-xl px-4 py-3 flex-row items-center">
-        <SettingsIcon color="#22c55e" size={18} />
+      <Card className="flex-row items-center py-4">
+        <SettingsIcon color={COLORS.muted} size={18} strokeWidth={1.75} />
         <Text className="text-white text-sm flex-1 ml-3">
           Hesaplamalar için profil bilgilerini Ayarlar'dan gir
         </Text>
-        <ChevronRight color="#64748b" size={18} />
-      </Pressable>
+        <ChevronRight color={COLORS.muted} size={18} />
+      </Card>
     </Link>
   );
 }
@@ -134,36 +136,33 @@ function CurrentCard({
   if (!latest) {
     return (
       <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
-        <Pressable className="bg-bg-surface rounded-xl p-6 items-center">
-          <Text className="text-white text-lg font-semibold">
+        <Card variant="outline" className="items-center py-8">
+          <Text className="text-white text-xl font-semibold tracking-tight">
             İlk ölçümünü ekle
           </Text>
-          <Text className="text-muted text-center text-sm mt-1">
+          <Text className="text-muted text-center text-sm mt-2">
             Ağırlığını ve istersen çevre ölçülerini kaydet; değişim burada
             görünecek.
           </Text>
-        </Pressable>
+        </Card>
       </Link>
     );
   }
 
   return (
-    <View className="bg-bg-surface rounded-xl p-4">
-      <Text className="text-muted text-xs">Güncel ağırlık</Text>
-      <View className="flex-row items-end mt-1">
-        <Text className="text-white text-4xl font-bold">
-          {formatDecimal(latest.weightKg)}
-        </Text>
-        <Text className="text-muted text-lg ml-1 mb-1">kg</Text>
-      </View>
-      <Text className="text-muted text-xs mt-2">
-        {formatDateKey(latest.date)}
-        {previous &&
-          `  •  önceki ölçüme göre ${formatSignedKg(
-            latest.weightKg - previous.weightKg
-          )}`}
-      </Text>
-    </View>
+    <StatTile
+      label="Güncel ağırlık"
+      value={formatDecimal(latest.weightKg)}
+      unit="kg"
+      size="xl"
+      footnote={`${formatDateKey(latest.date)}${
+        previous
+          ? `  •  önceki ölçüme göre ${formatSignedKg(
+              latest.weightKg - previous.weightKg
+            )}`
+          : ''
+      }`}
+    />
   );
 }
 
@@ -270,12 +269,16 @@ function DerivedMetricsCard({
   }
 
   return (
-    <View className="bg-bg-surface rounded-xl p-4 gap-4">
-      <Text className="text-white font-semibold">Hesaplanan metrikler</Text>
-      <MetricRow {...bmi} />
-      <MetricRow {...whtr} />
-      <MetricRow {...bmr} />
-      <MetricRow {...lbm} />
+    <View className="gap-3">
+      <SectionHeader title="Hesaplanan metrikler" className="mt-4" />
+      <View className="flex-row gap-3">
+        <MetricRow {...bmi} />
+        <MetricRow {...whtr} />
+      </View>
+      <View className="flex-row gap-3">
+        <MetricRow {...bmr} />
+        <MetricRow {...lbm} />
+      </View>
     </View>
   );
 }
@@ -291,22 +294,28 @@ interface MetricRowProps {
 
 function MetricRow({ label, value, detail, note, hint }: MetricRowProps) {
   return (
-    <View>
-      <View className="flex-row items-baseline justify-between">
-        <Text className="text-muted text-sm">{label}</Text>
-        {value != null && (
-          <Text className="text-white text-base font-semibold">{value}</Text>
-        )}
-      </View>
+    <Card className="flex-1 p-4">
+      <Text className="text-muted text-[11px] uppercase tracking-widest">
+        {label}
+      </Text>
+      {value != null && (
+        <Text
+          className="text-white text-2xl font-bold tabular-nums tracking-tight mt-2"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          {value}
+        </Text>
+      )}
       {hint != null && value == null && (
-        <Text className="text-accent text-xs mt-0.5">{hint}</Text>
+        <Text className="text-muted text-xs mt-2 leading-4">{hint}</Text>
       )}
       {(detail != null || note != null) && value != null && (
-        <Text className="text-muted text-xs mt-0.5">
+        <Text className="text-muted text-xs mt-1 leading-4">
           {[detail, note].filter(Boolean).join('  •  ')}
         </Text>
       )}
-    </View>
+    </Card>
   );
 }
 
@@ -335,17 +344,19 @@ function WeightChartCard({
   const points = withWeight.filter((m) => m.date >= cutoff).reverse();
 
   const header = (
-    <Text className="text-white font-semibold">Ağırlık — son 90 gün</Text>
+    <Text className="text-muted text-xs uppercase tracking-widest">
+      Ağırlık — son 90 gün
+    </Text>
   );
 
   if (points.length < 2) {
     return (
-      <View className="bg-bg-surface rounded-xl p-4 gap-2">
+      <Card className="gap-2">
         {header}
         <Text className="text-muted text-sm">
           Grafik için en az iki ölçüm gerekli.
         </Text>
-      </View>
+      </Card>
     );
   }
 
@@ -366,12 +377,16 @@ function WeightChartCard({
   }));
 
   return (
-    <View className="bg-bg-surface rounded-xl p-4 gap-2">
+    <Card className="gap-3">
       {header}
       <View className="flex-row">
         <View className="justify-between mr-2" style={{ height: CHART_HEIGHT }}>
-          <Text className="text-muted text-xs">{formatDecimal(max)}</Text>
-          <Text className="text-muted text-xs">{formatDecimal(min)}</Text>
+          <Text className="text-muted text-xs tabular-nums">
+            {formatDecimal(max)}
+          </Text>
+          <Text className="text-muted text-xs tabular-nums">
+            {formatDecimal(min)}
+          </Text>
         </View>
         <View
           className="flex-1"
@@ -380,28 +395,50 @@ function WeightChartCard({
         >
           {width > 0 && (
             <Svg width={width} height={CHART_HEIGHT}>
+              {/* Izgara: üst (max), orta, alt (min) */}
+              {[0, 0.5, 1].map((f) => (
+                <Line
+                  key={f}
+                  x1={0}
+                  x2={width}
+                  y1={CHART_PAD + f * innerH}
+                  y2={CHART_PAD + f * innerH}
+                  stroke={COLORS.border}
+                  strokeWidth={1}
+                />
+              ))}
               <Polyline
                 points={coords.map((c) => `${c.x},${c.y}`).join(' ')}
                 fill="none"
-                stroke="#22c55e"
-                strokeWidth={2}
+                stroke={COLORS.accent}
+                strokeWidth={2.5}
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
               {coords.map((c, i) => (
-                <Circle key={i} cx={c.x} cy={c.y} r={3} fill="#22c55e" />
+                <Circle
+                  key={i}
+                  cx={c.x}
+                  cy={c.y}
+                  r={3.5}
+                  fill={COLORS.surface}
+                  stroke={COLORS.accent}
+                  strokeWidth={2}
+                />
               ))}
             </Svg>
           )}
         </View>
       </View>
       <View className="flex-row justify-between">
-        <Text className="text-muted text-xs">{formatDateKey(points[0].date)}</Text>
-        <Text className="text-muted text-xs">
+        <Text className="text-muted text-xs tabular-nums">
+          {formatDateKey(points[0].date)}
+        </Text>
+        <Text className="text-muted text-xs tabular-nums">
           {formatDateKey(points[points.length - 1].date)}
         </Text>
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -413,28 +450,38 @@ function HistoryCard({ metrics }: { metrics: BodyMetric[] }) {
   if (metrics.length === 0) return null;
 
   return (
-    <View className="gap-2">
-      <Text className="text-white font-semibold px-1">Ölçüm geçmişi</Text>
-      {metrics.map((m) => (
-        <Link
-          key={m.id}
-          href={{ pathname: '/metrics/[date]', params: { date: m.date } }}
-          asChild
-        >
-          <Pressable className="bg-bg-surface rounded-xl px-4 py-3 flex-row items-center">
-            <Text className="text-white flex-1">{formatDateKey(m.date)}</Text>
-            {m.bodyFatPct != null && (
-              <Text className="text-muted text-sm mr-3">
-                %{formatDecimal(m.bodyFatPct)}
+    <View className="gap-3">
+      <SectionHeader title="Ölçüm geçmişi" className="mt-4" />
+      <Card className="py-1">
+        {metrics.map((m, idx) => (
+          <Link
+            key={m.id}
+            href={{ pathname: '/metrics/[date]', params: { date: m.date } }}
+            asChild
+          >
+            <ListRow
+              divider={idx > 0}
+              chevron
+              right={
+                <View className="flex-row items-baseline">
+                  {m.bodyFatPct != null && (
+                    <Text className="text-muted text-sm tabular-nums mr-3">
+                      %{formatDecimal(m.bodyFatPct)}
+                    </Text>
+                  )}
+                  <Text className="text-white text-base font-semibold tabular-nums">
+                    {m.weightKg != null ? `${formatDecimal(m.weightKg)} kg` : '—'}
+                  </Text>
+                </View>
+              }
+            >
+              <Text className="text-white text-base tabular-nums">
+                {formatDateKey(m.date)}
               </Text>
-            )}
-            <Text className="text-white font-semibold mr-2">
-              {m.weightKg != null ? `${formatDecimal(m.weightKg)} kg` : '—'}
-            </Text>
-            <ChevronRight color="#64748b" size={18} />
-          </Pressable>
-        </Link>
-      ))}
+            </ListRow>
+          </Link>
+        ))}
+      </Card>
     </View>
   );
 }

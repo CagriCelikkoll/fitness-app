@@ -10,7 +10,7 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, count, eq } from 'drizzle-orm';
-import { Pencil, Play, Plus, Trash2 } from 'lucide-react-native';
+import { Dumbbell, Pencil, Play, Plus, Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import {
@@ -23,6 +23,8 @@ import {
 } from '@/db/schema';
 import { newId } from '@/lib/id';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
+import { COLORS } from '@/theme';
+import { Card, EmptyState, PrimaryButton } from '@/components/ui';
 
 export default function WorkoutScreen() {
   const router = useRouter();
@@ -142,7 +144,7 @@ export default function WorkoutScreen() {
   if (!routineList) {
     return (
       <View className="flex-1 bg-bg items-center justify-center">
-        <ActivityIndicator color="#22c55e" />
+        <ActivityIndicator color={COLORS.accent} />
       </View>
     );
   }
@@ -151,32 +153,33 @@ export default function WorkoutScreen() {
     <View className="flex-1 bg-bg">
       {/* Aktif session uyarısı */}
       {activeSessionId && (
-        <Link href="/session/active" asChild>
-          <Pressable className="bg-accent mx-4 mt-4 rounded-xl p-3 flex-row items-center">
-            <Play color="#0f172a" size={18} fill="#0f172a" />
-            <Text className="text-bg font-semibold ml-2">
-              Aktif antrenmana dön
-            </Text>
-          </Pressable>
-        </Link>
+        <View className="px-5 pt-4">
+          <Link href="/session/active" asChild>
+            <Card variant="accent" className="flex-row items-center py-4">
+              <Play color={COLORS.accentFg} size={18} fill={COLORS.accentFg} />
+              <Text className="text-accent-fg text-base font-semibold ml-3">
+                Aktif antrenmana dön
+              </Text>
+            </Card>
+          </Link>
+        </View>
       )}
 
       {routineList.length === 0 ? (
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-white text-lg font-semibold mb-2">
-            Henüz rutin yok
-          </Text>
-          <Text className="text-muted text-center mb-6">
-            İlk antrenman rutinini oluşturarak başla. Egzersizleri seç, hedef
-            set/tekrar ata, başlat.
-          </Text>
-          <Link href="/routine/new" asChild>
-            <Pressable className="bg-accent px-6 py-3 rounded-full flex-row items-center">
-              <Plus color="#0f172a" size={18} />
-              <Text className="text-bg font-semibold ml-1">İlk Rutini Oluştur</Text>
-            </Pressable>
-          </Link>
-        </View>
+        <EmptyState
+          className="flex-1"
+          icon={Dumbbell}
+          title="Henüz rutin yok"
+          description="İlk antrenman rutinini oluşturarak başla. Egzersizleri seç, hedef set/tekrar ata, başlat."
+          action={
+            <Link href="/routine/new" asChild>
+              <PrimaryButton
+                label="İlk Rutini Oluştur"
+                icon={Plus}
+              />
+            </Link>
+          }
+        />
       ) : (
         <FlatList
           data={routineList}
@@ -206,15 +209,15 @@ export default function WorkoutScreen() {
               starting={starting}
             />
           )}
-          contentContainerClassName="p-4 gap-3 pb-24"
+          contentContainerClassName="px-5 pt-4 gap-3 pb-28"
         />
       )}
 
       {/* FAB: Yeni rutin */}
       {routineList.length > 0 && (
         <Link href="/routine/new" asChild>
-          <Pressable className="absolute bottom-6 right-6 bg-accent w-14 h-14 rounded-full items-center justify-center shadow-lg">
-            <Plus color="#0f172a" size={28} strokeWidth={3} />
+          <Pressable className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80">
+            <Plus color={COLORS.accentFg} size={26} strokeWidth={2.5} />
           </Pressable>
         </Link>
       )}
@@ -238,56 +241,51 @@ function RoutineCard({
   starting,
 }: RoutineCardProps) {
   return (
-    <View className="bg-bg-surface rounded-xl p-4">
+    <Card>
       <View className="flex-row items-start justify-between">
         <View className="flex-1 mr-3">
-          <Text className="text-white text-lg font-semibold">
+          <Text className="text-white text-xl font-semibold tracking-tight">
             {routine.name}
           </Text>
           {routine.description && (
-            <Text className="text-muted text-xs mt-0.5" numberOfLines={2}>
+            <Text className="text-muted text-sm mt-1" numberOfLines={2}>
               {routine.description}
             </Text>
           )}
-          <Text className="text-muted text-xs mt-1">
+          <Text className="text-muted text-xs uppercase tracking-widest mt-3 tabular-nums">
             {exerciseCount} egzersiz
           </Text>
         </View>
-        <View className="flex-row items-center gap-1">
+        <View className="flex-row items-center -mr-2 -mt-2">
           <Link
             href={{ pathname: '/routine/[id]', params: { id: routine.id } }}
             asChild
           >
-            <Pressable hitSlop={10} className="p-1">
-              <Pencil color="#94a3b8" size={18} />
+            <Pressable
+              hitSlop={4}
+              className="w-10 h-10 items-center justify-center rounded-full active:bg-bg-elevated"
+            >
+              <Pencil color={COLORS.muted} size={17} strokeWidth={1.75} />
             </Pressable>
           </Link>
-          <Pressable onPress={onDelete} hitSlop={10} className="p-1">
-            <Trash2 color="#ef4444" size={18} />
+          <Pressable
+            onPress={onDelete}
+            hitSlop={4}
+            className="w-10 h-10 items-center justify-center rounded-full active:bg-bg-elevated"
+          >
+            <Trash2 color={COLORS.muted} size={17} strokeWidth={1.75} />
           </Pressable>
         </View>
       </View>
 
-      <Pressable
+      <PrimaryButton
         onPress={onStart}
         disabled={starting || exerciseCount === 0}
-        className={`mt-3 px-4 py-2.5 rounded-lg flex-row items-center justify-center ${
-          starting || exerciseCount === 0 ? 'bg-bg-elevated' : 'bg-accent'
-        }`}
-      >
-        <Play
-          color={starting || exerciseCount === 0 ? '#64748b' : '#0f172a'}
-          size={16}
-          fill={starting || exerciseCount === 0 ? '#64748b' : '#0f172a'}
-        />
-        <Text
-          className={`font-semibold ml-2 ${
-            starting || exerciseCount === 0 ? 'text-muted' : 'text-bg'
-          }`}
-        >
-          {starting ? 'Başlatılıyor...' : 'Antrenmanı Başlat'}
-        </Text>
-      </Pressable>
-    </View>
+        label={starting ? 'Başlatılıyor...' : 'Antrenmanı Başlat'}
+        icon={Play}
+        iconFill
+        className="mt-5"
+      />
+    </Card>
   );
 }

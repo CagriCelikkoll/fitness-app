@@ -37,6 +37,8 @@ import {
 } from '@/db/schema';
 import { newId } from '@/lib/id';
 import { ExercisePickerModal } from '@/components/ExercisePickerModal';
+import { COLORS, DISABLED_ICON } from '@/theme';
+import { Card, PrimaryButton } from '@/components/ui';
 
 interface DraftExercise {
   /** Lokal draft id — kaydederken yeni routine_exercise id'si olarak kullanılır */
@@ -308,7 +310,7 @@ export default function RoutineEditorScreen() {
       <>
         <Stack.Screen options={{ title: 'Rutin' }} />
         <View className="flex-1 bg-bg items-center justify-center">
-          <ActivityIndicator color="#22c55e" />
+          <ActivityIndicator color={COLORS.accent} />
         </View>
       </>
     );
@@ -319,14 +321,14 @@ export default function RoutineEditorScreen() {
       <Stack.Screen
         options={{
           title: isNew ? 'Yeni Rutin' : 'Rutini Düzenle',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: COLORS.bg },
+          headerTintColor: COLORS.text,
           headerRight: () => (
             <Pressable
               onPress={handleSave}
               disabled={saving}
               className="mr-2"
-              hitSlop={8}
+              hitSlop={12}
             >
               <Text
                 className={`font-semibold ${
@@ -346,50 +348,48 @@ export default function RoutineEditorScreen() {
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="p-4 gap-4 pb-32"
+          contentContainerClassName="px-5 pt-4 gap-3 pb-32"
           keyboardShouldPersistTaps="handled"
         >
-          <View className="bg-bg-surface rounded-xl p-4 gap-3">
+          <Card className="gap-4">
             <View>
-              <Text className="text-muted text-xs mb-1">Rutin Adı</Text>
+              <Text className="text-muted text-xs uppercase tracking-widest mb-2">
+                Rutin Adı
+              </Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="Örn: Push Day"
-                placeholderTextColor="#64748b"
-                className="text-white text-lg font-semibold"
+                placeholderTextColor={COLORS.muted}
+                className="text-white text-2xl font-bold tracking-tight py-1"
               />
             </View>
-            <View>
-              <Text className="text-muted text-xs mb-1">
+            <View className="pt-4 border-t border-border">
+              <Text className="text-muted text-xs uppercase tracking-widest mb-2">
                 Açıklama (opsiyonel)
               </Text>
               <TextInput
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Göğüs, omuz, triceps odaklı"
-                placeholderTextColor="#64748b"
-                className="text-white"
+                placeholderTextColor={COLORS.muted}
+                className="text-white text-base"
                 multiline
               />
             </View>
-          </View>
+          </Card>
 
           {draftExercises.length === 0 ? (
-            <View className="bg-bg-surface rounded-xl p-6 items-center">
-              <Text className="text-muted text-center mb-3">
+            <Card className="items-center py-8">
+              <Text className="text-muted text-center mb-5">
                 Henüz egzersiz eklemedin.
               </Text>
-              <Pressable
+              <PrimaryButton
                 onPress={() => setPickerOpen(true)}
-                className="bg-accent px-4 py-2 rounded-full flex-row items-center"
-              >
-                <Plus color="#0f172a" size={16} />
-                <Text className="text-bg font-semibold ml-1">
-                  Egzersiz Ekle
-                </Text>
-              </Pressable>
-            </View>
+                label="Egzersiz Ekle"
+                icon={Plus}
+              />
+            </Card>
           ) : (
             <>
               {draftExercises.map((draft, idx) => (
@@ -405,10 +405,10 @@ export default function RoutineEditorScreen() {
               ))}
               <Pressable
                 onPress={() => setPickerOpen(true)}
-                className="bg-bg-surface border border-dashed border-bg-elevated rounded-xl p-4 items-center flex-row justify-center"
+                className="min-h-[56px] border border-dashed border-border rounded-3xl items-center flex-row justify-center active:bg-bg-surface"
               >
-                <Plus color="#22c55e" size={18} />
-                <Text className="text-accent font-semibold ml-2">
+                <Plus color={COLORS.text} size={18} />
+                <Text className="text-white text-base font-semibold ml-2">
                   Egzersiz Ekle
                 </Text>
               </Pressable>
@@ -453,32 +453,41 @@ function DraftExerciseCard({
   const canMoveDown = index < total - 1;
 
   return (
-    <View className="bg-bg-surface rounded-xl p-4 gap-3">
+    <Card className="gap-4">
       <View className="flex-row items-center">
-        <View className="mr-2">
+        <View className="mr-3 -ml-1">
           <Pressable
             onPress={() => onMove(index, -1)}
             disabled={!canMoveUp}
-            hitSlop={4}
+            hitSlop={{ top: 8, bottom: 2, left: 8, right: 8 }}
+            className="w-8 h-6 items-center justify-center"
           >
-            <ChevronUp color={canMoveUp ? '#94a3b8' : '#334155'} size={18} />
+            <ChevronUp
+              color={canMoveUp ? COLORS.muted : DISABLED_ICON}
+              size={20}
+            />
           </Pressable>
           <Pressable
             onPress={() => onMove(index, 1)}
             disabled={!canMoveDown}
-            hitSlop={4}
+            hitSlop={{ top: 2, bottom: 8, left: 8, right: 8 }}
+            className="w-8 h-6 items-center justify-center"
           >
             <ChevronDown
-              color={canMoveDown ? '#94a3b8' : '#334155'}
-              size={18}
+              color={canMoveDown ? COLORS.muted : DISABLED_ICON}
+              size={20}
             />
           </Pressable>
         </View>
-        <Text className="text-white font-semibold flex-1">
+        <Text className="text-white text-lg font-semibold tracking-tight flex-1">
           {index + 1}. {draft.name}
         </Text>
-        <Pressable onPress={() => onRemove(draft.id)} hitSlop={8}>
-          <Trash2 color="#ef4444" size={18} />
+        <Pressable
+          onPress={() => onRemove(draft.id)}
+          hitSlop={4}
+          className="w-10 h-10 -mr-2 items-center justify-center rounded-full active:bg-bg-elevated"
+        >
+          <Trash2 color={COLORS.muted} size={17} strokeWidth={1.75} />
         </Pressable>
       </View>
 
@@ -524,7 +533,7 @@ function DraftExerciseCard({
           placeholder="90"
         />
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -543,14 +552,14 @@ function NumberField({
 }) {
   return (
     <View className="flex-1">
-      <Text className="text-muted text-xs mb-1">{label}</Text>
+      <Text className="text-muted text-xs mb-2">{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor="#64748b"
+        placeholderTextColor={COLORS.muted}
         keyboardType={keyboardType}
-        className="bg-bg-elevated text-white px-3 py-2 rounded-lg"
+        className="bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl"
       />
     </View>
   );

@@ -31,7 +31,12 @@ import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
-import { Download, RotateCcw, Upload } from 'lucide-react-native';
+import {
+  Download,
+  RotateCcw,
+  Upload,
+  type LucideIcon,
+} from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import {
@@ -66,6 +71,15 @@ import {
   sanitizeDecimalInput,
   type DateParts,
 } from '@/lib/format';
+import { COLORS } from '@/theme';
+import {
+  Chip,
+  DangerButton,
+  ListRow,
+  PrimaryButton,
+  SecondaryButton,
+  SectionHeader,
+} from '@/components/ui';
 
 type Gender = 'male' | 'female' | 'unspecified';
 
@@ -137,7 +151,7 @@ export default function SettingsScreen() {
   if (!updatedAt) {
     return (
       <View className="flex-1 bg-bg items-center justify-center">
-        <ActivityIndicator color="#22c55e" />
+        <ActivityIndicator color={COLORS.accent} />
       </View>
     );
   }
@@ -147,7 +161,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       className="flex-1 bg-bg"
-      contentContainerClassName="p-4 gap-4 pb-12"
+      contentContainerClassName="px-5 pt-4 gap-7 pb-12"
     >
       {/* key: ayarlar satırı ilk kez oluştuğunda ya da geri yüklemeyle
           değiştiğinde formlar kayıtlı değerlerle yeniden kurulsun */}
@@ -183,23 +197,30 @@ function Section({
   danger?: boolean;
 }) {
   return (
-    <View
-      className={`bg-bg-surface rounded-xl p-4 gap-3 ${
-        danger ? 'border border-red-500/50' : ''
-      }`}
-    >
-      <View>
-        <Text className={`font-semibold ${danger ? 'text-red-400' : 'text-white'}`}>
-          {title}
-        </Text>
+    <View className="gap-2">
+      {/* Bölüm başlığı kartın dışında */}
+      <SectionHeader
+        title={title}
+        variant="label"
+        danger={danger}
+        className="px-1"
+      />
+      <View
+        className={`bg-bg-surface rounded-3xl p-5 gap-4 border ${
+          danger ? 'border-danger/50' : 'border-border'
+        }`}
+      >
         {description != null && (
-          <Text className="text-muted text-xs mt-0.5">{description}</Text>
+          <Text className="text-muted text-sm leading-5">{description}</Text>
         )}
+        {children}
       </View>
-      {children}
     </View>
   );
 }
+
+const INPUT_CLASS =
+  'bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl';
 
 function ChipGroup<T extends string>({
   label,
@@ -214,26 +235,16 @@ function ChipGroup<T extends string>({
 }) {
   return (
     <View>
-      <Text className="text-muted text-xs mb-1">{label}</Text>
+      <Text className="text-muted text-xs mb-2">{label}</Text>
       <View className="flex-row flex-wrap gap-2">
-        {options.map((opt) => {
-          const selected = value === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => onChange(opt.value)}
-              className={`px-3 py-1.5 rounded-full ${
-                selected ? 'bg-accent' : 'bg-bg-elevated'
-              }`}
-            >
-              <Text
-                className={`text-sm ${selected ? 'text-bg font-semibold' : 'text-white'}`}
-              >
-                {opt.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {options.map((opt) => (
+          <Chip
+            key={opt.value}
+            label={opt.label}
+            active={value === opt.value}
+            onPress={() => onChange(opt.value)}
+          />
+        ))}
       </View>
     </View>
   );
@@ -251,20 +262,24 @@ function ToggleRow({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <View className="flex-row items-center">
-      <View className="flex-1 pr-3">
-        <Text className="text-white">{label}</Text>
-        {description != null && (
-          <Text className="text-muted text-xs mt-0.5">{description}</Text>
-        )}
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: '#334155', true: '#22c55e' }}
-        thumbColor="#ffffff"
-      />
-    </View>
+    <ListRow
+      divider
+      className="-mb-2"
+      right={
+        <Switch
+          value={value}
+          onValueChange={onChange}
+          trackColor={{ false: COLORS.border, true: COLORS.accent }}
+          thumbColor={value ? COLORS.accentFg : COLORS.text}
+          ios_backgroundColor={COLORS.border}
+        />
+      }
+    >
+      <Text className="text-white text-base">{label}</Text>
+      {description != null && (
+        <Text className="text-muted text-xs mt-0.5">{description}</Text>
+      )}
+    </ListRow>
   );
 }
 
@@ -280,31 +295,23 @@ function ActionButton({
   onPress: () => void;
   busy?: boolean;
   busyLabel?: string;
-  icon?: React.ReactNode;
+  icon?: LucideIcon;
   variant?: 'default' | 'accent' | 'danger';
 }) {
-  const base =
+  const Button =
     variant === 'accent'
-      ? 'bg-accent'
+      ? PrimaryButton
       : variant === 'danger'
-        ? 'bg-red-500'
-        : 'bg-bg-elevated';
-  const textColor =
-    variant === 'accent' ? 'text-bg' : variant === 'danger' ? 'text-white' : 'text-white';
+        ? DangerButton
+        : SecondaryButton;
 
   return (
-    <Pressable
+    <Button
       onPress={onPress}
-      disabled={busy}
-      className={`rounded-lg py-3 px-4 flex-row items-center justify-center gap-2 ${
-        busy ? 'bg-bg-elevated' : base
-      }`}
-    >
-      {busy ? <ActivityIndicator color="#94a3b8" size="small" /> : icon}
-      <Text className={`font-semibold ${busy ? 'text-muted' : textColor}`}>
-        {busy ? (busyLabel ?? 'Çalışıyor...') : label}
-      </Text>
-    </Pressable>
+      loading={busy}
+      icon={icon}
+      label={busy ? (busyLabel ?? 'Çalışıyor...') : label}
+    />
   );
 }
 
@@ -383,7 +390,7 @@ function ProfileSection({ settings }: { settings?: AppSettings }) {
     >
       {/* DateInput üç alanıyla yarım satıra sığmadığı için boy ayrı satırda */}
       <View>
-        <Text className="text-muted text-xs mb-1">Boy (cm)</Text>
+        <Text className="text-muted text-xs mb-2">Boy (cm)</Text>
         <TextInput
           value={height}
           onChangeText={(v) => {
@@ -391,9 +398,9 @@ function ProfileSection({ settings }: { settings?: AppSettings }) {
             setHeight((prev) => sanitizeDecimalInput(v, prev));
           }}
           placeholder="178"
-          placeholderTextColor="#64748b"
+          placeholderTextColor={COLORS.muted}
           keyboardType="decimal-pad"
-          className="bg-bg-elevated text-white px-3 py-2 rounded-lg w-28"
+          className={`${INPUT_CLASS} w-28`}
         />
       </View>
 
@@ -407,7 +414,9 @@ function ProfileSection({ settings }: { settings?: AppSettings }) {
         error={birthError}
       />
       {age != null && (
-        <Text className="text-muted text-xs -mt-2">Kayıtlı yaş: {age}</Text>
+        <Text className="text-muted text-xs -mt-2 tabular-nums">
+          Kayıtlı yaş: {age}
+        </Text>
       )}
 
       <ChipGroup
@@ -463,7 +472,7 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
   return (
     <Section title="Antrenman tercihleri">
       <View>
-        <Text className="text-muted text-xs mb-1">
+        <Text className="text-muted text-xs mb-2">
           Varsayılan dinlenme süresi (saniye)
         </Text>
         <TextInput
@@ -471,11 +480,11 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
           onChangeText={(v) => setRest(v.replace(/\D/g, '').slice(0, 3))}
           onBlur={commitRest}
           placeholder="90"
-          placeholderTextColor="#64748b"
+          placeholderTextColor={COLORS.muted}
           keyboardType="number-pad"
-          className="bg-bg-elevated text-white px-3 py-2 rounded-lg w-24"
+          className={`${INPUT_CLASS} w-24`}
         />
-        <Text className="text-muted text-xs mt-1">
+        <Text className="text-muted text-xs mt-2">
           Yeni rutin oluştururken öntanımlı değer. 0 = zamanlayıcı yok.
         </Text>
       </View>
@@ -657,14 +666,14 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
         busyLabel="Yedek hazırlanıyor..."
         onPress={handleExport}
         variant="accent"
-        icon={<Upload color="#0f172a" size={18} />}
+        icon={Upload}
       />
       <ActionButton
         label="Yedekten Geri Yükle"
         busy={importing}
         busyLabel="Geri yükleniyor..."
         onPress={handleImport}
-        icon={<Download color="#ffffff" size={18} />}
+        icon={Download}
       />
     </Section>
   );
@@ -730,7 +739,7 @@ function DangerSection() {
         busyLabel="Siliniyor..."
         onPress={handlePress}
         variant="danger"
-        icon={<RotateCcw color="#ffffff" size={18} />}
+        icon={RotateCcw}
       />
     </Section>
   );
@@ -773,12 +782,21 @@ function AboutSection() {
 
   return (
     <Section title="Hakkında">
-      {rows.map((row) => (
-        <View key={row.label} className="flex-row items-baseline justify-between">
-          <Text className="text-muted text-sm">{row.label}</Text>
-          <Text className="text-white text-sm font-semibold">{row.value}</Text>
-        </View>
-      ))}
+      <View className="-my-3">
+        {rows.map((row, idx) => (
+          <ListRow
+            key={row.label}
+            divider={idx > 0}
+            right={
+              <Text className="text-white text-base font-semibold tabular-nums">
+                {row.value}
+              </Text>
+            }
+          >
+            <Text className="text-muted text-base">{row.label}</Text>
+          </ListRow>
+        ))}
+      </View>
     </Section>
   );
 }

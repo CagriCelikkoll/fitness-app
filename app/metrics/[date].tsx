@@ -40,6 +40,8 @@ import {
   toDateKey,
   type DateParts,
 } from '@/lib/format';
+import { COLORS } from '@/theme';
+import { Card, DangerButton } from '@/components/ui';
 
 interface MetricsForm {
   weightKg: string;
@@ -327,7 +329,7 @@ export default function MetricsEditorScreen() {
       <>
         <Stack.Screen options={{ title: 'Ölçüm' }} />
         <View className="flex-1 bg-bg items-center justify-center">
-          <ActivityIndicator color="#22c55e" />
+          <ActivityIndicator color={COLORS.accent} />
         </View>
       </>
     );
@@ -343,7 +345,7 @@ export default function MetricsEditorScreen() {
               onPress={handleSave}
               disabled={saving}
               className="mr-2"
-              hitSlop={8}
+              hitSlop={12}
             >
               <Text
                 className={`font-semibold ${
@@ -363,10 +365,10 @@ export default function MetricsEditorScreen() {
       >
         <ScrollView
           className="flex-1"
-          contentContainerClassName="p-4 gap-4 pb-32"
+          contentContainerClassName="px-5 pt-4 gap-3 pb-32"
           keyboardShouldPersistTaps="handled"
         >
-          <View className="bg-bg-surface rounded-xl p-4 gap-3">
+          <Card className="gap-4">
             <DateInput
               label="Tarih"
               value={dateParts}
@@ -387,12 +389,14 @@ export default function MetricsEditorScreen() {
                 placeholder="ops."
               />
             </View>
-          </View>
+          </Card>
 
-          <View className="bg-bg-surface rounded-xl p-4 gap-3">
-            <Text className="text-white font-semibold">
+          <Card className="gap-4">
+            <Text className="text-white text-xl font-semibold tracking-tight">
               Çevre ölçümleri{' '}
-              <Text className="text-muted text-xs font-normal">(opsiyonel)</Text>
+              <Text className="text-muted text-xs font-normal tracking-normal">
+                (opsiyonel)
+              </Text>
             </Text>
             {[0, 2, 4].map((i) => (
               <View key={i} className="flex-row gap-2">
@@ -407,28 +411,27 @@ export default function MetricsEditorScreen() {
                 ))}
               </View>
             ))}
-          </View>
+          </Card>
 
-          <View className="bg-bg-surface rounded-xl p-4">
-            <Text className="text-muted text-xs mb-1">Not (opsiyonel)</Text>
+          <Card>
+            <Text className="text-muted text-xs mb-2">Not (opsiyonel)</Text>
             <TextInput
               value={form.notes}
               onChangeText={(v) => update('notes', v)}
               placeholder="Sabah aç karnına"
-              placeholderTextColor="#64748b"
-              className="text-white"
+              placeholderTextColor={COLORS.muted}
+              className="text-white text-base"
               multiline
             />
-          </View>
+          </Card>
 
           {!isNew && (
-            <Pressable
+            <DangerButton
               onPress={handleDelete}
-              className="bg-bg-surface border border-red-500/40 rounded-xl p-4 flex-row items-center justify-center"
-            >
-              <Trash2 color="#ef4444" size={18} />
-              <Text className="text-red-500 font-semibold ml-2">Kaydı Sil</Text>
-            </Pressable>
+              label="Kaydı Sil"
+              icon={Trash2}
+              className="mt-4"
+            />
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -450,14 +453,14 @@ function DecimalField({
 }) {
   return (
     <View className="flex-1">
-      <Text className="text-muted text-xs mb-1">{label}</Text>
+      <Text className="text-muted text-xs mb-2">{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor="#64748b"
+        placeholderTextColor={COLORS.muted}
         keyboardType="decimal-pad"
-        className="bg-bg-elevated text-white px-3 py-2 rounded-lg"
+        className="bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl"
       />
     </View>
   );

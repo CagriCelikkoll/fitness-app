@@ -7,27 +7,35 @@ import {
   Settings as SettingsIcon,
 } from 'lucide-react-native';
 
+import { COLORS } from '@/theme';
+
+const TAB_ICON_SIZE = 24;
+
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#22c55e',
-        tabBarInactiveTintColor: '#64748b',
+        tabBarActiveTintColor: COLORS.accent,
+        tabBarInactiveTintColor: COLORS.muted,
         tabBarStyle: {
-          backgroundColor: '#0f172a',
-          borderTopColor: '#1e293b',
+          backgroundColor: COLORS.bg,
+          borderTopColor: COLORS.border,
+          borderTopWidth: 1,
         },
-        headerStyle: { backgroundColor: '#0f172a' },
-        headerTintColor: '#fff',
-        sceneStyle: { backgroundColor: '#0f172a' },
+        tabBarLabelStyle: { fontSize: 10, letterSpacing: 0.4 },
+        headerStyle: { backgroundColor: COLORS.bg },
+        headerShadowVisible: false,
+        headerTintColor: COLORS.text,
+        headerTitleStyle: { fontWeight: '600' },
+        sceneStyle: { backgroundColor: COLORS.bg },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Ana Sayfa',
-          tabBarIcon: ({ color, size }) => (
-            <Activity color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <Activity color={color} size={TAB_ICON_SIZE} strokeWidth={1.75} />
           ),
         }}
       />
@@ -35,8 +43,8 @@ export default function TabsLayout() {
         name="workout"
         options={{
           title: 'Antrenman',
-          tabBarIcon: ({ color, size }) => (
-            <Dumbbell color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <Dumbbell color={color} size={TAB_ICON_SIZE} strokeWidth={1.75} />
           ),
         }}
       />
@@ -44,8 +52,8 @@ export default function TabsLayout() {
         name="exercises"
         options={{
           title: 'Egzersizler',
-          tabBarIcon: ({ color, size }) => (
-            <ListChecks color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <ListChecks color={color} size={TAB_ICON_SIZE} strokeWidth={1.75} />
           ),
         }}
       />
@@ -53,8 +61,8 @@ export default function TabsLayout() {
         name="progress"
         options={{
           title: 'İlerleme',
-          tabBarIcon: ({ color, size }) => (
-            <TrendingUp color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <TrendingUp color={color} size={TAB_ICON_SIZE} strokeWidth={1.75} />
           ),
         }}
       />
@@ -62,8 +70,12 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: 'Ayarlar',
-          tabBarIcon: ({ color, size }) => (
-            <SettingsIcon color={color} size={size} />
+          tabBarIcon: ({ color }) => (
+            <SettingsIcon
+              color={color}
+              size={TAB_ICON_SIZE}
+              strokeWidth={1.75}
+            />
           ),
         }}
       />

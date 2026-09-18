@@ -37,6 +37,8 @@ import {
   formatDuration,
   formatVolume,
 } from '@/lib/format';
+import { COLORS } from '@/theme';
+import { Card, DangerButton } from '@/components/ui';
 
 interface ExerciseGroup {
   se: SessionExercise;
@@ -149,7 +151,7 @@ export default function SessionDetailScreen() {
     return (
       <View className="flex-1 bg-bg items-center justify-center">
         <Stack.Screen options={{ title: 'Antrenman' }} />
-        <ActivityIndicator color="#22c55e" />
+        <ActivityIndicator color={COLORS.accent} />
       </View>
     );
   }
@@ -158,10 +160,10 @@ export default function SessionDetailScreen() {
     return (
       <View className="flex-1 bg-bg items-center justify-center p-6">
         <Stack.Screen options={{ title: 'Antrenman' }} />
-        <Text className="text-white text-lg font-semibold">
+        <Text className="text-white text-xl font-semibold tracking-tight">
           Antrenman bulunamadı
         </Text>
-        <Text className="text-muted text-center mt-2">
+        <Text className="text-muted text-sm text-center mt-2">
           Bu antrenman silinmiş olabilir.
         </Text>
       </View>
@@ -171,18 +173,20 @@ export default function SessionDetailScreen() {
   return (
     <ScrollView
       className="flex-1 bg-bg"
-      contentContainerClassName="p-4 gap-3 pb-8"
+      contentContainerClassName="px-5 pt-4 gap-3 pb-10"
     >
       <Stack.Screen options={{ title: session.name }} />
 
-      {/* Özet kartı */}
-      <View className="bg-bg-surface rounded-xl p-4">
-        <Text className="text-white text-xl font-bold">{session.name}</Text>
-        <Text className="text-muted text-xs mt-1">
+      {/* Özet */}
+      <View className="mb-1">
+        <Text className="text-white text-4xl font-bold tracking-tight">
+          {session.name}
+        </Text>
+        <Text className="text-muted text-sm mt-2 tabular-nums">
           {formatDateTime(session.startedAt)}
         </Text>
 
-        <View className="flex-row gap-3 mt-4">
+        <View className="flex-row gap-3 mt-5">
           <SummaryStat
             label="Süre"
             value={
@@ -206,8 +210,10 @@ export default function SessionDetailScreen() {
 
       {/* Cardio segmentleri */}
       {(cardioData ?? []).length > 0 && (
-        <View className="bg-bg-surface rounded-xl p-4">
-          <Text className="text-accent-warm font-semibold mb-3">Kardiyo</Text>
+        <Card>
+          <Text className="text-accent-warm text-xl font-semibold tracking-tight mb-3">
+            Kardiyo
+          </Text>
           <View className="gap-3">
             {(cardioData ?? []).map((row) => (
               <CardioRow
@@ -217,33 +223,34 @@ export default function SessionDetailScreen() {
               />
             ))}
           </View>
-        </View>
+        </Card>
       )}
 
       {/* Seans notu */}
       {session.notes && (
-        <View className="bg-bg-surface rounded-xl p-4">
-          <Text className="text-white font-semibold mb-1">Not</Text>
-          <Text className="text-muted text-sm">{session.notes}</Text>
-        </View>
+        <Card>
+          <Text className="text-muted text-xs uppercase tracking-widest mb-2">
+            Not
+          </Text>
+          <Text className="text-white text-base">{session.notes}</Text>
+        </Card>
       )}
 
       {exerciseGroups.length === 0 && (cardioData ?? []).length === 0 && (
-        <View className="bg-bg-surface rounded-xl p-4">
+        <Card>
           <Text className="text-muted text-sm">
             Bu antrenmanda kayıtlı egzersiz yok.
           </Text>
-        </View>
+        </Card>
       )}
 
       {/* Silme */}
-      <Pressable
+      <DangerButton
         onPress={handleDelete}
-        className="bg-bg-surface rounded-xl p-4 flex-row items-center justify-center mt-2"
-      >
-        <Trash2 color="#ef4444" size={18} />
-        <Text className="text-red-400 font-semibold ml-2">Antrenmanı Sil</Text>
-      </Pressable>
+        label="Antrenmanı Sil"
+        icon={Trash2}
+        className="mt-4"
+      />
     </ScrollView>
   );
 }
@@ -259,53 +266,63 @@ function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
   );
 
   return (
-    <View className="bg-bg-surface rounded-xl p-4">
-      <Text className="text-white text-base font-semibold">
+    <Card>
+      <Text className="text-white text-xl font-semibold tracking-tight">
         {group.exercise.nameTr ?? group.exercise.name}
       </Text>
 
       {group.sets.length === 0 ? (
-        <Text className="text-muted text-xs mt-2">
+        <Text className="text-muted text-sm mt-2">
           Tamamlanmış set yok.
         </Text>
       ) : (
         <>
           {/* Tablo başlığı */}
-          <View className="flex-row mt-3 pb-1 border-b border-bg-elevated">
-            <Text className="text-muted text-xs w-10">SET</Text>
-            <Text className="text-muted text-xs flex-1 text-right">KG</Text>
-            <Text className="text-muted text-xs flex-1 text-right">TEKRAR</Text>
-            <Text className="text-muted text-xs flex-1 text-right">HACİM</Text>
+          <View className="flex-row mt-4 pb-2 border-b border-border">
+            <Text className="text-muted text-[11px] tracking-widest w-10">SET</Text>
+            <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
+              KG
+            </Text>
+            <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
+              TEKRAR
+            </Text>
+            <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
+              HACİM
+            </Text>
           </View>
 
-          {group.sets.map((set) => (
+          {group.sets.map((set, idx) => (
             <View
               key={set.id}
-              className="flex-row py-1.5 border-b border-bg-elevated"
+              className={`flex-row py-2.5 ${idx > 0 ? 'border-t border-border' : ''}`}
             >
-              <Text className="text-muted text-sm w-10">{set.setNumber}</Text>
-              <Text className="text-white text-sm flex-1 text-right">
+              <Text className="text-muted text-base tabular-nums w-10">
+                {set.setNumber}
+              </Text>
+              <Text className="text-white text-base font-semibold tabular-nums flex-1 text-right">
                 {set.weightKg != null ? String(set.weightKg) : '—'}
               </Text>
-              <Text className="text-white text-sm flex-1 text-right">
+              <Text className="text-white text-base font-semibold tabular-nums flex-1 text-right">
                 {set.reps != null ? String(set.reps) : '—'}
               </Text>
-              <Text className="text-muted text-sm flex-1 text-right">
+              <Text className="text-muted text-base tabular-nums flex-1 text-right">
                 {setVolume(set) > 0 ? Math.round(setVolume(set)) : '—'}
               </Text>
             </View>
           ))}
 
           {/* Egzersiz özeti */}
-          <View className="flex-row gap-4 mt-3">
-            <Text className="text-muted text-xs">{group.sets.length} set</Text>
+          <View className="flex-row flex-wrap gap-x-4 gap-y-1 mt-2 pt-3 border-t border-border">
+            <Text className="text-muted text-xs tabular-nums">
+              {group.sets.length} set
+            </Text>
             {volume > 0 && (
-              <Text className="text-accent text-xs font-medium">
+              <Text className="text-white text-xs font-semibold tabular-nums">
                 {formatVolume(volume)}
               </Text>
             )}
             {heaviest?.weightKg != null && (
-              <Text className="text-muted text-xs">
+              <Text className="text-muted text-xs tabular-nums">
                 En ağır: {heaviest.weightKg} kg
                 {heaviest.reps != null && ` × ${heaviest.reps}`}
               </Text>
@@ -313,7 +330,7 @@ function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
           </View>
         </>
       )}
-    </View>
+    </Card>
   );
 }
 
@@ -325,8 +342,8 @@ function CardioRow({
   exercise: Exercise;
 }) {
   return (
-    <View className="border-t border-bg-elevated pt-3 first:border-t-0 first:pt-0">
-      <Text className="text-white text-sm font-medium">
+    <View className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+      <Text className="text-white text-base font-semibold">
         {exercise.nameTr ?? exercise.name}
       </Text>
       <View className="flex-row gap-4 mt-1">
@@ -348,11 +365,17 @@ function CardioRow({
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <View className="flex-1 bg-bg-elevated rounded-lg p-3">
-      <Text className="text-white text-base font-bold" numberOfLines={1}>
+    <View className="flex-1 bg-bg-surface border border-border rounded-2xl p-4">
+      <Text className="text-muted text-[11px] uppercase tracking-widest">
+        {label}
+      </Text>
+      <Text
+        className="text-white text-2xl font-bold tabular-nums tracking-tight mt-2"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
         {value}
       </Text>
-      <Text className="text-muted text-xs mt-0.5">{label}</Text>
     </View>
   );
 }

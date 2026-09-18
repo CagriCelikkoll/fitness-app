@@ -5,6 +5,7 @@ import { Pause, Plus, Minus, X } from 'lucide-react-native';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
+import { COLORS } from '@/theme';
 
 /**
  * Aktif antrenmanın altında sabit görünen dinlenme zamanlayıcısı.
@@ -83,34 +84,48 @@ export function RestTimer() {
     // store'a yeni bir action eklemek doğrusu — şimdilik basit tutuyoruz
   };
 
+  // Bitişte bant kısa süreliğine limon dolguya döner (3 sn sonra kapanıyor)
+  const iconColor = completed ? COLORS.accentFg : COLORS.text;
+  const roundButton = `w-12 h-12 rounded-full items-center justify-center ${
+    completed ? 'bg-accent-fg/10' : 'bg-bg-elevated active:bg-border'
+  }`;
+
   return (
-    <View className="bg-bg-surface border-t border-bg-elevated p-3">
+    <View
+      className={`border-t px-4 pt-2 pb-4 ${
+        completed ? 'bg-accent border-accent' : 'bg-bg-surface border-border'
+      }`}
+    >
       {/* Progress bar */}
-      <View className="h-1 bg-bg-elevated rounded-full overflow-hidden mb-2">
+      <View
+        className={`h-[3px] rounded-full overflow-hidden mb-3 ${
+          completed ? 'bg-accent-fg/20' : 'bg-bg-elevated'
+        }`}
+      >
         <View
-          className={`h-full ${completed ? 'bg-accent' : 'bg-accent-warm'}`}
+          className={`h-full ${completed ? 'bg-accent-fg' : 'bg-accent'}`}
           style={{ width: `${progressPct}%` }}
         />
       </View>
 
       <View className="flex-row items-center justify-between">
         <Pressable onPress={() => adjustTimer(-15)} hitSlop={8}>
-          <View className="w-10 h-10 rounded-full bg-bg-elevated items-center justify-center">
-            <Minus color="#fff" size={18} />
+          <View className={roundButton}>
+            <Minus color={iconColor} size={20} />
           </View>
         </Pressable>
 
         <View className="flex-1 items-center">
           {completed ? (
-            <Text className="text-accent font-bold text-lg">
+            <Text className="text-accent-fg font-bold text-2xl tracking-tight">
               Dinlenme tamam ✓
             </Text>
           ) : (
             <>
-              <Text className="text-white text-2xl font-bold tabular-nums">
+              <Text className="text-white text-5xl font-bold tabular-nums tracking-tight">
                 {timeLabel}
               </Text>
-              <Text className="text-muted text-xs">
+              <Text className="text-muted text-xs tracking-wide tabular-nums">
                 {restTimer.durationSeconds}sn dinlenme
               </Text>
             </>
@@ -118,14 +133,14 @@ export function RestTimer() {
         </View>
 
         <Pressable onPress={() => adjustTimer(15)} hitSlop={8}>
-          <View className="w-10 h-10 rounded-full bg-bg-elevated items-center justify-center">
-            <Plus color="#fff" size={18} />
+          <View className={roundButton}>
+            <Plus color={iconColor} size={20} />
           </View>
         </Pressable>
 
         <Pressable onPress={stopRestTimer} hitSlop={8} className="ml-2">
-          <View className="w-10 h-10 rounded-full bg-bg-elevated items-center justify-center">
-            <X color="#fff" size={18} />
+          <View className={roundButton}>
+            <X color={iconColor} size={20} />
           </View>
         </Pressable>
       </View>

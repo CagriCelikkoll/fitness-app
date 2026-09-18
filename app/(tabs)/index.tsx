@@ -2,11 +2,13 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
-import { ChevronRight, Play } from 'lucide-react-native';
+import { Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
+import { COLORS } from '@/theme';
+import { Card, ListRow, SectionHeader, StatTile } from '@/components/ui';
 
 export default function HomeScreen() {
   const db = useDb();
@@ -39,11 +41,13 @@ export default function HomeScreen() {
   return (
     <ScrollView
       className="flex-1 bg-bg"
-      contentContainerClassName="p-4 gap-4 pb-8"
+      contentContainerClassName="px-5 pt-6 gap-3 pb-10"
     >
-      <View>
-        <Text className="text-white text-2xl font-bold">Hoş geldin 💪</Text>
-        <Text className="text-muted text-sm mt-1">
+      <View className="mb-3">
+        <Text className="text-white text-4xl font-bold tracking-tight">
+          Hoş geldin 💪
+        </Text>
+        <Text className="text-muted text-sm mt-2">
           Bugün hangi kasları çalıştıracağız?
         </Text>
       </View>
@@ -51,104 +55,109 @@ export default function HomeScreen() {
       {/* Aktif session bandı */}
       {activeSessionId && (
         <Link href="/session/active" asChild>
-          <Pressable className="bg-accent rounded-xl p-4 flex-row items-center">
-            <Play color="#0f172a" size={20} fill="#0f172a" />
-            <View className="flex-1 ml-3">
-              <Text className="text-bg font-bold">Devam eden antrenman</Text>
-              <Text className="text-bg/70 text-xs mt-0.5">Devam et →</Text>
+          <Card variant="accent" className="flex-row items-center">
+            <View className="w-12 h-12 rounded-full bg-accent-fg items-center justify-center">
+              <Play color={COLORS.accent} size={20} fill={COLORS.accent} />
             </View>
-          </Pressable>
+            <View className="flex-1 ml-4">
+              <Text className="text-accent-fg text-xl font-bold tracking-tight">
+                Devam eden antrenman
+              </Text>
+              <Text className="text-accent-fg/70 text-sm mt-0.5">
+                Devam et →
+              </Text>
+            </View>
+          </Card>
         </Link>
       )}
 
-      {/* İstatistikler */}
+      {/* İstatistikler — bir geniş + iki dar kart */}
       <View className="flex-row gap-3">
-        <StatCard
-          label="Egzersiz"
-          value={exerciseStats.data?.[0]?.count ?? 0}
-        />
-        <StatCard label="Rutin" value={routineStats.data?.[0]?.count ?? 0} />
-        <StatCard
+        <StatTile
           label="Antrenman"
           value={sessionStats.data?.[0]?.count ?? 0}
+          className="flex-1 min-h-[164px]"
         />
+        <View className="flex-1 gap-3">
+          <StatTile
+            label="Egzersiz"
+            value={exerciseStats.data?.[0]?.count ?? 0}
+            size="sm"
+            className="flex-1"
+          />
+          <StatTile
+            label="Rutin"
+            value={routineStats.data?.[0]?.count ?? 0}
+            size="sm"
+            className="flex-1"
+          />
+        </View>
       </View>
 
       {/* Hızlı aksiyon */}
       {!activeSessionId && (
         <Link href="/(tabs)/workout" asChild>
-          <Pressable className="bg-bg-surface rounded-xl p-4 flex-row items-center">
-            <View className="w-12 h-12 rounded-full bg-accent/20 items-center justify-center">
-              <Play color="#22c55e" size={22} fill="#22c55e" />
+          <Card variant="outline" className="flex-row items-center">
+            <View className="w-12 h-12 rounded-full bg-accent items-center justify-center">
+              <Play color={COLORS.accentFg} size={20} fill={COLORS.accentFg} />
             </View>
-            <View className="flex-1 ml-3">
-              <Text className="text-white font-semibold">
+            <View className="flex-1 ml-4">
+              <Text className="text-white text-xl font-semibold tracking-tight">
                 Antrenmana Başla
               </Text>
-              <Text className="text-muted text-xs mt-0.5">
+              <Text className="text-muted text-sm mt-0.5">
                 Rutinlerini gör veya yeni bir antrenman oluştur
               </Text>
             </View>
-          </Pressable>
+          </Card>
         </Link>
       )}
 
       {/* Son antrenmanlar */}
-      <View className="bg-bg-surface rounded-xl p-4">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-white font-semibold">Son Antrenmanlar</Text>
+      <SectionHeader
+        title="Son Antrenmanlar"
+        className="mt-5 mb-1"
+        action={
           <Link href="/history" asChild>
-            <Pressable hitSlop={8}>
-              <Text className="text-accent text-xs font-medium">
+            <Pressable hitSlop={12}>
+              <Text className="text-muted text-sm font-medium">
                 Tümünü gör →
               </Text>
             </Pressable>
           </Link>
-        </View>
+        }
+      />
+      <Card className="py-2">
         {!recentSessions.data || recentSessions.data.length === 0 ? (
-          <Text className="text-muted text-sm">
+          <Text className="text-muted text-sm py-3">
             Henüz tamamlanmış antrenman yok. İlk antrenmanını başlat!
           </Text>
         ) : (
-          <View className="gap-2">
-            {recentSessions.data.map((session) => (
-              <Link
-                key={session.id}
-                href={{ pathname: '/session/[id]', params: { id: session.id } }}
-                asChild
-              >
-                <Pressable className="flex-row items-center py-2 border-t border-bg-elevated first:border-t-0">
-                  <View className="flex-1">
-                    <Text className="text-white text-sm font-medium">
-                      {session.name}
-                    </Text>
-                    <Text className="text-muted text-xs mt-0.5">
-                      {formatRelativeDate(session.startedAt)}
-                      {session.durationSeconds &&
-                        `  •  ${formatDuration(session.durationSeconds)}`}
-                    </Text>
-                  </View>
-                  <ChevronRight color="#64748b" size={18} />
-                </Pressable>
-              </Link>
-            ))}
-          </View>
+          recentSessions.data.map((session, idx) => (
+            <Link
+              key={session.id}
+              href={{ pathname: '/session/[id]', params: { id: session.id } }}
+              asChild
+            >
+              <ListRow divider={idx > 0} chevron>
+                <Text className="text-white text-base font-semibold">
+                  {session.name}
+                </Text>
+                <Text className="text-muted text-xs mt-1 tabular-nums">
+                  {formatRelativeDate(session.startedAt)}
+                  {session.durationSeconds &&
+                    `  •  ${formatDuration(session.durationSeconds)}`}
+                </Text>
+              </ListRow>
+            </Link>
+          ))
         )}
-      </View>
+      </Card>
 
-      <Text className="text-muted text-xs text-center mt-2">
+      <Text className="text-muted/60 text-xs text-center mt-4">
         Aşama 1 ✓ Egzersiz kütüphanesi  •  Rutinler  •  Antrenman loglama
       </Text>
     </ScrollView>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <View className="flex-1 bg-bg-surface rounded-xl p-3">
-      <Text className="text-accent text-2xl font-bold">{value}</Text>
-      <Text className="text-muted text-xs mt-1">{label}</Text>
-    </View>
   );
 }
 

@@ -16,6 +16,8 @@ import { Check, Search, X } from 'lucide-react-native';
 import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
 import { getExerciseCoverUrl } from '@/lib/exerciseImage';
+import { COLORS } from '@/theme';
+import { Chip } from '@/components/ui';
 
 type CategoryFilter = 'all' | 'strength' | 'cardio' | 'stretching';
 
@@ -114,21 +116,30 @@ export function ExercisePickerModal({
     >
       <SafeAreaView className="flex-1 bg-bg">
         {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-bg-surface">
-          <Pressable onPress={onClose} hitSlop={10}>
-            <X color="#fff" size={24} />
+        <View className="flex-row items-center justify-between px-3 py-3 border-b border-border">
+          <Pressable
+            onPress={onClose}
+            hitSlop={6}
+            className="w-11 h-11 items-center justify-center rounded-full active:bg-bg-elevated"
+          >
+            <X color={COLORS.text} size={22} />
           </Pressable>
-          <Text className="text-white text-lg font-semibold">{title}</Text>
+          <Text
+            className="text-white text-lg font-semibold tracking-tight flex-1 text-center px-2"
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
           <Pressable
             onPress={handleConfirm}
             disabled={selectedIds.size === 0}
-            className={`px-4 py-1.5 rounded-full ${
-              selectedIds.size === 0 ? 'bg-bg-surface' : 'bg-accent'
+            className={`px-4 h-10 justify-center rounded-full ${
+              selectedIds.size === 0 ? 'bg-bg-elevated' : 'bg-accent'
             }`}
           >
             <Text
-              className={`font-semibold ${
-                selectedIds.size === 0 ? 'text-muted' : 'text-bg'
+              className={`font-semibold tabular-nums ${
+                selectedIds.size === 0 ? 'text-muted' : 'text-accent-fg'
               }`}
             >
               Ekle ({selectedIds.size})
@@ -137,46 +148,34 @@ export function ExercisePickerModal({
         </View>
 
         {/* Arama */}
-        <View className="px-4 pt-3 pb-2 gap-3">
-          <View className="flex-row items-center bg-bg-surface rounded-xl px-3 h-11">
-            <Search color="#64748b" size={18} />
+        <View className="px-5 pt-4 pb-3 gap-3">
+          <View className="flex-row items-center bg-bg-elevated rounded-2xl px-4 h-12">
+            <Search color={COLORS.muted} size={18} strokeWidth={1.75} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Egzersiz ara..."
-              placeholderTextColor="#64748b"
-              className="flex-1 text-white ml-2"
+              placeholderTextColor={COLORS.muted}
+              className="flex-1 text-white text-base ml-3"
               autoCorrect={false}
               autoCapitalize="none"
             />
             {search.length > 0 && (
-              <Pressable onPress={() => setSearch('')} hitSlop={8}>
-                <X color="#64748b" size={16} />
+              <Pressable onPress={() => setSearch('')} hitSlop={12}>
+                <X color={COLORS.muted} size={16} />
               </Pressable>
             )}
           </View>
 
           <View className="flex-row gap-2">
-            {CATEGORY_OPTIONS.map((opt) => {
-              const active = category === opt.value;
-              return (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => setCategory(opt.value)}
-                  className={`px-3 py-1.5 rounded-full ${
-                    active ? 'bg-accent' : 'bg-bg-surface'
-                  }`}
-                >
-                  <Text
-                    className={`text-xs font-medium ${
-                      active ? 'text-bg' : 'text-white'
-                    }`}
-                  >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {CATEGORY_OPTIONS.map((opt) => (
+              <Chip
+                key={opt.value}
+                label={opt.label}
+                active={category === opt.value}
+                onPress={() => setCategory(opt.value)}
+              />
+            ))}
           </View>
         </View>
 
@@ -191,7 +190,7 @@ export function ExercisePickerModal({
               onToggle={() => toggleSelection(item.id)}
             />
           )}
-          contentContainerClassName="px-4 pt-2 pb-6"
+          contentContainerClassName="px-5 pt-1 pb-8"
           ItemSeparatorComponent={() => <View className="h-2" />}
           ListEmptyComponent={
             <Text className="text-muted text-center mt-8">
@@ -220,15 +219,15 @@ function PickerRow({
   return (
     <Pressable
       onPress={onToggle}
-      className={`flex-row items-center bg-bg-surface rounded-xl p-3 ${
-        selected ? 'border border-accent' : ''
+      className={`flex-row items-center bg-bg-surface rounded-3xl p-3 border ${
+        selected ? 'border-accent' : 'border-border'
       }`}
     >
-      <View className="w-12 h-12 rounded-lg bg-bg-elevated overflow-hidden items-center justify-center">
+      <View className="w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center">
         {coverUrl ? (
           <Image
             source={{ uri: coverUrl }}
-            style={{ width: 48, height: 48 }}
+            style={{ width: 56, height: 56 }}
             resizeMode="cover"
           />
         ) : (
@@ -237,20 +236,22 @@ function PickerRow({
           </Text>
         )}
       </View>
-      <View className="flex-1 ml-3">
-        <Text className="text-white font-semibold" numberOfLines={1}>
+      <View className="flex-1 ml-4">
+        <Text className="text-white text-base font-semibold" numberOfLines={1}>
           {displayName}
         </Text>
-        <Text className="text-muted text-xs" numberOfLines={1}>
+        <Text className="text-muted text-xs mt-1" numberOfLines={1}>
           {muscles.join(', ') || exercise.category}
         </Text>
       </View>
       <View
-        className={`w-6 h-6 rounded-full items-center justify-center ${
-          selected ? 'bg-accent' : 'border border-bg-elevated'
+        className={`w-7 h-7 rounded-full items-center justify-center mr-1 ${
+          selected ? 'bg-accent' : 'border-2 border-border'
         }`}
       >
-        {selected && <Check color="#0f172a" size={14} strokeWidth={3} />}
+        {selected && (
+          <Check color={COLORS.accentFg} size={15} strokeWidth={3} />
+        )}
       </View>
     </Pressable>
   );

@@ -31,6 +31,8 @@ import { newId } from '@/lib/id';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { getLastSessionForExercise, type LastSessionData } from '@/lib/lastSession';
 import { RestTimer } from '@/components/RestTimer';
+import { COLORS, DISABLED_ICON } from '@/theme';
+import { SecondaryButton } from '@/components/ui';
 
 export default function ActiveSessionScreen() {
   const router = useRouter();
@@ -61,15 +63,15 @@ export default function ActiveSessionScreen() {
       <Stack.Screen
         options={{
           title: 'Antrenman',
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: COLORS.bg },
+          headerTintColor: COLORS.text,
           headerLeft: () => (
             <Pressable
               onPress={() => router.back()}
               hitSlop={10}
               className="ml-1"
             >
-              <X color="#fff" size={22} />
+              <X color={COLORS.text} size={22} />
             </Pressable>
           ),
         }}
@@ -114,7 +116,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
   if (!seData) {
     return (
       <View className="flex-1 items-center justify-center">
-        <ActivityIndicator color="#22c55e" />
+        <ActivityIndicator color={COLORS.accent} />
       </View>
     );
   }
@@ -256,22 +258,26 @@ function SessionContent({ sessionId }: { sessionId: string }) {
       className="flex-1"
     >
       {/* Egzersiz navigasyonu */}
-      <View className="flex-row items-center px-4 py-3 bg-bg-surface border-b border-bg-elevated">
+      <View className="flex-row items-center px-3 py-3 bg-bg border-b border-border">
         <Pressable
           onPress={prevExercise}
           disabled={safeIndex === 0}
           hitSlop={8}
+          className="w-12 h-12 rounded-full items-center justify-center bg-bg-surface active:bg-bg-elevated"
         >
           <ChevronLeft
-            color={safeIndex === 0 ? '#334155' : '#fff'}
-            size={28}
+            color={safeIndex === 0 ? DISABLED_ICON : COLORS.text}
+            size={26}
           />
         </Pressable>
-        <View className="flex-1 items-center">
-          <Text className="text-white text-base font-semibold" numberOfLines={1}>
+        <View className="flex-1 items-center px-2">
+          <Text
+            className="text-white text-xl font-semibold tracking-tight"
+            numberOfLines={1}
+          >
             {current.exercise.nameTr ?? current.exercise.name}
           </Text>
-          <Text className="text-muted text-xs">
+          <Text className="text-muted/70 text-xs tabular-nums tracking-widest mt-0.5">
             {safeIndex + 1} / {seData.length}
           </Text>
         </View>
@@ -279,10 +285,13 @@ function SessionContent({ sessionId }: { sessionId: string }) {
           onPress={nextExercise}
           disabled={safeIndex === seData.length - 1}
           hitSlop={8}
+          className="w-12 h-12 rounded-full items-center justify-center bg-bg-surface active:bg-bg-elevated"
         >
           <ChevronRight
-            color={safeIndex === seData.length - 1 ? '#334155' : '#fff'}
-            size={28}
+            color={
+              safeIndex === seData.length - 1 ? DISABLED_ICON : COLORS.text
+            }
+            size={26}
           />
         </Pressable>
       </View>
@@ -290,7 +299,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
       {/* Egzersiz içeriği (set listesi) */}
       <ScrollView
         className="flex-1"
-        contentContainerClassName="p-4 gap-3 pb-32"
+        contentContainerClassName="px-4 pt-4 gap-3 pb-32"
         keyboardShouldPersistTaps="handled"
       >
         <ExerciseSetEditor
@@ -301,13 +310,11 @@ function SessionContent({ sessionId }: { sessionId: string }) {
       </ScrollView>
 
       {/* Alt aksiyon: antrenmanı bitir */}
-      <View className="bg-bg-surface p-3 border-t border-bg-elevated">
-        <Pressable
+      <View className="bg-bg px-4 py-3 border-t border-border">
+        <SecondaryButton
           onPress={handleFinishWorkout}
-          className="bg-bg-elevated rounded-lg py-3 items-center"
-        >
-          <Text className="text-white font-semibold">Antrenmanı Bitir</Text>
-        </Pressable>
+          label="Antrenmanı Bitir"
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -406,11 +413,11 @@ function ExerciseSetEditor({
     <View className="gap-3">
       {/* Auto-fill bilgisi */}
       {lastSession && lastSession.sets.length > 0 && (
-        <View className="bg-bg-surface rounded-xl p-3 border-l-2 border-accent">
-          <Text className="text-muted text-xs">
+        <View className="bg-bg-surface border border-border rounded-2xl px-4 py-3">
+          <Text className="text-muted text-xs uppercase tracking-widest">
             Son antrenman ({formatDate(lastSession.sessionDate)})
           </Text>
-          <Text className="text-white text-sm mt-1">
+          <Text className="text-white text-sm mt-1.5 tabular-nums">
             {lastSession.sets
               .map(
                 (s) =>
@@ -422,12 +429,18 @@ function ExerciseSetEditor({
       )}
 
       {/* Set başlık satırı */}
-      <View className="flex-row px-2">
-        <Text className="text-muted text-xs w-8">SET</Text>
-        <Text className="text-muted text-xs flex-1 text-center">ÖNCEKİ</Text>
-        <Text className="text-muted text-xs w-20 text-center">KG</Text>
-        <Text className="text-muted text-xs w-16 text-center">TEKRAR</Text>
-        <Text className="text-muted text-xs w-10"></Text>
+      <View className="flex-row px-2 mt-2">
+        <Text className="text-muted text-[11px] tracking-widest w-9">SET</Text>
+        <Text className="text-muted text-[11px] tracking-widest flex-1 text-center">
+          ÖNCEKİ
+        </Text>
+        <Text className="text-muted text-[11px] tracking-widest w-20 text-center">
+          KG
+        </Text>
+        <Text className="text-muted text-[11px] tracking-widest w-16 text-center ml-2">
+          TEKRAR
+        </Text>
+        <Text className="text-muted text-[11px] w-12 ml-2"></Text>
       </View>
 
       {/* Setler */}
@@ -444,10 +457,10 @@ function ExerciseSetEditor({
       {/* Set ekle butonu */}
       <Pressable
         onPress={handleAddSet}
-        className="bg-bg-surface border border-dashed border-bg-elevated rounded-xl p-3 items-center flex-row justify-center"
+        className="min-h-[52px] border border-dashed border-border rounded-2xl items-center flex-row justify-center mt-1 active:bg-bg-surface"
       >
-        <Plus color="#22c55e" size={16} />
-        <Text className="text-accent font-semibold ml-1">Set Ekle</Text>
+        <Plus color={COLORS.text} size={18} />
+        <Text className="text-white text-base font-semibold ml-2">Set Ekle</Text>
       </Pressable>
     </View>
   );
@@ -538,47 +551,50 @@ function SetRow({ set, previousSet, restSeconds, vibrate }: SetRowProps) {
 
   return (
     <View
-      className={`flex-row items-center px-2 py-2 rounded-lg ${
+      className={`flex-row items-center min-h-[60px] px-2 py-2 rounded-2xl ${
         set.isCompleted ? 'bg-accent/10' : ''
       }`}
     >
-      <Text className="text-white text-base font-semibold w-8">
+      <Text className="text-white text-lg font-semibold tabular-nums w-9">
         {set.setNumber}
       </Text>
-      <Text className="text-muted text-xs flex-1 text-center" numberOfLines={1}>
+      <Text
+        className="text-muted text-sm tabular-nums flex-1 text-center"
+        numberOfLines={1}
+      >
         {previousLabel}
       </Text>
       <TextInput
         value={weight}
         onChangeText={updateWeight}
         placeholder={previousSet?.weightKg ? String(previousSet.weightKg) : '-'}
-        placeholderTextColor="#334155"
+        placeholderTextColor={COLORS.muted}
         keyboardType="decimal-pad"
         editable={!set.isCompleted}
-        className={`w-20 text-center py-2 rounded ${
-          set.isCompleted ? 'bg-bg-elevated/50 text-muted' : 'bg-bg-elevated text-white'
+        className={`w-20 h-12 text-center text-lg font-semibold tabular-nums px-2 rounded-xl ${
+          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-white'
         }`}
       />
       <TextInput
         value={reps}
         onChangeText={updateReps}
         placeholder={previousSet?.reps ? String(previousSet.reps) : '-'}
-        placeholderTextColor="#334155"
+        placeholderTextColor={COLORS.muted}
         keyboardType="number-pad"
         editable={!set.isCompleted}
-        className={`w-16 text-center py-2 rounded ml-2 ${
-          set.isCompleted ? 'bg-bg-elevated/50 text-muted' : 'bg-bg-elevated text-white'
+        className={`w-16 h-12 text-center text-lg font-semibold tabular-nums px-2 rounded-xl ml-2 ${
+          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-white'
         }`}
       />
       <Pressable onPress={toggleComplete} hitSlop={6} className="ml-2">
         <View
-          className={`w-10 h-9 rounded items-center justify-center ${
-            set.isCompleted ? 'bg-accent' : 'bg-bg-elevated'
+          className={`w-12 h-12 rounded-xl items-center justify-center ${
+            set.isCompleted ? 'bg-accent' : 'bg-bg-elevated border border-border'
           }`}
         >
           <Check
-            color={set.isCompleted ? '#0f172a' : '#64748b'}
-            size={18}
+            color={set.isCompleted ? COLORS.accentFg : COLORS.muted}
+            size={20}
             strokeWidth={3}
           />
         </View>

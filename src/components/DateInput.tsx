@@ -11,6 +11,7 @@ import { useRef } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { digitsOnly, type DateParts } from '@/lib/format';
+import { COLORS } from '@/theme';
 
 interface DateInputProps {
   label?: string;
@@ -41,19 +42,19 @@ export function DateInput({ label, value, onChange, error }: DateInputProps) {
     onChange({ ...value, year: digitsOnly(text).slice(0, 4) });
   };
 
-  const inputClass = `bg-bg-elevated text-white px-3 py-2 rounded-lg text-center ${
-    error ? 'border border-red-500' : ''
+  const inputClass = `bg-bg-elevated text-white text-base tabular-nums h-12 px-3 rounded-xl text-center border ${
+    error ? 'border-danger' : 'border-transparent'
   }`;
 
   return (
     <View>
-      {label != null && <Text className="text-muted text-xs mb-1">{label}</Text>}
+      {label != null && <Text className="text-muted text-xs mb-2">{label}</Text>}
       <View className="flex-row items-center gap-2">
         <TextInput
           value={value.day}
           onChangeText={handleDay}
           placeholder="GG"
-          placeholderTextColor="#64748b"
+          placeholderTextColor={COLORS.muted}
           keyboardType="number-pad"
           maxLength={2}
           className={`w-14 ${inputClass}`}
@@ -64,7 +65,7 @@ export function DateInput({ label, value, onChange, error }: DateInputProps) {
           value={value.month}
           onChangeText={handleMonth}
           placeholder="AA"
-          placeholderTextColor="#64748b"
+          placeholderTextColor={COLORS.muted}
           keyboardType="number-pad"
           maxLength={2}
           className={`w-14 ${inputClass}`}
@@ -75,13 +76,13 @@ export function DateInput({ label, value, onChange, error }: DateInputProps) {
           value={value.year}
           onChangeText={handleYear}
           placeholder="YYYY"
-          placeholderTextColor="#64748b"
+          placeholderTextColor={COLORS.muted}
           keyboardType="number-pad"
           maxLength={4}
           className={`w-20 ${inputClass}`}
         />
       </View>
-      {error ? <Text className="text-red-400 text-xs mt-1">{error}</Text> : null}
+      {error ? <Text className="text-danger text-xs mt-2">{error}</Text> : null}
     </View>
   );
 }
