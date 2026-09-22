@@ -29,6 +29,7 @@ import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -773,6 +774,9 @@ function AboutSection() {
       label: 'Uygulama sürümü',
       value: Constants.expoConfig?.version ?? '—',
     },
+    { label: 'Çalışma zamanı', value: Updates.runtimeVersion || '—' },
+    { label: 'Kanal', value: Updates.channel || '—' },
+    { label: 'Güncelleme', value: updateIdText() },
     { label: 'Egzersiz', value: countText(exerciseCount.data?.[0]?.count) },
     { label: 'Rutin', value: countText(routineCount.data?.[0]?.count) },
     { label: 'Antrenman', value: countText(sessionCount.data?.[0]?.count) },
@@ -799,6 +803,16 @@ function AboutSection() {
       </View>
     </Section>
   );
+}
+
+/**
+ * Çalışan JS paketinin kimliği. Expo Go ve geliştirme modunda
+ * expo-updates kapalıdır, o durumda "—".
+ */
+function updateIdText(): string {
+  if (!Updates.isEnabled) return '—';
+  if (Updates.isEmbeddedLaunch) return 'Gömülü';
+  return Updates.updateId ? Updates.updateId.slice(0, 8) : '—';
 }
 
 function countText(n: number | undefined): string {

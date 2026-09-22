@@ -8,6 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "node": "22.17.1",
+      "channel": "development",
       "android": {
         "buildType": "apk"
       }
@@ -15,6 +16,7 @@
     "preview": {
       "distribution": "internal",
       "node": "22.17.1",
+      "channel": "preview",
       "android": {
         "buildType": "apk"
       }
@@ -22,6 +24,7 @@
     "production": {
       "autoIncrement": true,
       "node": "22.17.1",
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       }

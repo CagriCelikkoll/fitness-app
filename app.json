@@ -3,10 +3,16 @@
     "name": "Fitness Tracker",
     "slug": "fitness-tracker",
     "scheme": "fitnesstracker",
-    "version": "0.8.0",
+    "version": "0.9.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/46ac6c2a-a221-476f-948d-435673f4f0a4"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.fitnesstracker.app"
@@ -18,7 +24,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.fitnesstracker.app",
-      "versionCode": 1
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png",
