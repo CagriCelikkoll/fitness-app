@@ -41,6 +41,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "46ac6c2a-a221-476f-948d-435673f4f0a4"
+      }
+    },
+    "owner": "cagricelikkoll"
   }
 }
