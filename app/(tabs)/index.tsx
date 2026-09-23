@@ -153,10 +153,6 @@ export default function HomeScreen() {
           ))
         )}
       </Card>
-
-      <Text className="text-muted/60 text-xs text-center mt-4">
-        Aşama 1 ✓ Egzersiz kütüphanesi  •  Rutinler  •  Antrenman loglama
-      </Text>
     </ScrollView>
   );
 }

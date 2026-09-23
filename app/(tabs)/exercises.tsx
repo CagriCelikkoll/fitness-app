@@ -3,6 +3,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -10,52 +11,44 @@ import {
 } from 'react-native';
 import { Link } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { and, eq, like, or, asc } from 'drizzle-orm';
 import { Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
 import { getExerciseCoverUrl } from '@/lib/exerciseImage';
+import {
+  exerciseListCondition,
+  exerciseListOrder,
+} from '@/lib/exerciseFilter';
+import {
+  EXERCISE_FILTER_OPTIONS,
+  categoryLabel,
+  equipmentLabel,
+  muscleLabels,
+} from '@/lib/exerciseTaxonomy';
 import { COLORS } from '@/theme';
 import { Chip } from '@/components/ui';
-
-type CategoryFilter = 'all' | 'strength' | 'cardio' | 'stretching';
-
-const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
-  { value: 'all', label: 'Hepsi' },
-  { value: 'strength', label: 'Güç' },
-  { value: 'cardio', label: 'Kardiyo' },
-  { value: 'stretching', label: 'Esneklik' },
-];
 
 export default function ExercisesScreen() {
   const db = useDb();
 
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<CategoryFilter>('all');
+  const [filterId, setFilterId] = useState('all');
 
   // useLiveQuery — DB değişikliklerini reaktif olarak takip eder.
   // Kullanıcı yeni custom egzersiz eklediğinde anında listede çıkar.
   const baseQuery = useMemo(() => {
-    const conditions = [eq(exercises.isArchived, false)];
-    if (category !== 'all') {
-      conditions.push(eq(exercises.category, category));
-    }
-    if (search.trim()) {
-      const pattern = `%${search.trim()}%`;
-      conditions.push(
-        or(like(exercises.name, pattern), like(exercises.nameTr, pattern))!
-      );
-    }
+    const option =
+      EXERCISE_FILTER_OPTIONS.find((o) => o.id === filterId) ??
+      EXERCISE_FILTER_OPTIONS[0]!;
     return db
       .select()
       .from(exercises)
-      .where(and(...conditions))
-      .orderBy(asc(exercises.name))
-      .limit(200);
-  }, [db, category, search]);
+      .where(exerciseListCondition(option.filter, search))
+      .orderBy(...exerciseListOrder(option.filter));
+  }, [db, filterId, search]);
 
-  const { data, error } = useLiveQuery(baseQuery, [category, search]);
+  const { data, error } = useLiveQuery(baseQuery, [filterId, search]);
 
   if (error) {
     return (
@@ -87,16 +80,22 @@ export default function ExercisesScreen() {
           )}
         </View>
 
-        <View className="flex-row gap-2">
-          {CATEGORY_OPTIONS.map((opt) => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="-mx-5 grow-0"
+          contentContainerClassName="px-5 gap-2"
+          keyboardShouldPersistTaps="handled"
+        >
+          {EXERCISE_FILTER_OPTIONS.map((opt) => (
             <Chip
-              key={opt.value}
+              key={opt.id}
               label={opt.label}
-              active={category === opt.value}
-              onPress={() => setCategory(opt.value)}
+              active={filterId === opt.id}
+              onPress={() => setFilterId(opt.id)}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Liste */}
@@ -125,7 +124,6 @@ export default function ExercisesScreen() {
         <View className="absolute bottom-0 left-0 right-0 bg-bg/90 border-t border-border px-5 py-1.5">
           <Text className="text-muted/70 text-[11px] tracking-wide text-center tabular-nums">
             {data.length} egzersiz gösteriliyor
-            {data.length === 200 && ' (ilk 200)'}
           </Text>
         </View>
       )}
@@ -135,7 +133,7 @@ export default function ExercisesScreen() {
 
 function ExerciseRow({ exercise }: { exercise: Exercise }) {
   const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
-  const muscles = parseJsonArray(exercise.primaryMuscles);
+  const muscles = muscleLabels(exercise.primaryMuscles);
   const displayName = exercise.nameTr ?? exercise.name;
 
   return (
@@ -159,24 +157,15 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
             {displayName}
           </Text>
           <Text className="text-muted text-xs mt-1" numberOfLines={1}>
-            {muscles.join(', ') || exercise.category}
+            {muscles.join(', ') || categoryLabel(exercise.category)}
           </Text>
           {exercise.equipment && (
             <Text className="text-muted/70 text-xs mt-0.5" numberOfLines={1}>
-              {exercise.equipment}
+              {equipmentLabel(exercise.equipment)}
             </Text>
           )}
         </View>
       </Pressable>
     </Link>
   );
-}
-
-function parseJsonArray(value: string | null): string[] {
-  if (!value) return [];
-  try {
-    return JSON.parse(value);
-  } catch {
-    return [];
-  }
 }

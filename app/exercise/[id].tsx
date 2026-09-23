@@ -6,6 +6,13 @@ import { eq } from 'drizzle-orm';
 import { useDb } from '@/hooks/useDb';
 import { exercises } from '@/db/schema';
 import { getExerciseImageUrls } from '@/lib/exerciseImage';
+import {
+  equipmentLabel,
+  forceLabel,
+  levelLabel,
+  mechanicLabel,
+  muscleLabels,
+} from '@/lib/exerciseTaxonomy';
 import { COLORS } from '@/theme';
 import { Card, Chip, SectionHeader } from '@/components/ui';
 
@@ -37,8 +44,8 @@ export default function ExerciseDetailScreen() {
   }
 
   const imageUrls = getExerciseImageUrls(exercise.imagePaths);
-  const primaryMuscles = parseJsonArray(exercise.primaryMuscles);
-  const secondaryMuscles = parseJsonArray(exercise.secondaryMuscles);
+  const primaryMuscles = muscleLabels(exercise.primaryMuscles);
+  const secondaryMuscles = muscleLabels(exercise.secondaryMuscles);
   const instructions = parseJsonArray(exercise.instructions);
   const displayName = exercise.nameTr ?? exercise.name;
 
@@ -79,11 +86,20 @@ export default function ExerciseDetailScreen() {
         {/* Hızlı bilgiler */}
         <View className="flex-row flex-wrap gap-2">
           {exercise.equipment && (
-            <Chip size="sm" label={`Ekipman: ${exercise.equipment}`} />
+            <Chip
+              size="sm"
+              label={`Ekipman: ${equipmentLabel(exercise.equipment)}`}
+            />
           )}
-          {exercise.mechanic && <Chip size="sm" label={exercise.mechanic} />}
-          {exercise.force && <Chip size="sm" label={exercise.force} />}
-          {exercise.level && <Chip size="sm" label={exercise.level} />}
+          {exercise.mechanic && (
+            <Chip size="sm" label={mechanicLabel(exercise.mechanic)} />
+          )}
+          {exercise.force && (
+            <Chip size="sm" label={forceLabel(exercise.force)} />
+          )}
+          {exercise.level && (
+            <Chip size="sm" label={`Seviye: ${levelLabel(exercise.level)}`} />
+          )}
         </View>
 
         {/* Kaslar */}

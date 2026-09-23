@@ -4,29 +4,29 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { and, asc, eq, like, or } from 'drizzle-orm';
 import { Check, Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
 import { getExerciseCoverUrl } from '@/lib/exerciseImage';
+import {
+  exerciseListCondition,
+  exerciseListOrder,
+} from '@/lib/exerciseFilter';
+import {
+  EXERCISE_FILTER_OPTIONS,
+  categoryLabel,
+  muscleLabels,
+} from '@/lib/exerciseTaxonomy';
 import { COLORS } from '@/theme';
 import { Chip } from '@/components/ui';
-
-type CategoryFilter = 'all' | 'strength' | 'cardio' | 'stretching';
-
-const CATEGORY_OPTIONS: { value: CategoryFilter; label: string }[] = [
-  { value: 'all', label: 'Hepsi' },
-  { value: 'strength', label: 'Güç' },
-  { value: 'cardio', label: 'Kardiyo' },
-  { value: 'stretching', label: 'Esneklik' },
-];
 
 interface Props {
   visible: boolean;
@@ -50,7 +50,7 @@ export function ExercisePickerModal({
   const db = useDb();
 
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<CategoryFilter>('all');
+  const [filterId, setFilterId] = useState('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(initiallySelectedIds)
   );
@@ -68,25 +68,17 @@ export function ExercisePickerModal({
   }, [visible]);
 
   const query = useMemo(() => {
-    const conditions = [eq(exercises.isArchived, false)];
-    if (category !== 'all') {
-      conditions.push(eq(exercises.category, category));
-    }
-    if (search.trim()) {
-      const pattern = `%${search.trim()}%`;
-      conditions.push(
-        or(like(exercises.name, pattern), like(exercises.nameTr, pattern))!
-      );
-    }
+    const option =
+      EXERCISE_FILTER_OPTIONS.find((o) => o.id === filterId) ??
+      EXERCISE_FILTER_OPTIONS[0]!;
     return db
       .select()
       .from(exercises)
-      .where(and(...conditions))
-      .orderBy(asc(exercises.name))
-      .limit(200);
-  }, [db, category, search]);
+      .where(exerciseListCondition(option.filter, search))
+      .orderBy(...exerciseListOrder(option.filter));
+  }, [db, filterId, search]);
 
-  const { data } = useLiveQuery(query, [category, search]);
+  const { data } = useLiveQuery(query, [filterId, search]);
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -167,16 +159,22 @@ export function ExercisePickerModal({
             )}
           </View>
 
-          <View className="flex-row gap-2">
-            {CATEGORY_OPTIONS.map((opt) => (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="-mx-5 grow-0"
+            contentContainerClassName="px-5 gap-2"
+            keyboardShouldPersistTaps="handled"
+          >
+            {EXERCISE_FILTER_OPTIONS.map((opt) => (
               <Chip
-                key={opt.value}
+                key={opt.id}
                 label={opt.label}
-                active={category === opt.value}
-                onPress={() => setCategory(opt.value)}
+                active={filterId === opt.id}
+                onPress={() => setFilterId(opt.id)}
               />
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Liste */}
@@ -213,7 +211,7 @@ function PickerRow({
   onToggle: () => void;
 }) {
   const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
-  const muscles = parseJsonArray(exercise.primaryMuscles);
+  const muscles = muscleLabels(exercise.primaryMuscles);
   const displayName = exercise.nameTr ?? exercise.name;
 
   return (
@@ -241,7 +239,7 @@ function PickerRow({
           {displayName}
         </Text>
         <Text className="text-muted text-xs mt-1" numberOfLines={1}>
-          {muscles.join(', ') || exercise.category}
+          {muscles.join(', ') || categoryLabel(exercise.category)}
         </Text>
       </View>
       <View
@@ -255,13 +253,4 @@ function PickerRow({
       </View>
     </Pressable>
   );
-}
-
-function parseJsonArray(value: string | null): string[] {
-  if (!value) return [];
-  try {
-    return JSON.parse(value);
-  } catch {
-    return [];
-  }
 }
