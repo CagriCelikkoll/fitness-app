@@ -10,7 +10,14 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, count, eq } from 'drizzle-orm';
-import { Dumbbell, Pencil, Play, Plus, Trash2 } from 'lucide-react-native';
+import {
+  Dumbbell,
+  LayoutList,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
+} from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import {
@@ -24,7 +31,13 @@ import {
 import { newId } from '@/lib/id';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { COLORS } from '@/theme';
-import { Card, EmptyState, PrimaryButton } from '@/components/ui';
+import {
+  Card,
+  EmptyState,
+  ListRow,
+  PrimaryButton,
+  SecondaryButton,
+} from '@/components/ui';
 
 export default function WorkoutScreen() {
   const router = useRouter();
@@ -172,18 +185,35 @@ export default function WorkoutScreen() {
           title="Henüz rutin yok"
           description="İlk antrenman rutinini oluşturarak başla. Egzersizleri seç, hedef set/tekrar ata, başlat."
           action={
-            <Link href="/routine/new" asChild>
-              <PrimaryButton
-                label="İlk Rutini Oluştur"
-                icon={Plus}
-              />
-            </Link>
+            <View className="gap-3">
+              <Link href="/templates" asChild>
+                <PrimaryButton label="Hazır Program Seç" icon={LayoutList} />
+              </Link>
+              <Link href="/routine/new" asChild>
+                <SecondaryButton
+                  label="İlk Rutini Oluştur"
+                  icon={Plus}
+                />
+              </Link>
+            </View>
           }
         />
       ) : (
         <FlatList
           data={routineList}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <Link href="/templates" asChild>
+              <ListRow chevron className="px-1">
+                <View className="flex-row items-center">
+                  <LayoutList color={COLORS.muted} size={17} strokeWidth={1.75} />
+                  <Text className="text-muted text-sm ml-3">
+                    Hazır programlara göz at
+                  </Text>
+                </View>
+              </ListRow>
+            </Link>
+          }
           renderItem={({ item }) => (
             <RoutineCard
               routine={{

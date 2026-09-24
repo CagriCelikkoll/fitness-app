@@ -157,6 +157,14 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen
+                  name="templates/index"
+                  options={{ title: 'Hazır Programlar' }}
+                />
+                <Stack.Screen
+                  name="templates/[id]"
+                  options={{ title: 'Program' }}
+                />
+                <Stack.Screen
                   name="metrics/[date]"
                   options={{ title: 'Ölçüm', presentation: 'modal' }}
                 />
