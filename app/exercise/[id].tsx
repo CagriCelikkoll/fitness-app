@@ -12,9 +12,12 @@ import {
   levelLabel,
   mechanicLabel,
   muscleLabels,
+  parseMuscles,
 } from '@/lib/exerciseTaxonomy';
+import { exerciseHighlight } from '@/lib/muscleMap';
 import { COLORS } from '@/theme';
 import { Card, Chip, SectionHeader } from '@/components/ui';
+import { MuscleMap } from '@/components/MuscleMap';
 
 export default function ExerciseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,6 +49,10 @@ export default function ExerciseDetailScreen() {
   const imageUrls = getExerciseImageUrls(exercise.imagePaths);
   const primaryMuscles = muscleLabels(exercise.primaryMuscles);
   const secondaryMuscles = muscleLabels(exercise.secondaryMuscles);
+  const highlights = exerciseHighlight(
+    parseMuscles(exercise.primaryMuscles),
+    parseMuscles(exercise.secondaryMuscles)
+  );
   const instructions = parseJsonArray(exercise.instructions);
   const displayName = exercise.nameTr ?? exercise.name;
 
@@ -105,6 +112,7 @@ export default function ExerciseDetailScreen() {
         {/* Kaslar */}
         <SectionHeader title="Çalıştırılan Kaslar" className="mt-4" />
         <Card className="gap-4">
+          {highlights.length > 0 && <MuscleMap highlights={highlights} />}
           {primaryMuscles.length > 0 && (
             <View>
               <Text className="text-muted text-xs uppercase tracking-widest">

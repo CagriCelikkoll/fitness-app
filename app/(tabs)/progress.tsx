@@ -10,9 +10,9 @@
  * kalori açığı gibi yönlendirmeler yok.
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, eq } from 'drizzle-orm';
 import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
@@ -34,8 +34,22 @@ import {
   formatSignedKg,
   toDateKey,
 } from '@/lib/format';
+import { muscleLabel } from '@/lib/exerciseTaxonomy';
+import { muscleVolume, volumeHighlight } from '@/lib/muscleMap';
+import {
+  toMuscleSets,
+  weeklyMuscleSetsQuery,
+  weeklyWindowStart,
+} from '@/lib/weeklyMuscles';
 import { COLORS } from '@/theme';
-import { Card, ListRow, SectionHeader, StatTile } from '@/components/ui';
+import {
+  Card,
+  EmptyState,
+  ListRow,
+  SectionHeader,
+  StatTile,
+} from '@/components/ui';
+import { MuscleMap } from '@/components/MuscleMap';
 
 interface Profile {
   heightCm: number | null;
@@ -85,6 +99,7 @@ export default function ProgressScreen() {
           withWeight={withWeight}
         />
         <WeightChartCard withWeight={withWeight} />
+        <WeeklyMusclesCard />
         <HistoryCard metrics={metrics} />
       </ScrollView>
 
@@ -443,7 +458,70 @@ function WeightChartCard({
 }
 
 // ============================================================================
-// e) Ölçüm geçmişi
+// e) Bu hafta çalışılan kaslar
+// ============================================================================
+
+/**
+ * Son 7 günde biten seansların tamamlanmış normal setleri; birincil kas
+ * 1, ikincil kas 0,5 set sayılıyor.
+ */
+function WeeklyMusclesCard() {
+  const db = useDb();
+  const [volume, setVolume] = useState<Record<string, number> | null>(null);
+
+  // useLiveQuery yalnızca FROM tablosunu (sets) dinliyor; antrenmanı
+  // bitirmek workout_sessions'ı güncellediği için harita yenilenmezdi.
+  // Setler başka ekranlarda değiştiğinden sekmeye her dönüşte okunuyor.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      weeklyMuscleSetsQuery(db, weeklyWindowStart(new Date())).then((rows) => {
+        if (active) setVolume(muscleVolume(toMuscleSets(rows)));
+      });
+      return () => {
+        active = false;
+      };
+    }, [db])
+  );
+
+  if (!volume) return null;
+
+  const ranked = Object.entries(volume).sort(([, a], [, b]) => b - a);
+
+  return (
+    <View className="gap-3">
+      <SectionHeader
+        title="Bu Hafta Çalışılan Kaslar"
+        description="Son 7 gün"
+        className="mt-4"
+      />
+      <Card className="gap-4">
+        {ranked.length === 0 ? (
+          <EmptyState title="Bu hafta henüz antrenman yok" className="py-6" />
+        ) : (
+          <>
+            <MuscleMap highlights={volumeHighlight(volume)} variant="weekly" />
+            <View className="gap-2">
+              {ranked.map(([muscle, sets]) => (
+                <View key={muscle} className="flex-row justify-between">
+                  <Text className="text-white text-base">
+                    {muscleLabel(muscle)}
+                  </Text>
+                  <Text className="text-muted text-base tabular-nums">
+                    {formatDecimal(sets)} set
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+      </Card>
+    </View>
+  );
+}
+
+// ============================================================================
+// f) Ölçüm geçmişi
 // ============================================================================
 
 function HistoryCard({ metrics }: { metrics: BodyMetric[] }) {
