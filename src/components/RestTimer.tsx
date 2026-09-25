@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Pause, Plus, Minus, X } from 'lucide-react-native';
+import { Minus, Plus, X, type LucideIcon } from 'lucide-react-native';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
@@ -17,6 +17,10 @@ import { COLORS } from '@/theme';
  * - "Dinlenme tamamlandı" uyarısı 3 saniye görünür kalır
  *
  * Kullanıcı sürebilir: +/- 15 saniye, manuel iptal.
+ *
+ * Render düzeni: geri sayım ve ilerleme çubuğu kendi zamanlayıcılarıyla
+ * saniyede bir yenilenen küçük bileşenler; bu bileşen ve düğmeler yalnızca
+ * sayaç değişince (başlatma, +/-, bitiş) render ediliyor.
  */
 export function RestTimer() {
   const restTimer = useActiveWorkoutStore((s) => s.restTimer);
@@ -25,46 +29,41 @@ export function RestTimer() {
 
   const { settings } = useAppSettings();
   const vibrate = settings?.restTimerVibrate ?? FALLBACK_REST_VIBRATE;
+  // Bitiş zamanlayıcısı ayar değişince yeniden kurulmasın diye ref
+  const vibrateRef = useRef(vibrate);
+  vibrateRef.current = vibrate;
 
-  const [elapsedMs, setElapsedMs] = useState(0);
   const [completed, setCompleted] = useState(false);
 
-  // Tick interval'i — saniyede 4 kez güncelle, akıcı sayım için yeterli
+  // Bitiş anı tik aralığına bağlı değil: kalan süre kadar tek bir
+  // zamanlayıcı. Sayaç her değiştiğinde (+/-, yeniden başlatma, bitmiş
+  // sayacın +15 ile canlanması) yeniden kuruluyor; süre dolmamışsa
+  // "tamamlandı" durumundan çıkılıyor ki 3 sn'lik otomatik kapanma
+  // canlanan sayacı kapatmasın.
   useEffect(() => {
     if (!restTimer) {
-      setElapsedMs(0);
       setCompleted(false);
       return;
     }
 
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - restTimer.startedAt;
-      setElapsedMs(elapsed);
-
-      const totalMs = restTimer.durationSeconds * 1000;
-      if (elapsed >= totalMs && !completed) {
-        setCompleted(true);
-        // Bitiş haptic'i — kullanıcı titreşimi kapattıysa atlanır
-        if (vibrate) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+    const complete = () => {
+      setCompleted(true);
+      // Bitiş haptic'i — kullanıcı titreşimi kapattıysa atlanır
+      if (vibrateRef.current) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    }, 250);
+    };
 
-    return () => clearInterval(interval);
-    // vibrate dep'te: interval yeniden kurulsa da sayım startedAt'ten
-    // hesaplandığı için görünürde bir sıçrama olmuyor.
-  }, [restTimer, completed, vibrate]);
-
-  // Süre hâlâ dolmamışsa "tamamlandı" durumundan çık: bitmiş sayaç +15
-  // ile canlandığında 3 sn'lik otomatik kapanma onu kapatmasın.
-  useEffect(() => {
-    if (!restTimer) return;
-    const elapsed = Date.now() - restTimer.startedAt;
-    if (elapsed < restTimer.durationSeconds * 1000) {
-      setCompleted(false);
-      setElapsedMs(elapsed);
+    const remainingMs =
+      restTimer.startedAt + restTimer.durationSeconds * 1000 - Date.now();
+    if (remainingMs <= 0) {
+      complete();
+      return;
     }
+
+    setCompleted(false);
+    const timeout = setTimeout(complete, remainingMs);
+    return () => clearTimeout(timeout);
   }, [restTimer]);
 
   // Bitince 3 saniye sonra otomatik kapat
@@ -76,25 +75,12 @@ export function RestTimer() {
     return () => clearTimeout(timeout);
   }, [completed, stopRestTimer]);
 
+  // Store action'ları sabit referans; düğmeler render'lar arasında
+  // aynı callback'i alıyor
+  const decrease = useCallback(() => adjustRestTimer(-15), [adjustRestTimer]);
+  const increase = useCallback(() => adjustRestTimer(15), [adjustRestTimer]);
+
   if (!restTimer) return null;
-
-  const totalSeconds = restTimer.durationSeconds;
-  const elapsedSeconds = Math.floor(elapsedMs / 1000);
-  const remaining = Math.max(0, totalSeconds - elapsedSeconds);
-  const progressPct = Math.min(100, (elapsedSeconds / totalSeconds) * 100);
-
-  const minutes = Math.floor(remaining / 60);
-  const seconds = remaining % 60;
-  const timeLabel = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-  // Kalan süreyi kaydırır; sınırlar ve bitiş/canlanma store'da
-  const adjustTimer = (deltaSeconds: number) => adjustRestTimer(deltaSeconds);
-
-  // Bitişte bant kısa süreliğine limon dolguya döner (3 sn sonra kapanıyor)
-  const iconColor = completed ? COLORS.accentFg : COLORS.text;
-  const roundButton = `w-12 h-12 rounded-full items-center justify-center ${
-    completed ? 'bg-accent-fg/10' : 'bg-bg-elevated active:bg-border'
-  }`;
 
   return (
     <View
@@ -102,24 +88,19 @@ export function RestTimer() {
         completed ? 'bg-accent border-accent' : 'bg-bg-surface border-border'
       }`}
     >
-      {/* Progress bar */}
-      <View
-        className={`h-[3px] rounded-full overflow-hidden mb-3 ${
-          completed ? 'bg-accent-fg/20' : 'bg-bg-elevated'
-        }`}
-      >
-        <View
-          className={`h-full ${completed ? 'bg-accent-fg' : 'bg-accent'}`}
-          style={{ width: `${progressPct}%` }}
-        />
-      </View>
+      <TimerProgress
+        startedAt={restTimer.startedAt}
+        durationSeconds={restTimer.durationSeconds}
+        completed={completed}
+      />
 
       <View className="flex-row items-center justify-between">
-        <Pressable onPress={() => adjustTimer(-15)} hitSlop={8}>
-          <View className={roundButton}>
-            <Minus color={iconColor} size={20} />
-          </View>
-        </Pressable>
+        <TimerButton
+          icon={Minus}
+          label="15 saniye azalt"
+          onPress={decrease}
+          completed={completed}
+        />
 
         <View className="flex-1 items-center">
           {completed ? (
@@ -127,29 +108,137 @@ export function RestTimer() {
               Dinlenme tamam ✓
             </Text>
           ) : (
-            <>
-              <Text className="text-white text-5xl font-bold tabular-nums tracking-tight">
-                {timeLabel}
-              </Text>
-              <Text className="text-muted text-xs tracking-wide tabular-nums">
-                {restTimer.durationSeconds}sn dinlenme
-              </Text>
-            </>
+            <TimerCountdown
+              startedAt={restTimer.startedAt}
+              durationSeconds={restTimer.durationSeconds}
+            />
           )}
         </View>
 
-        <Pressable onPress={() => adjustTimer(15)} hitSlop={8}>
-          <View className={roundButton}>
-            <Plus color={iconColor} size={20} />
-          </View>
-        </Pressable>
+        <TimerButton
+          icon={Plus}
+          label="15 saniye artır"
+          onPress={increase}
+          completed={completed}
+        />
 
-        <Pressable onPress={stopRestTimer} hitSlop={8} className="ml-2">
-          <View className={roundButton}>
-            <X color={iconColor} size={20} />
-          </View>
-        </Pressable>
+        <TimerButton
+          icon={X}
+          label="Dinlenmeyi bitir"
+          onPress={stopRestTimer}
+          completed={completed}
+          className="ml-2"
+        />
       </View>
     </View>
   );
 }
+
+/**
+ * startedAt'ten bu yana geçen ms; her tam saniye sınırında yenilenir.
+ * Ekranda saniye gösterildiği için 250 ms'lik tik gereksizdi; sınıra
+ * hizalı zamanlayıcı rakamın geç dönmesini de önlüyor.
+ */
+function useElapsedMs(startedAt: number): number {
+  const [elapsedMs, setElapsedMs] = useState(() => Date.now() - startedAt);
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const elapsed = Date.now() - startedAt;
+      setElapsedMs(elapsed);
+      // Bir sonraki tam saniyeye kadar bekle (+5 ms: sınırın hemen ardı)
+      timeout = setTimeout(tick, 1000 - (((elapsed % 1000) + 1000) % 1000) + 5);
+    };
+    tick();
+    return () => clearTimeout(timeout);
+  }, [startedAt]);
+
+  return elapsedMs;
+}
+
+interface TimerDisplayProps {
+  startedAt: number;
+  durationSeconds: number;
+}
+
+const TimerProgress = memo(function TimerProgress({
+  startedAt,
+  durationSeconds,
+  completed,
+}: TimerDisplayProps & { completed: boolean }) {
+  const elapsedSeconds = Math.floor(useElapsedMs(startedAt) / 1000);
+  const progressPct = completed
+    ? 100
+    : Math.min(100, (elapsedSeconds / Math.max(durationSeconds, 1)) * 100);
+
+  return (
+    <View
+      className={`h-[3px] rounded-full overflow-hidden mb-3 ${
+        completed ? 'bg-accent-fg/20' : 'bg-bg-elevated'
+      }`}
+    >
+      <View
+        className={`h-full ${completed ? 'bg-accent-fg' : 'bg-accent'}`}
+        style={{ width: `${progressPct}%` }}
+      />
+    </View>
+  );
+});
+
+const TimerCountdown = memo(function TimerCountdown({
+  startedAt,
+  durationSeconds,
+}: TimerDisplayProps) {
+  const elapsedSeconds = Math.floor(useElapsedMs(startedAt) / 1000);
+  const remaining = Math.max(0, durationSeconds - elapsedSeconds);
+
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+
+  return (
+    <>
+      <Text className="text-white text-5xl font-bold tabular-nums tracking-tight">
+        {minutes}:{seconds.toString().padStart(2, '0')}
+      </Text>
+      <Text className="text-muted text-xs tracking-wide tabular-nums">
+        {durationSeconds}sn dinlenme
+      </Text>
+    </>
+  );
+});
+
+/**
+ * Yuvarlak 48×48 düğme. Basılı tonu (active:) doğrudan Pressable'da:
+ * NativeWind, active: sınıfı taşıyan bir View'u kendi Pressable'ına
+ * çeviriyor; iç içe gelince dokunuşu onPress'i olmayan içteki yutuyordu.
+ */
+const TimerButton = memo(function TimerButton({
+  icon: Icon,
+  label,
+  onPress,
+  completed,
+  className = '',
+}: {
+  icon: LucideIcon;
+  label: string;
+  onPress: () => void;
+  completed: boolean;
+  className?: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      className={`w-12 h-12 rounded-full items-center justify-center ${
+        completed
+          ? 'bg-accent-fg/10 active:bg-accent-fg/20'
+          : 'bg-bg-elevated active:bg-border'
+      } ${className}`}
+    >
+      <Icon color={completed ? COLORS.accentFg : COLORS.text} size={20} />
+    </Pressable>
+  );
+});
