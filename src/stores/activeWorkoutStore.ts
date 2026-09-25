@@ -16,6 +16,42 @@ interface RestTimer {
   durationSeconds: number;
 }
 
+/** Dinlenme süresinin üst sınırı (saniye) */
+export const MAX_REST_SECONDS = 15 * 60;
+
+/**
+ * +/- düğmesinden sonraki toplam süre. startedAt değişmiyor, yalnızca
+ * toplam süre kayıyor; kalan süre tam olarak delta kadar değişir.
+ *
+ * - Azaltma kalan süreyi 0'a ya da altına indirirse toplam süre geçen
+ *   süreye eşitlenir: sayaç bir sonraki tıkta biter, normal bitiş akışı
+ *   (titreşim, 3 sn sonra kapanma) çalışır.
+ * - Sayaç bitmişken artırma onu canlandırır: şu andan itibaren delta
+ *   kadar sayar. Bitmişken azaltma bir şey yapmaz.
+ * - Toplam süre MAX_REST_SECONDS'ı geçmez.
+ *
+ * Geçen süre, zamanlayıcı bileşenindeki gibi tam saniyeye aşağı yuvarlanıyor.
+ */
+export function adjustedRestDuration(
+  timer: RestTimer,
+  deltaSeconds: number,
+  nowMs: number
+): number {
+  const elapsed = Math.max(0, Math.floor((nowMs - timer.startedAt) / 1000));
+  const remaining = timer.durationSeconds - elapsed;
+
+  let next: number;
+  if (remaining <= 0) {
+    if (deltaSeconds <= 0) return timer.durationSeconds;
+    next = elapsed + deltaSeconds;
+  } else if (remaining + deltaSeconds <= 0) {
+    next = elapsed;
+  } else {
+    next = timer.durationSeconds + deltaSeconds;
+  }
+  return Math.min(MAX_REST_SECONDS, next);
+}
+
 interface ActiveWorkoutState {
   // Aktif session id (SQLite'a yansır)
   activeSessionId: string | null;
@@ -31,6 +67,8 @@ interface ActiveWorkoutState {
   nextExercise: () => void;
   prevExercise: () => void;
   startRestTimer: (durationSeconds: number) => void;
+  /** Çalışan sayacın toplam süresini kaydırır, startedAt'e dokunmaz */
+  adjustRestTimer: (deltaSeconds: number) => void;
   stopRestTimer: () => void;
 }
 
@@ -66,6 +104,18 @@ export const useActiveWorkoutStore = create<ActiveWorkoutState>((set) => ({
   startRestTimer: (durationSeconds) =>
     set({
       restTimer: { startedAt: Date.now(), durationSeconds },
+    }),
+
+  adjustRestTimer: (deltaSeconds) =>
+    set((s) => {
+      if (!s.restTimer) return {};
+      const durationSeconds = adjustedRestDuration(
+        s.restTimer,
+        deltaSeconds,
+        Date.now()
+      );
+      if (durationSeconds === s.restTimer.durationSeconds) return {};
+      return { restTimer: { ...s.restTimer, durationSeconds } };
     }),
 
   stopRestTimer: () => set({ restTimer: null }),

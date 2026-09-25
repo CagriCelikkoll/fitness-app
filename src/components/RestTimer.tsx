@@ -21,7 +21,7 @@ import { COLORS } from '@/theme';
 export function RestTimer() {
   const restTimer = useActiveWorkoutStore((s) => s.restTimer);
   const stopRestTimer = useActiveWorkoutStore((s) => s.stopRestTimer);
-  const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
+  const adjustRestTimer = useActiveWorkoutStore((s) => s.adjustRestTimer);
 
   const { settings } = useAppSettings();
   const vibrate = settings?.restTimerVibrate ?? FALLBACK_REST_VIBRATE;
@@ -56,6 +56,17 @@ export function RestTimer() {
     // hesaplandığı için görünürde bir sıçrama olmuyor.
   }, [restTimer, completed, vibrate]);
 
+  // Süre hâlâ dolmamışsa "tamamlandı" durumundan çık: bitmiş sayaç +15
+  // ile canlandığında 3 sn'lik otomatik kapanma onu kapatmasın.
+  useEffect(() => {
+    if (!restTimer) return;
+    const elapsed = Date.now() - restTimer.startedAt;
+    if (elapsed < restTimer.durationSeconds * 1000) {
+      setCompleted(false);
+      setElapsedMs(elapsed);
+    }
+  }, [restTimer]);
+
   // Bitince 3 saniye sonra otomatik kapat
   useEffect(() => {
     if (!completed) return;
@@ -76,13 +87,8 @@ export function RestTimer() {
   const seconds = remaining % 60;
   const timeLabel = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-  const adjustTimer = (deltaSeconds: number) => {
-    const newDuration = Math.max(15, restTimer.durationSeconds + deltaSeconds);
-    // Tek değişiklik: durationSeconds'i güncelle, startedAt'i koru
-    startRestTimer(newDuration);
-    // Hack: startRestTimer yeniden başlatıyor; manuel state ayarı için
-    // store'a yeni bir action eklemek doğrusu — şimdilik basit tutuyoruz
-  };
+  // Kalan süreyi kaydırır; sınırlar ve bitiş/canlanma store'da
+  const adjustTimer = (deltaSeconds: number) => adjustRestTimer(deltaSeconds);
 
   // Bitişte bant kısa süreliğine limon dolguya döner (3 sn sonra kapanıyor)
   const iconColor = completed ? COLORS.accentFg : COLORS.text;
