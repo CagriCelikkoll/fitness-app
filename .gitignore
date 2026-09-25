@@ -55,3 +55,6 @@ credentials.json
 *.db-shm
 
 docs/
+
+# Claude Code proje rehberi (lokal)
+CLAUDE.md
