@@ -13,23 +13,12 @@ import {
 } from 'expo-sqlite';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import migrations from '../drizzle/migrations';
 import { DATABASE_NAME } from '@/db/client';
 import * as schema from '@/db/schema';
 import { seedIfEmpty } from '@/db/seed';
 import { COLORS } from '@/theme';
-
-// React Query client — server/local DB state için
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60_000, // 1 dakika
-      retry: 1,
-    },
-  },
-});
 
 // SQLiteProvider'ın açtığı bağlantı için başlangıç ayarları.
 // foreign_keys bağlantı düzeyinde bir pragma ve SQLite'ta varsayılan
@@ -129,62 +118,60 @@ export default function RootLayout() {
           onInit={initDatabase}
         >
           <DatabaseInitializer>
-            <QueryClientProvider client={queryClient}>
-              <StatusBar style="light" />
-              <Stack
-                screenOptions={{
-                  headerStyle: { backgroundColor: COLORS.bg },
-                  headerShadowVisible: false,
-                  headerTintColor: COLORS.text,
-                  headerTitleStyle: { fontWeight: '600' },
-                  headerBackButtonDisplayMode: 'minimal',
-                  contentStyle: { backgroundColor: COLORS.bg },
+            <StatusBar style="light" />
+            <Stack
+              screenOptions={{
+                headerStyle: { backgroundColor: COLORS.bg },
+                headerShadowVisible: false,
+                headerTintColor: COLORS.text,
+                headerTitleStyle: { fontWeight: '600' },
+                headerBackButtonDisplayMode: 'minimal',
+                contentStyle: { backgroundColor: COLORS.bg },
+              }}
+            >
+              <Stack.Screen
+                name="(tabs)"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="exercise/[id]"
+                options={{ title: 'Egzersiz' }}
+              />
+              <Stack.Screen
+                name="routine/[id]"
+                options={{
+                  title: 'Rutin',
+                  presentation: 'modal',
                 }}
-              >
-                <Stack.Screen
-                  name="(tabs)"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="exercise/[id]"
-                  options={{ title: 'Egzersiz' }}
-                />
-                <Stack.Screen
-                  name="routine/[id]"
-                  options={{
-                    title: 'Rutin',
-                    presentation: 'modal',
-                  }}
-                />
-                <Stack.Screen
-                  name="templates/index"
-                  options={{ title: 'Hazır Programlar' }}
-                />
-                <Stack.Screen
-                  name="templates/[id]"
-                  options={{ title: 'Program' }}
-                />
-                <Stack.Screen
-                  name="metrics/[date]"
-                  options={{ title: 'Ölçüm', presentation: 'modal' }}
-                />
-                <Stack.Screen
-                  name="history"
-                  options={{ title: 'Antrenman Geçmişi' }}
-                />
-                <Stack.Screen
-                  name="session/[id]"
-                  options={{ title: 'Antrenman' }}
-                />
-                <Stack.Screen
-                  name="session/active"
-                  options={{
-                    title: 'Antrenman',
-                    gestureEnabled: false,
-                  }}
-                />
-              </Stack>
-            </QueryClientProvider>
+              />
+              <Stack.Screen
+                name="templates/index"
+                options={{ title: 'Hazır Programlar' }}
+              />
+              <Stack.Screen
+                name="templates/[id]"
+                options={{ title: 'Program' }}
+              />
+              <Stack.Screen
+                name="metrics/[date]"
+                options={{ title: 'Ölçüm', presentation: 'modal' }}
+              />
+              <Stack.Screen
+                name="history"
+                options={{ title: 'Antrenman Geçmişi' }}
+              />
+              <Stack.Screen
+                name="session/[id]"
+                options={{ title: 'Antrenman' }}
+              />
+              <Stack.Screen
+                name="session/active"
+                options={{
+                  title: 'Antrenman',
+                  gestureEnabled: false,
+                }}
+              />
+            </Stack>
           </DatabaseInitializer>
         </SQLiteProvider>
       </SafeAreaProvider>

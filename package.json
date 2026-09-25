@@ -10,7 +10,6 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "lint": "expo lint",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -18,8 +17,6 @@
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.4.7",
     "@react-navigation/native": "^7.1.18",
-    "@tanstack/react-query": "^5.62.11",
-    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.44.6",
     "expo": "~57.0.23",
     "expo-asset": "~57.0.17",
@@ -37,11 +34,9 @@
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "expo-updates": "~57.0.23",
-    "i18next": "^25.0.0",
     "lucide-react-native": "^1.14.0",
     "nativewind": "^4.2.1",
     "react": "19.2.3",
-    "react-i18next": "^15.7.0",
     "react-native": "0.86.3",
     "react-native-body-highlighter": "^3.2.0",
     "react-native-css-interop": "^0.2.1",
