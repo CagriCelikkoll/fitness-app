@@ -30,6 +30,12 @@ import {
 import { newId } from '@/lib/id';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { getLastSessionForExercise, type LastSessionData } from '@/lib/lastSession';
+import { getPreviousBestE1rm } from '@/lib/exerciseHistory';
+import {
+  findSessionRecordSetIds,
+  isNewE1rmRecord,
+  sessionRecordBaseline,
+} from '@/lib/exerciseProgress';
 import { RestTimer } from '@/components/RestTimer';
 import { COLORS, DISABLED_ICON } from '@/theme';
 import { SecondaryButton } from '@/components/ui';
@@ -398,6 +404,56 @@ function ExerciseSetEditor({
     };
   }, [db, exercise.id, sessionId]);
 
+  // Rekor kontrolü: mevcut seans hariç en iyi e1RM, egzersiz ekrana
+  // gelince bir kez okunuyor (set başına sorgu yok). Hangi egzersize ait
+  // olduğu tutuluyor; editör egzersiz değişince yeniden kurulmuyor, eski
+  // egzersizin değeri yenisine karışmasın. Okunamazsa kontrol yapılmıyor.
+  const [previousBest, setPreviousBest] = useState<{
+    exerciseId: string;
+    value: number | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPreviousBestE1rm(db, exercise.id, sessionId)
+      .then((value) => {
+        if (!cancelled) setPreviousBest({ exerciseId: exercise.id, value });
+      })
+      .catch((err) => {
+        console.warn('[PR-CHECK] Önceki rekor okunamadı:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, exercise.id, sessionId]);
+
+  const bestLoaded = previousBest?.exerciseId === exercise.id;
+
+  // Rozetler setlerden türetiliyor: geri alınan setin rozeti kalkıyor,
+  // egzersiz değiştirip dönünce rozetler duruyor.
+  const recordSetIds = useMemo(
+    () =>
+      bestLoaded
+        ? findSessionRecordSetIds(setsData ?? [], previousBest.value)
+        : new Set<string>(),
+    [bestLoaded, previousBest, setsData]
+  );
+
+  /** ✓ anında: bu tamamlama rekor mu (başarı titreşimi için) */
+  const isRecordCompletion = (
+    set: WorkoutSet,
+    weightKg: number,
+    reps: number
+  ): boolean => {
+    if (!bestLoaded || set.setType !== 'normal') return false;
+    const others = (setsData ?? []).filter((s) => s.id !== set.id);
+    return isNewE1rmRecord(
+      weightKg,
+      reps,
+      sessionRecordBaseline(previousBest.value, others)
+    );
+  };
+
   const handleAddSet = async () => {
     const nextSetNumber = (setsData?.length ?? 0) + 1;
     await db.insert(setsTable).values({
@@ -451,6 +507,8 @@ function ExerciseSetEditor({
           previousSet={lastSession?.sets[idx]}
           restSeconds={restSeconds}
           vibrate={vibrate}
+          isRecord={recordSetIds.has(set.id)}
+          isRecordCompletion={isRecordCompletion}
         />
       ))}
 
@@ -472,9 +530,20 @@ interface SetRowProps {
   restSeconds: number;
   /** Ayarlardaki titreşim tercihi; kapalıysa set tamamlamada haptic olmaz */
   vibrate: boolean;
+  /** 🏆 rozeti: bu set seansta bir rekor kırdı */
+  isRecord: boolean;
+  /** Tamamlama rekor mu — yalnızca başarı titreşimi için */
+  isRecordCompletion: (set: WorkoutSet, weightKg: number, reps: number) => boolean;
 }
 
-function SetRow({ set, previousSet, restSeconds, vibrate }: SetRowProps) {
+function SetRow({
+  set,
+  previousSet,
+  restSeconds,
+  vibrate,
+  isRecord,
+  isRecordCompletion,
+}: SetRowProps) {
   const db = useDb();
   const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
 
@@ -522,6 +591,15 @@ function SetRow({ set, previousSet, restSeconds, vibrate }: SetRowProps) {
       if (restSeconds > 0) {
         startRestTimer(restSeconds);
       }
+      // Rekor kontrolü: tamamlama yazıldıktan sonra, ek olarak. Hata
+      // tamamlamayı etkilemesin; set tamamlanmış kalır, yalnızca loglanır.
+      try {
+        if (vibrate && isRecordCompletion(set, parsedWeight, parsedReps)) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } catch (err) {
+        console.warn('[PR-CHECK] Rekor kontrolü başarısız:', err);
+      }
     } else {
       // Geri al
       await db
@@ -558,12 +636,21 @@ function SetRow({ set, previousSet, restSeconds, vibrate }: SetRowProps) {
       <Text className="text-white text-lg font-semibold tabular-nums w-9">
         {set.setNumber}
       </Text>
-      <Text
-        className="text-muted text-sm tabular-nums flex-1 text-center"
-        numberOfLines={1}
-      >
-        {previousLabel}
-      </Text>
+      <View className="flex-1 items-center">
+        <Text
+          className="text-muted text-sm tabular-nums text-center"
+          numberOfLines={1}
+        >
+          {previousLabel}
+        </Text>
+        {isRecord && (
+          <View className="bg-accent rounded-full px-2 py-0.5 mt-1">
+            <Text className="text-accent-fg text-[11px] font-semibold">
+              🏆 Rekor
+            </Text>
+          </View>
+        )}
+      </View>
       <TextInput
         value={weight}
         onChangeText={updateWeight}

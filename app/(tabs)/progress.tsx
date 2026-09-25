@@ -2,7 +2,7 @@
  * İlerleme sekmesi — vücut ölçümleri.
  *
  * Yukarıdan aşağıya: güncel durum, türetilmiş metrikler, 90 günlük
- * ağırlık grafiği, ölçüm geçmişi. Profil (boy/doğum tarihi/cinsiyet)
+ * ağırlık grafiği, haftalık kas haritası, rekorlar, ölçüm geçmişi. Profil (boy/doğum tarihi/cinsiyet)
  * artık Ayarlar sekmesinde; burada yalnızca eksikse oraya yönlendiren
  * bir satır görünüyor.
  *
@@ -16,7 +16,6 @@ import { Link, useFocusEffect } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, eq } from 'drizzle-orm';
 import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
-import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { useDb } from '@/hooks/useDb';
 import { appSettings, bodyMetrics, type BodyMetric } from '@/db/schema';
@@ -31,11 +30,16 @@ import {
 import {
   formatDateKey,
   formatDecimal,
+  formatShortDate,
   formatSignedKg,
   toDateKey,
 } from '@/lib/format';
 import { muscleLabel } from '@/lib/exerciseTaxonomy';
 import { muscleVolume, volumeHighlight } from '@/lib/muscleMap';
+import {
+  getRecentExerciseRecords,
+  type RecentExerciseRecords,
+} from '@/lib/exerciseHistory';
 import {
   toMuscleSets,
   weeklyMuscleSetsQuery,
@@ -49,6 +53,7 @@ import {
   SectionHeader,
   StatTile,
 } from '@/components/ui';
+import { LineChart } from '@/components/LineChart';
 import { MuscleMap } from '@/components/MuscleMap';
 
 interface Profile {
@@ -100,6 +105,7 @@ export default function ProgressScreen() {
         />
         <WeightChartCard withWeight={withWeight} />
         <WeeklyMusclesCard />
+        <RecordsCard />
         <HistoryCard metrics={metrics} />
       </ScrollView>
 
@@ -338,22 +344,13 @@ function MetricRow({ label, value, detail, note, hint }: MetricRowProps) {
 // d) Ağırlık grafiği (son 90 gün)
 // ============================================================================
 
-const CHART_HEIGHT = 140;
-const CHART_PAD = 8;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function dateKeyToTime(key: string): number {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).getTime();
-}
 
 function WeightChartCard({
   withWeight,
 }: {
   withWeight: (BodyMetric & { weightKg: number })[];
 }) {
-  const [width, setWidth] = useState(0);
-
   const cutoff = toDateKey(new Date(Date.now() - 90 * DAY_MS));
   // Liste tarihe göre azalan geliyor; grafik için artan sıraya çevir
   const points = withWeight.filter((m) => m.date >= cutoff).reverse();
@@ -375,84 +372,10 @@ function WeightChartCard({
     );
   }
 
-  const weights = points.map((p) => p.weightKg);
-  const min = Math.min(...weights);
-  const max = Math.max(...weights);
-  // Düz çizgide ölçek sıfıra bölünmesin
-  const span = max - min || 1;
-
-  const t0 = dateKeyToTime(points[0].date);
-  const tSpan = dateKeyToTime(points[points.length - 1].date) - t0 || 1;
-
-  const innerW = Math.max(width - CHART_PAD * 2, 0);
-  const innerH = CHART_HEIGHT - CHART_PAD * 2;
-  const coords = points.map((p) => ({
-    x: CHART_PAD + ((dateKeyToTime(p.date) - t0) / tSpan) * innerW,
-    y: CHART_PAD + (1 - (p.weightKg - min) / span) * innerH,
-  }));
-
   return (
     <Card className="gap-3">
       {header}
-      <View className="flex-row">
-        <View className="justify-between mr-2" style={{ height: CHART_HEIGHT }}>
-          <Text className="text-muted text-xs tabular-nums">
-            {formatDecimal(max)}
-          </Text>
-          <Text className="text-muted text-xs tabular-nums">
-            {formatDecimal(min)}
-          </Text>
-        </View>
-        <View
-          className="flex-1"
-          style={{ height: CHART_HEIGHT }}
-          onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        >
-          {width > 0 && (
-            <Svg width={width} height={CHART_HEIGHT}>
-              {/* Izgara: üst (max), orta, alt (min) */}
-              {[0, 0.5, 1].map((f) => (
-                <Line
-                  key={f}
-                  x1={0}
-                  x2={width}
-                  y1={CHART_PAD + f * innerH}
-                  y2={CHART_PAD + f * innerH}
-                  stroke={COLORS.border}
-                  strokeWidth={1}
-                />
-              ))}
-              <Polyline
-                points={coords.map((c) => `${c.x},${c.y}`).join(' ')}
-                fill="none"
-                stroke={COLORS.accent}
-                strokeWidth={2.5}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-              {coords.map((c, i) => (
-                <Circle
-                  key={i}
-                  cx={c.x}
-                  cy={c.y}
-                  r={3.5}
-                  fill={COLORS.surface}
-                  stroke={COLORS.accent}
-                  strokeWidth={2}
-                />
-              ))}
-            </Svg>
-          )}
-        </View>
-      </View>
-      <View className="flex-row justify-between">
-        <Text className="text-muted text-xs tabular-nums">
-          {formatDateKey(points[0].date)}
-        </Text>
-        <Text className="text-muted text-xs tabular-nums">
-          {formatDateKey(points[points.length - 1].date)}
-        </Text>
-      </View>
+      <LineChart points={points.map((p) => ({ x: p.date, y: p.weightKg }))} />
     </Card>
   );
 }
@@ -521,7 +444,75 @@ function WeeklyMusclesCard() {
 }
 
 // ============================================================================
-// f) Ölçüm geçmişi
+// f) Rekorlar
+// ============================================================================
+
+const RECORDS_LIMIT = 5;
+
+/**
+ * Son çalışılan egzersizlerin tahmini 1RM rekorları; satır egzersiz
+ * detayına (grafiğe) gidiyor. Kas haritasıyla aynı sebepten her
+ * odaklanmada okunuyor. Hiç veri yoksa kart görünmüyor.
+ */
+function RecordsCard() {
+  const db = useDb();
+  const [rows, setRows] = useState<RecentExerciseRecords[] | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getRecentExerciseRecords(db, RECORDS_LIMIT).then((result) => {
+        if (active) setRows(result);
+      });
+      return () => {
+        active = false;
+      };
+    }, [db])
+  );
+
+  if (!rows || rows.length === 0) return null;
+
+  return (
+    <View className="gap-3">
+      <SectionHeader
+        title="Rekorların"
+        description="Son çalıştığın egzersizler, tahmini 1RM"
+        className="mt-4"
+      />
+      <Card className="py-1">
+        {rows.map((r, idx) => (
+          <Link key={r.exerciseId} href={`/exercise/${r.exerciseId}`} asChild>
+            <ListRow
+              divider={idx > 0}
+              chevron
+              right={
+                r.records.e1rm ? (
+                  <View className="items-end">
+                    <Text className="text-white text-base font-semibold tabular-nums">
+                      {formatDecimal(r.records.e1rm.value)} kg
+                    </Text>
+                    <Text className="text-muted text-xs tabular-nums mt-0.5">
+                      {formatShortDate(r.records.e1rm.date)}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text className="text-muted text-base">—</Text>
+                )
+              }
+            >
+              <Text className="text-white text-base" numberOfLines={1}>
+                {r.nameTr ?? r.name}
+              </Text>
+            </ListRow>
+          </Link>
+        ))}
+      </Card>
+    </View>
+  );
+}
+
+// ============================================================================
+// g) Ölçüm geçmişi
 // ============================================================================
 
 function HistoryCard({ metrics }: { metrics: BodyMetric[] }) {

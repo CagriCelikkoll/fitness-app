@@ -161,7 +161,8 @@ export async function createRoutine(
 
 export interface SetSeed {
   reps?: number;
-  weightKg?: number;
+  /** null: vücut ağırlığı hareketi (verilmezse 60) */
+  weightKg?: number | null;
   isCompleted?: boolean;
   setType?: string;
 }
@@ -216,7 +217,7 @@ export async function createSession(
       setNumber: i + 1,
       setType: seed.setType ?? 'normal',
       reps: seed.reps ?? 10,
-      weightKg: seed.weightKg ?? 60,
+      weightKg: seed.weightKg === undefined ? 60 : seed.weightKg,
       isCompleted: seed.isCompleted ?? true,
     });
     setIds.push(id);

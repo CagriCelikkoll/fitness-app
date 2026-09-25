@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dateKeyToParts,
   formatDateKey,
+  formatShortDate,
   isValidCalendarDate,
   isValidDateKey,
   partsToDateKey,
@@ -118,5 +119,21 @@ describe('sanitizeDecimalInput', () => {
 
   it('boş giriş boş kalıyor', () => {
     expect(sanitizeDecimalInput('', '82,5')).toBe('');
+  });
+});
+
+describe('formatShortDate', () => {
+  const now = new Date(2026, 8, 25);
+
+  it('bu yıl: "12 Eyl"', () => {
+    expect(formatShortDate(new Date(2026, 8, 12, 10).toISOString(), now)).toBe(
+      '12 Eyl'
+    );
+  });
+
+  it('başka yıl: yıl ekleniyor', () => {
+    expect(formatShortDate(new Date(2025, 0, 3, 10).toISOString(), now)).toBe(
+      '3 Oca 2025'
+    );
   });
 });

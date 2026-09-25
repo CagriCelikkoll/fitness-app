@@ -1,5 +1,6 @@
+import { useCallback, useState } from 'react';
 import { Image, ScrollView, Text, View, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, Stack } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq } from 'drizzle-orm';
 
@@ -15,8 +16,17 @@ import {
   parseMuscles,
 } from '@/lib/exerciseTaxonomy';
 import { exerciseHighlight } from '@/lib/muscleMap';
+import { getExerciseSetHistory } from '@/lib/exerciseHistory';
+import {
+  buildSessionPoints,
+  computeRecords,
+  type RecordValue,
+  type SessionPoint,
+} from '@/lib/exerciseProgress';
+import { formatDecimal, formatShortDate, formatVolume } from '@/lib/format';
 import { COLORS } from '@/theme';
-import { Card, Chip, SectionHeader } from '@/components/ui';
+import { Card, Chip, ListRow, SectionHeader, StatTile } from '@/components/ui';
+import { LineChart } from '@/components/LineChart';
 import { MuscleMap } from '@/components/MuscleMap';
 
 export default function ExerciseDetailScreen() {
@@ -135,6 +145,8 @@ export default function ExerciseDetailScreen() {
           )}
         </Card>
 
+        <ExerciseProgressSection exerciseId={exercise.id} />
+
         {/* Talimatlar */}
         {instructions.length > 0 && (
           <>
@@ -165,4 +177,143 @@ function parseJsonArray(value: string | null): string[] {
   } catch {
     return [];
   }
+}
+
+// ============================================================================
+// İlerlemen — rekorlar, metrik grafiği, son seanslar
+// ============================================================================
+
+type Metric = 'e1rm' | 'topWeight' | 'volume';
+
+const METRICS: { key: Metric; label: string }[] = [
+  { key: 'e1rm', label: '1RM' },
+  { key: 'topWeight', label: 'Ağırlık' },
+  { key: 'volume', label: 'Hacim' },
+];
+
+const formatKg = (v: number) => `${formatDecimal(v)} kg`;
+
+/** Seçili metriğin grafik noktaları; değeri olmayan seanslar atlanıyor */
+function metricPoints(points: SessionPoint[], metric: Metric) {
+  return points.flatMap((p) => {
+    const y = p[metric];
+    return y != null && y > 0 ? [{ x: p.date, y }] : [];
+  });
+}
+
+/** "90 kg × 5"; vücut ağırlığında "12 tekrar" */
+function formatBestSet(set: SessionPoint['bestSet']): string {
+  if (!set) return '—';
+  if (set.weightKg == null || set.weightKg <= 0) {
+    return set.reps != null ? `${set.reps} tekrar` : '—';
+  }
+  return `${formatDecimal(set.weightKg)} kg × ${set.reps ?? '-'}`;
+}
+
+/**
+ * Kullanıcının bu egzersizde hiç tamamlanmış seti yoksa hiçbir şey
+ * göstermez (kütüphanedeki hareketlerin çoğu için durum bu).
+ *
+ * Sorgu join içeriyor; useLiveQuery yalnızca FROM tablosunu dinlediği
+ * için ekrana her dönüşte yeniden okunuyor.
+ */
+function ExerciseProgressSection({ exerciseId }: { exerciseId: string }) {
+  const db = useDb();
+  const [points, setPoints] = useState<SessionPoint[] | null>(null);
+  const [metric, setMetric] = useState<Metric>('e1rm');
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getExerciseSetHistory(db, exerciseId).then((rows) => {
+        if (active) setPoints(buildSessionPoints(rows));
+      });
+      return () => {
+        active = false;
+      };
+    }, [db, exerciseId])
+  );
+
+  if (!points || points.length === 0) return null;
+
+  const records = computeRecords(points);
+  const recentSessions = points.slice(-5).reverse();
+
+  return (
+    <>
+      <SectionHeader title="İlerlemen" className="mt-4" />
+      <View className="flex-row gap-2">
+        <RecordTile label="Tahmini 1RM" record={records.e1rm} />
+        <RecordTile label="En Ağır" record={records.topWeight} />
+        <RecordTile label="En Yüksek Hacim" record={records.volume} volume />
+      </View>
+
+      <Card className="gap-4">
+        <View className="flex-row gap-2">
+          {METRICS.map((m) => (
+            <Chip
+              key={m.key}
+              label={m.label}
+              active={metric === m.key}
+              onPress={() => setMetric(m.key)}
+            />
+          ))}
+        </View>
+        <LineChart
+          points={metricPoints(points, metric)}
+          formatY={metric === 'volume' ? formatVolume : formatKg}
+          formatX={(x) => formatShortDate(x)}
+          height={180}
+          highlightMax
+          emptyText="Grafik için en az iki seans gerekli."
+        />
+      </Card>
+
+      <Card className="py-1">
+        {recentSessions.map((p, idx) => (
+          <ListRow
+            key={p.sessionId}
+            divider={idx > 0}
+            right={
+              <Text className="text-white text-base font-semibold tabular-nums">
+                {formatBestSet(p.bestSet)}
+              </Text>
+            }
+          >
+            <Text className="text-muted text-base tabular-nums">
+              {formatShortDate(p.date)}
+            </Text>
+          </ListRow>
+        ))}
+      </Card>
+    </>
+  );
+}
+
+function RecordTile({
+  label,
+  record,
+  volume = false,
+}: {
+  label: string;
+  record: RecordValue | null;
+  /** Hacim: binlik ayraçlı tam sayı */
+  volume?: boolean;
+}) {
+  return (
+    <StatTile
+      label={label}
+      value={
+        record == null
+          ? '—'
+          : volume
+            ? Math.round(record.value).toLocaleString('tr-TR')
+            : formatDecimal(record.value)
+      }
+      unit={record == null ? undefined : 'kg'}
+      size="sm"
+      footnote={record == null ? undefined : formatShortDate(record.date)}
+      className="flex-1 p-4"
+    />
+  );
 }

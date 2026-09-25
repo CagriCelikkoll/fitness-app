@@ -208,3 +208,20 @@ export function formatSignedKg(delta: number): string {
   const sign = rounded > 0 ? '+' : '−';
   return `${sign}${formatDecimal(Math.abs(rounded))} kg`;
 }
+
+const SHORT_MONTHS_TR = [
+  'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
+  'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
+];
+
+/**
+ * ISO zaman damgası → "12 Eyl"; bu yıldan değilse "12 Eyl 2025".
+ * Ay adları elle: Hermes'te Intl kısa ay adları cihaza göre değişebiliyor.
+ */
+export function formatShortDate(isoString: string, now: Date = new Date()): string {
+  const date = new Date(isoString);
+  const base = `${date.getDate()} ${SHORT_MONTHS_TR[date.getMonth()]}`;
+  return date.getFullYear() === now.getFullYear()
+    ? base
+    : `${base} ${date.getFullYear()}`;
+}
