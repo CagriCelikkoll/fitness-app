@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { inArray } from 'drizzle-orm';
 import { Check, ChevronLeft, Info, Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
@@ -25,6 +26,13 @@ import {
   categoryLabel,
   muscleLabels,
 } from '@/lib/exerciseTaxonomy';
+import {
+  missingSelectionIds,
+  resolveSelection,
+  selectionFromIds,
+  toggleInSelection,
+  type PickerSelection,
+} from '@/lib/pickerSelection';
 import { COLORS } from '@/theme';
 import { Chip, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { ExerciseDetailContent } from '@/components/ExerciseDetailContent';
@@ -52,8 +60,10 @@ export function ExercisePickerModal({
 
   const [search, setSearch] = useState('');
   const [filterId, setFilterId] = useState('all');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(initiallySelectedIds)
+  // Seçimler nesneyle ve seçim sırasıyla: arama/filtre değişince listeden
+  // çıkan seçim de onayda eklenebilsin (bkz. src/lib/pickerSelection.ts)
+  const [selected, setSelected] = useState<PickerSelection<Exercise>>(() =>
+    selectionFromIds(initiallySelectedIds)
   );
   // Önizlenen egzersiz. İç içe ikinci bir Modal yerine aynı Modal'da
   // görünüm değişiyor (iOS'ta iç içe modaller sorunlu; router.push ise
@@ -66,7 +76,7 @@ export function ExercisePickerModal({
   // önceki seçimler yapışık kalmasın.
   useEffect(() => {
     if (visible) {
-      setSelectedIds(new Set(initiallySelectedIds));
+      setSelected(selectionFromIds(initiallySelectedIds));
       setSearch('');
       setPreviewExercise(null);
     }
@@ -88,30 +98,34 @@ export function ExercisePickerModal({
 
   const { data } = useLiveQuery(query, [filterId, search]);
 
-  const toggleSelection = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(singleSelect ? [] : prev);
-      if (prev.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+  const toggleSelection = (exercise: Exercise) => {
+    setSelected((prev) => toggleInSelection(prev, exercise, singleSelect));
   };
 
   /** Önizlemedeki "Seç" / "Seçimden Çıkar": seçimi değiştirip listeye döner */
   const togglePreviewSelection = () => {
     if (!previewExercise) return;
-    toggleSelection(previewExercise.id);
+    toggleSelection(previewExercise);
     setPreviewExercise(null);
   };
 
-  const handleConfirm = () => {
-    if (!data) return;
-    const selected = data.filter((e) => selectedIds.has(e.id));
-    onConfirm(selected);
-    setSelectedIds(new Set(initiallySelectedIds));
+  const handleConfirm = async () => {
+    // Nesnesi olmayanlar yalnızca initiallySelectedIds'ten gelir
+    const missing = missingSelectionIds(selected);
+    let loaded: Exercise[] = [];
+    if (missing.length > 0) {
+      try {
+        loaded = await db
+          .select()
+          .from(exercises)
+          .where(inArray(exercises.id, missing));
+      } catch (err) {
+        console.error('[PICKER] Seçili egzersizler okunamadı:', err);
+        return;
+      }
+    }
+    onConfirm(resolveSelection(selected, loaded));
+    setSelected(selectionFromIds(initiallySelectedIds));
   };
 
   return (
@@ -126,7 +140,7 @@ export function ExercisePickerModal({
         {previewExercise && (
           <PreviewView
             exercise={previewExercise}
-            selected={selectedIds.has(previewExercise.id)}
+            selected={selected.has(previewExercise.id)}
             onBack={() => setPreviewExercise(null)}
             onToggle={togglePreviewSelection}
           />
@@ -155,17 +169,17 @@ export function ExercisePickerModal({
             </Text>
             <Pressable
               onPress={handleConfirm}
-              disabled={selectedIds.size === 0}
+              disabled={selected.size === 0}
               className={`px-4 h-10 justify-center rounded-full ${
-                selectedIds.size === 0 ? 'bg-bg-elevated' : 'bg-accent'
+                selected.size === 0 ? 'bg-bg-elevated' : 'bg-accent'
               }`}
             >
               <Text
                 className={`font-semibold tabular-nums ${
-                  selectedIds.size === 0 ? 'text-muted' : 'text-accent-fg'
+                  selected.size === 0 ? 'text-muted' : 'text-accent-fg'
                 }`}
               >
-                Ekle ({selectedIds.size})
+                Ekle ({selected.size})
               </Text>
             </Pressable>
           </View>
@@ -215,8 +229,8 @@ export function ExercisePickerModal({
             renderItem={({ item }) => (
               <PickerRow
                 exercise={item}
-                selected={selectedIds.has(item.id)}
-                onToggle={() => toggleSelection(item.id)}
+                selected={selected.has(item.id)}
+                onToggle={() => toggleSelection(item)}
                 onPreview={() => setPreviewExercise(item)}
               />
             )}
