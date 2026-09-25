@@ -2,7 +2,8 @@
  * İlerleme sekmesi — vücut ölçümleri.
  *
  * Yukarıdan aşağıya: güncel durum, türetilmiş metrikler, 90 günlük
- * ağırlık grafiği, haftalık kas haritası, rekorlar, ölçüm geçmişi. Profil (boy/doğum tarihi/cinsiyet)
+ * ağırlık grafiği, haftalık hacim, haftalık kas haritası, rekorlar,
+ * ölçüm geçmişi. Profil (boy/doğum tarihi/cinsiyet)
  * artık Ayarlar sekmesinde; burada yalnızca eksikse oraya yönlendiren
  * bir satır görünüyor.
  *
@@ -32,6 +33,7 @@ import {
   formatDecimal,
   formatShortDate,
   formatSignedKg,
+  formatVolume,
   toDateKey,
 } from '@/lib/format';
 import { muscleLabel } from '@/lib/exerciseTaxonomy';
@@ -40,6 +42,12 @@ import {
   getRecentExerciseRecords,
   type RecentExerciseRecords,
 } from '@/lib/exerciseHistory';
+import {
+  dateKeyToLocalDate,
+  getWeeklyVolume,
+  WEEKLY_VOLUME_WEEKS,
+  type WeekVolume,
+} from '@/lib/weeklyVolume';
 import {
   toMuscleSets,
   weeklyMuscleSetsQuery,
@@ -53,6 +61,7 @@ import {
   SectionHeader,
   StatTile,
 } from '@/components/ui';
+import { BarChart } from '@/components/BarChart';
 import { LineChart } from '@/components/LineChart';
 import { MuscleMap } from '@/components/MuscleMap';
 
@@ -104,6 +113,7 @@ export default function ProgressScreen() {
           withWeight={withWeight}
         />
         <WeightChartCard withWeight={withWeight} />
+        <WeeklyVolumeCard />
         <WeeklyMusclesCard />
         <RecordsCard />
         <HistoryCard metrics={metrics} />
@@ -381,7 +391,72 @@ function WeightChartCard({
 }
 
 // ============================================================================
-// e) Bu hafta çalışılan kaslar
+// e) Haftalık hacim (son 12 hafta)
+// ============================================================================
+
+/** "2026-09-21" → "21 Eyl" */
+function weekLabel(weekStart: string): string {
+  return formatShortDate(dateKeyToLocalDate(weekStart).toISOString());
+}
+
+/**
+ * Pazartesi başlayan haftalarda toplam hacim. Boş haftalar 0 (boşluk
+ * bilgi taşıyor); içinde bulunulan hafta soluk tonda. Join'li sorgu —
+ * her odaklanmada okunuyor. Pencerede hiç hacim yoksa kart görünmüyor.
+ */
+function WeeklyVolumeCard() {
+  const db = useDb();
+  const [weeks, setWeeks] = useState<WeekVolume[] | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getWeeklyVolume(db, new Date()).then((result) => {
+        if (active) setWeeks(result);
+      });
+      return () => {
+        active = false;
+      };
+    }, [db])
+  );
+
+  if (!weeks || weeks.every((w) => w.volume === 0)) return null;
+
+  const current = weeks[weeks.length - 1]!;
+
+  return (
+    <View className="gap-3">
+      <SectionHeader
+        title="Haftalık Hacim"
+        description={`Son ${WEEKLY_VOLUME_WEEKS} hafta`}
+        className="mt-4"
+      />
+      <Card className="gap-4">
+        <View>
+          <Text className="text-muted text-xs uppercase tracking-widest">
+            Bu hafta
+          </Text>
+          <Text className="text-white text-4xl font-bold tabular-nums tracking-tight mt-2">
+            {formatVolume(current.volume)}
+          </Text>
+        </View>
+        <BarChart
+          bars={weeks.map((w) => ({
+            key: w.weekStart,
+            value: w.volume,
+            pending: w.isCurrent,
+          }))}
+          formatY={formatVolume}
+          startLabel={weekLabel(weeks[0]!.weekStart)}
+          endLabel={weekLabel(current.weekStart)}
+        />
+      </Card>
+    </View>
+  );
+}
+
+// ============================================================================
+// f) Bu hafta çalışılan kaslar
 // ============================================================================
 
 /**
@@ -444,7 +519,7 @@ function WeeklyMusclesCard() {
 }
 
 // ============================================================================
-// f) Rekorlar
+// g) Rekorlar
 // ============================================================================
 
 const RECORDS_LIMIT = 5;
@@ -486,18 +561,22 @@ function RecordsCard() {
               divider={idx > 0}
               chevron
               right={
-                r.records.e1rm ? (
-                  <View className="items-end">
-                    <Text className="text-white text-base font-semibold tabular-nums">
-                      {formatDecimal(r.records.e1rm.value)} kg
-                    </Text>
-                    <Text className="text-muted text-xs tabular-nums mt-0.5">
-                      {formatShortDate(r.records.e1rm.date)}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text className="text-muted text-base">—</Text>
-                )
+                <View className="flex-row items-center gap-3">
+                  {/* Son 8 seansın e1RM trendi; 2'den az noktada boş */}
+                  <LineChart variant="sparkline" points={r.trend} />
+                  {r.records.e1rm ? (
+                    <View className="items-end">
+                      <Text className="text-white text-base font-semibold tabular-nums">
+                        {formatDecimal(r.records.e1rm.value)} kg
+                      </Text>
+                      <Text className="text-muted text-xs tabular-nums mt-0.5">
+                        {formatShortDate(r.records.e1rm.date)}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text className="text-muted text-base">—</Text>
+                  )}
+                </View>
               }
             >
               <Text className="text-white text-base" numberOfLines={1}>
@@ -512,7 +591,7 @@ function RecordsCard() {
 }
 
 // ============================================================================
-// g) Ölçüm geçmişi
+// h) Ölçüm geçmişi
 // ============================================================================
 
 function HistoryCard({ metrics }: { metrics: BodyMetric[] }) {

@@ -23,9 +23,17 @@ interface LineChartProps {
   highlightMax?: boolean;
   /** Nokta sayısı 2'den azsa grafik yerine gösterilen mesaj */
   emptyText?: string;
+  /**
+   * `sparkline`: satır içi mini trend (~64×24) — eksen, etiket, ızgara
+   * yok; yalnızca çizgi ve son nokta. 2'den az noktada hiçbir şey çizmez.
+   */
+  variant?: 'full' | 'sparkline';
 }
 
 const PAD = 8;
+const SPARK_W = 64;
+const SPARK_H = 24;
+const SPARK_PAD = 3;
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -57,8 +65,11 @@ export function LineChart({
   height = 140,
   highlightMax = false,
   emptyText = 'Grafik için en az iki kayıt gerekli.',
+  variant = 'full',
 }: LineChartProps) {
   const [width, setWidth] = useState(0);
+
+  if (variant === 'sparkline') return <Sparkline points={points} />;
 
   if (points.length < 2) {
     return <Text className="text-muted text-sm">{emptyText}</Text>;
@@ -144,5 +155,35 @@ export function LineChart({
         </Text>
       </View>
     </View>
+  );
+}
+
+function Sparkline({ points }: { points: LineChartPoint[] }) {
+  if (points.length < 2) return null;
+
+  const values = points.map((p) => p.y);
+  const min = Math.min(...values);
+  const span = Math.max(...values) - min || 1;
+  const t0 = toTime(points[0].x);
+  const tSpan = toTime(points[points.length - 1].x) - t0 || 1;
+
+  const coords = points.map((p) => ({
+    x: SPARK_PAD + ((toTime(p.x) - t0) / tSpan) * (SPARK_W - SPARK_PAD * 2),
+    y: SPARK_PAD + (1 - (p.y - min) / span) * (SPARK_H - SPARK_PAD * 2),
+  }));
+  const last = coords[coords.length - 1];
+
+  return (
+    <Svg width={SPARK_W} height={SPARK_H}>
+      <Polyline
+        points={coords.map((c) => `${c.x},${c.y}`).join(' ')}
+        fill="none"
+        stroke={COLORS.accent}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <Circle cx={last.x} cy={last.y} r={2.5} fill={COLORS.accent} />
+    </Svg>
   );
 }

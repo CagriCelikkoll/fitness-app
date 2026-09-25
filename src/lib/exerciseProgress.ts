@@ -219,3 +219,26 @@ export function findSessionRecordSetIds(
   }
   return ids;
 }
+
+/** Trend çizgisi noktası (LineChart girdisi) */
+export interface TrendPoint {
+  x: string; // ISO
+  y: number;
+}
+
+/** Trend çizgisindeki en fazla seans sayısı */
+export const TREND_SESSIONS = 8;
+
+/**
+ * Son `limit` seansın tahmini 1RM'i, tarihe göre artan. e1RM'i olmayan
+ * seanslar (yalnızca 12+ tekrar ya da vücut ağırlığı) atlanıyor.
+ */
+export function recentE1rmTrend(
+  points: SessionPoint[],
+  limit: number = TREND_SESSIONS
+): TrendPoint[] {
+  return [...points]
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    .flatMap((p) => (p.e1rm != null ? [{ x: p.date, y: p.e1rm }] : []))
+    .slice(-limit);
+}

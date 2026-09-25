@@ -21,8 +21,10 @@ import {
   buildSessionPoints,
   computeRecords,
   epley,
+  recentE1rmTrend,
   type PersonalRecords,
   type SetRow,
+  type TrendPoint,
 } from '@/lib/exerciseProgress';
 
 /** Sayılan setlerin ortak koşulu */
@@ -92,11 +94,13 @@ export interface RecentExerciseRecords {
   /** Bu egzersizin çalışıldığı son seansın başlangıcı (ISO) */
   lastDate: string;
   records: PersonalRecords;
+  /** Son 8 seansın tahmini 1RM'i (trend çizgisi), tarihe göre artan */
+  trend: TrendPoint[];
 }
 
 /**
- * Son antrenman yapılan `limit` egzersiz (en yenisi önce) ve rekorları —
- * İlerleme sekmesindeki "Rekorların" kartı için.
+ * Son antrenman yapılan `limit` egzersiz (en yenisi önce), rekorları ve
+ * e1RM trendi — İlerleme sekmesindeki "Rekorların" kartı için.
  */
 export async function getRecentExerciseRecords(
   db: Db,
@@ -131,12 +135,14 @@ export async function getRecentExerciseRecords(
   for (const r of recent) {
     const history = await getExerciseSetHistory(db, r.exerciseId);
     const exercise = nameById.get(r.exerciseId);
+    const points = buildSessionPoints(history);
     result.push({
       exerciseId: r.exerciseId,
       name: exercise?.name ?? '',
       nameTr: exercise?.nameTr ?? null,
       lastDate: r.lastDate,
-      records: computeRecords(buildSessionPoints(history)),
+      records: computeRecords(points),
+      trend: recentE1rmTrend(points),
     });
   }
   return result;

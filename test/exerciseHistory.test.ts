@@ -190,6 +190,10 @@ describe('getRecentExerciseRecords', () => {
     expect(recent?.lastDate).toBe('2026-09-08T10:00:00.000Z');
     expect(recent?.records.e1rm?.value).toBeCloseTo(epley(100, 5)!, 5);
     expect(recent?.records.e1rm?.date).toBe('2026-09-01T10:00:00.000Z');
+    expect(recent?.trend.map((p) => p.x)).toEqual([
+      '2026-09-01T10:00:00.000Z',
+      '2026-09-08T10:00:00.000Z',
+    ]);
   });
 
   it('yalnızca ısınma seti ya da bitmemiş seans varsa listeye girmiyor', async () => {

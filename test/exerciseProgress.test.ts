@@ -7,6 +7,7 @@ import {
   epley,
   findSessionRecordSetIds,
   isNewE1rmRecord,
+  recentE1rmTrend,
   sessionRecordBaseline,
   type SessionSet,
   type SetRow,
@@ -261,5 +262,37 @@ describe('findSessionRecordSetIds', () => {
       null
     );
     expect(ids.size).toBe(0);
+  });
+});
+
+describe('recentE1rmTrend', () => {
+  it('son 8 seans, tarihe göre artan', () => {
+    const rows: SetRow[] = [];
+    // Sırasız ekleniyor: 10 seans, 1..10 Eylül
+    for (const day of [5, 1, 10, 3, 8, 2, 7, 4, 9, 6]) {
+      const date = `2026-09-${String(day).padStart(2, '0')}T10:00:00.000Z`;
+      rows.push(row(`s${day}`, date, 100 + day, 1));
+    }
+
+    const trend = recentE1rmTrend(buildSessionPoints(rows));
+
+    expect(trend).toHaveLength(8);
+    expect(trend.map((p) => p.y)).toEqual([103, 104, 105, 106, 107, 108, 109, 110]);
+    expect(trend[0]!.x).toBe('2026-09-03T10:00:00.000Z');
+  });
+
+  it('12+ tekrarlı setler e1RM\'e girmiyor; yalnız onlardan oluşan seans atlanıyor', () => {
+    const trend = recentE1rmTrend(
+      buildSessionPoints([
+        row('s1', '2026-09-01T10:00:00.000Z', 100, 1),
+        row('s2', '2026-09-02T10:00:00.000Z', 200, 15),
+        row('s3', '2026-09-03T10:00:00.000Z', 60, 20),
+        row('s3', '2026-09-03T10:00:00.000Z', 105, 1),
+      ])
+    );
+    expect(trend).toEqual([
+      { x: '2026-09-01T10:00:00.000Z', y: 100 },
+      { x: '2026-09-03T10:00:00.000Z', y: 105 },
+    ]);
   });
 });
