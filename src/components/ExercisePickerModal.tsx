@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { Check, Search, X } from 'lucide-react-native';
+import { Check, ChevronLeft, Info, Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
@@ -26,7 +26,8 @@ import {
   muscleLabels,
 } from '@/lib/exerciseTaxonomy';
 import { COLORS } from '@/theme';
-import { Chip } from '@/components/ui';
+import { Chip, PrimaryButton, SecondaryButton } from '@/components/ui';
+import { ExerciseDetailContent } from '@/components/ExerciseDetailContent';
 
 interface Props {
   visible: boolean;
@@ -54,6 +55,12 @@ export function ExercisePickerModal({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(initiallySelectedIds)
   );
+  // Önizlenen egzersiz. İç içe ikinci bir Modal yerine aynı Modal'da
+  // görünüm değişiyor (iOS'ta iç içe modaller sorunlu; router.push ise
+  // detayı modalın arkasında açardı).
+  const [previewExercise, setPreviewExercise] = useState<Exercise | null>(
+    null
+  );
 
   // Modal her açıldığında seçimleri sıfırla — kapatıp tekrar açınca
   // önceki seçimler yapışık kalmasın.
@@ -61,6 +68,7 @@ export function ExercisePickerModal({
     if (visible) {
       setSelectedIds(new Set(initiallySelectedIds));
       setSearch('');
+      setPreviewExercise(null);
     }
     // initiallySelectedIds referansı her render'da değişebileceği için
     // bağımlılığa sadece visible koyuyoruz (açılış anındaki değer yeterli).
@@ -92,6 +100,13 @@ export function ExercisePickerModal({
     });
   };
 
+  /** Önizlemedeki "Seç" / "Seçimden Çıkar": seçimi değiştirip listeye döner */
+  const togglePreviewSelection = () => {
+    if (!previewExercise) return;
+    toggleSelection(previewExercise.id);
+    setPreviewExercise(null);
+  };
+
   const handleConfirm = () => {
     if (!data) return;
     const selected = data.filter((e) => selectedIds.has(e.id));
@@ -104,100 +119,166 @@ export function ExercisePickerModal({
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      // Android geri tuşu önizlemede listeye döndürsün, seçiciyi kapatmasın
+      onRequestClose={previewExercise ? () => setPreviewExercise(null) : onClose}
     >
       <SafeAreaView className="flex-1 bg-bg">
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-3 py-3 border-b border-border">
-          <Pressable
-            onPress={onClose}
-            hitSlop={6}
-            className="w-11 h-11 items-center justify-center rounded-full active:bg-bg-elevated"
-          >
-            <X color={COLORS.text} size={22} />
-          </Pressable>
-          <Text
-            className="text-white text-lg font-semibold tracking-tight flex-1 text-center px-2"
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
-          <Pressable
-            onPress={handleConfirm}
-            disabled={selectedIds.size === 0}
-            className={`px-4 h-10 justify-center rounded-full ${
-              selectedIds.size === 0 ? 'bg-bg-elevated' : 'bg-accent'
-            }`}
-          >
+        {previewExercise && (
+          <PreviewView
+            exercise={previewExercise}
+            selected={selectedIds.has(previewExercise.id)}
+            onBack={() => setPreviewExercise(null)}
+            onToggle={togglePreviewSelection}
+          />
+        )}
+
+        {/* Liste görünümü: önizleme açıkken unmount edilmiyor, gizleniyor —
+            arama, filtre, seçim ve kaydırma konumu olduğu gibi kalsın. */}
+        <View
+          className="flex-1"
+          style={previewExercise ? { display: 'none' } : undefined}
+        >
+          {/* Header */}
+          <View className="flex-row items-center justify-between px-3 py-3 border-b border-border">
+            <Pressable
+              onPress={onClose}
+              hitSlop={6}
+              className="w-11 h-11 items-center justify-center rounded-full active:bg-bg-elevated"
+            >
+              <X color={COLORS.text} size={22} />
+            </Pressable>
             <Text
-              className={`font-semibold tabular-nums ${
-                selectedIds.size === 0 ? 'text-muted' : 'text-accent-fg'
+              className="text-white text-lg font-semibold tracking-tight flex-1 text-center px-2"
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            <Pressable
+              onPress={handleConfirm}
+              disabled={selectedIds.size === 0}
+              className={`px-4 h-10 justify-center rounded-full ${
+                selectedIds.size === 0 ? 'bg-bg-elevated' : 'bg-accent'
               }`}
             >
-              Ekle ({selectedIds.size})
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Arama */}
-        <View className="px-5 pt-4 pb-3 gap-3">
-          <View className="flex-row items-center bg-bg-elevated rounded-2xl px-4 h-12">
-            <Search color={COLORS.muted} size={18} strokeWidth={1.75} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Egzersiz ara..."
-              placeholderTextColor={COLORS.muted}
-              className="flex-1 text-white text-base ml-3"
-              autoCorrect={false}
-              autoCapitalize="none"
-            />
-            {search.length > 0 && (
-              <Pressable onPress={() => setSearch('')} hitSlop={12}>
-                <X color={COLORS.muted} size={16} />
-              </Pressable>
-            )}
+              <Text
+                className={`font-semibold tabular-nums ${
+                  selectedIds.size === 0 ? 'text-muted' : 'text-accent-fg'
+                }`}
+              >
+                Ekle ({selectedIds.size})
+              </Text>
+            </Pressable>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="-mx-5 grow-0"
-            contentContainerClassName="px-5 gap-2"
-            keyboardShouldPersistTaps="handled"
-          >
-            {EXERCISE_FILTER_OPTIONS.map((opt) => (
-              <Chip
-                key={opt.id}
-                label={opt.label}
-                active={filterId === opt.id}
-                onPress={() => setFilterId(opt.id)}
+          {/* Arama */}
+          <View className="px-5 pt-4 pb-3 gap-3">
+            <View className="flex-row items-center bg-bg-elevated rounded-2xl px-4 h-12">
+              <Search color={COLORS.muted} size={18} strokeWidth={1.75} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Egzersiz ara..."
+                placeholderTextColor={COLORS.muted}
+                className="flex-1 text-white text-base ml-3"
+                autoCorrect={false}
+                autoCapitalize="none"
               />
-            ))}
-          </ScrollView>
-        </View>
+              {search.length > 0 && (
+                <Pressable onPress={() => setSearch('')} hitSlop={12}>
+                  <X color={COLORS.muted} size={16} />
+                </Pressable>
+              )}
+            </View>
 
-        {/* Liste */}
-        <FlatList
-          data={data ?? []}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <PickerRow
-              exercise={item}
-              selected={selectedIds.has(item.id)}
-              onToggle={() => toggleSelection(item.id)}
-            />
-          )}
-          contentContainerClassName="px-5 pt-1 pb-8"
-          ItemSeparatorComponent={() => <View className="h-2" />}
-          ListEmptyComponent={
-            <Text className="text-muted text-center mt-8">
-              Egzersiz bulunamadı.
-            </Text>
-          }
-        />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="-mx-5 grow-0"
+              contentContainerClassName="px-5 gap-2"
+              keyboardShouldPersistTaps="handled"
+            >
+              {EXERCISE_FILTER_OPTIONS.map((opt) => (
+                <Chip
+                  key={opt.id}
+                  label={opt.label}
+                  active={filterId === opt.id}
+                  onPress={() => setFilterId(opt.id)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Liste */}
+          <FlatList
+            data={data ?? []}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <PickerRow
+                exercise={item}
+                selected={selectedIds.has(item.id)}
+                onToggle={() => toggleSelection(item.id)}
+                onPreview={() => setPreviewExercise(item)}
+              />
+            )}
+            contentContainerClassName="px-5 pt-1 pb-8"
+            ItemSeparatorComponent={() => <View className="h-2" />}
+            ListEmptyComponent={
+              <Text className="text-muted text-center mt-8">
+                Egzersiz bulunamadı.
+              </Text>
+            }
+          />
+        </View>
       </SafeAreaView>
     </Modal>
+  );
+}
+
+function PreviewView({
+  exercise,
+  selected,
+  onBack,
+  onToggle,
+}: {
+  exercise: Exercise;
+  selected: boolean;
+  onBack: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <View className="flex-1">
+      <View className="flex-row items-center px-3 py-3 border-b border-border">
+        <Pressable
+          onPress={onBack}
+          hitSlop={6}
+          className="w-11 h-11 items-center justify-center rounded-full active:bg-bg-elevated"
+        >
+          <ChevronLeft color={COLORS.text} size={24} />
+        </Pressable>
+        <Text
+          className="text-white text-lg font-semibold tracking-tight flex-1 px-2"
+          numberOfLines={1}
+        >
+          {exercise.nameTr ?? exercise.name}
+        </Text>
+      </View>
+
+      {/* "İlerlemen" kapalı: useFocusEffect Modal içinde güvenilir değil */}
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-5 pt-4 gap-3 pb-6"
+      >
+        <ExerciseDetailContent exercise={exercise} showProgress={false} />
+      </ScrollView>
+
+      <View className="px-5 py-3 border-t border-border bg-bg">
+        {selected ? (
+          <SecondaryButton label="Seçimden Çıkar" onPress={onToggle} />
+        ) : (
+          <PrimaryButton label="Seç" icon={Check} onPress={onToggle} />
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -205,10 +286,13 @@ function PickerRow({
   exercise,
   selected,
   onToggle,
+  onPreview,
 }: {
   exercise: Exercise;
   selected: boolean;
   onToggle: () => void;
+  /** ⓘ: seçimi değiştirmeden önizlemeyi açar */
+  onPreview: () => void;
 }) {
   const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
   const muscles = muscleLabels(exercise.primaryMuscles);
@@ -242,6 +326,14 @@ function PickerRow({
           {muscles.join(', ') || categoryLabel(exercise.category)}
         </Text>
       </View>
+      <Pressable
+        onPress={onPreview}
+        hitSlop={8}
+        accessibilityLabel="Egzersizi incele"
+        className="w-10 h-10 items-center justify-center rounded-full mr-1 active:bg-bg-elevated"
+      >
+        <Info color={COLORS.muted} size={20} strokeWidth={1.75} />
+      </Pressable>
       <View
         className={`w-7 h-7 rounded-full items-center justify-center mr-1 ${
           selected ? 'bg-accent' : 'border-2 border-border'

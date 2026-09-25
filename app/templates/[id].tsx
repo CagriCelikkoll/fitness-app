@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { inArray } from 'drizzle-orm';
 import { Plus } from 'lucide-react-native';
@@ -119,10 +119,11 @@ export default function TemplateDetailScreen() {
               <Card className="py-1">
                 {day.exercises.map((e, idx) => {
                   const ex = info.get(e.exerciseId);
-                  return (
+                  const row = (
                     <ListRow
                       key={`${e.exerciseId}-${idx}`}
                       divider={idx > 0}
+                      chevron={ex != null}
                       right={
                         <Text className="text-white text-sm font-semibold tabular-nums">
                           {e.sets} × {e.reps}
@@ -138,6 +139,20 @@ export default function TemplateDetailScreen() {
                         </Text>
                       )}
                     </ListRow>
+                  );
+                  // Kütüphanede bulunamayan hareket için detaya gidilmiyor
+                  if (!ex) return row;
+                  return (
+                    <Link
+                      key={`${e.exerciseId}-${idx}`}
+                      href={{
+                        pathname: '/exercise/[id]',
+                        params: { id: e.exerciseId },
+                      }}
+                      asChild
+                    >
+                      {row}
+                    </Link>
                   );
                 })}
               </Card>

@@ -448,6 +448,7 @@ function DraftExerciseCard({
   onRemove,
   onMove,
 }: DraftCardProps) {
+  const router = useRouter();
   const isCardio = draft.category === 'cardio';
   const canMoveUp = index > 0;
   const canMoveDown = index < total - 1;
@@ -479,9 +480,21 @@ function DraftExerciseCard({
             />
           </Pressable>
         </View>
-        <Text className="text-white text-lg font-semibold tracking-tight flex-1">
-          {index + 1}. {draft.name}
-        </Text>
+        {/* Hareket adı detayı açar; editör yığında kaldığı için form korunur */}
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: '/exercise/[id]',
+              params: { id: draft.exerciseId },
+            })
+          }
+          hitSlop={4}
+          className="flex-1 active:opacity-60"
+        >
+          <Text className="text-white text-lg font-semibold tracking-tight">
+            {index + 1}. {draft.name}
+          </Text>
+        </Pressable>
         <Pressable
           onPress={() => onRemove(draft.id)}
           hitSlop={4}
