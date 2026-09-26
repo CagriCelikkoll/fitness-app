@@ -6,18 +6,13 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  SQLiteProvider,
-  useSQLiteContext,
-  type SQLiteDatabase,
-} from 'expo-sqlite';
+import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
 
 import migrations from '../drizzle/migrations';
 import { DATABASE_NAME } from '@/db/client';
-import * as schema from '@/db/schema';
 import { seedIfEmpty } from '@/db/seed';
+import { useDb } from '@/hooks/useDb';
 import { COLORS } from '@/theme';
 
 // SQLiteProvider'ın açtığı bağlantı için başlangıç ayarları.
@@ -41,11 +36,11 @@ const SQLITE_OPTIONS = { enableChangeListener: true };
 
 /**
  * Migrations'ları çalıştırır ve seed eder.
- * useSQLiteContext'in içinde olması gerekir, o yüzden ayrı bir component.
+ * SQLiteProvider'ın içinde olması gerekir (useDb → useSQLiteContext),
+ * o yüzden ayrı bir component.
  */
 function DatabaseInitializer({ children }: { children: React.ReactNode }) {
-  const sqliteDb = useSQLiteContext();
-  const db = drizzle(sqliteDb, { schema });
+  const db = useDb();
   const { success, error } = useMigrations(db, migrations);
   const [seedState, setSeedState] = useState<
     'idle' | 'seeding' | 'done' | 'error'
