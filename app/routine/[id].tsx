@@ -36,6 +36,14 @@ import {
   type Exercise,
 } from '@/db/schema';
 import { newId } from '@/lib/id';
+import {
+  DEFAULT_MAX_DECIMAL_DIGITS,
+  MAX_WEIGHT_INTEGER_DIGITS,
+  digitsOnly,
+  sanitizeDecimalInput,
+  sanitizeRepRange,
+  trimRepRange,
+} from '@/lib/format';
 import { ExercisePickerModal } from '@/components/ExercisePickerModal';
 import { COLORS, DISABLED_ICON } from '@/theme';
 import { Card, PrimaryButton } from '@/components/ui';
@@ -221,7 +229,7 @@ export default function RoutineEditorScreen() {
         exerciseId: d.exerciseId,
         orderIndex: idx,
         targetSets: parseIntOrNull(d.targetSets),
-        targetReps: d.targetReps.trim() || null,
+        targetReps: trimRepRange(d.targetReps.trim()) || null,
         targetWeightKg: parseFloatOrNull(d.targetWeightKg),
         targetDurationSeconds: parseIntOrNull(d.targetDurationSeconds),
         restSeconds: parseIntOrNull(d.restSeconds) ?? 90,
@@ -509,8 +517,11 @@ function DraftExerciseCard({
           <NumberField
             label="Süre (sn)"
             value={draft.targetDurationSeconds}
-            onChange={(v) => onUpdate(draft.id, 'targetDurationSeconds', v)}
+            onChange={(v) =>
+              onUpdate(draft.id, 'targetDurationSeconds', digitsOnly(v))
+            }
             placeholder="1200"
+            maxLength={5}
           />
         </View>
       ) : (
@@ -518,20 +529,34 @@ function DraftExerciseCard({
           <NumberField
             label="Set"
             value={draft.targetSets}
-            onChange={(v) => onUpdate(draft.id, 'targetSets', v)}
+            onChange={(v) => onUpdate(draft.id, 'targetSets', digitsOnly(v))}
             placeholder="3"
+            maxLength={2}
           />
           <NumberField
             label="Tekrar"
             value={draft.targetReps}
-            onChange={(v) => onUpdate(draft.id, 'targetReps', v)}
+            onChange={(v) =>
+              onUpdate(draft.id, 'targetReps', sanitizeRepRange(v, draft.targetReps))
+            }
             placeholder="8-12"
             keyboardType="default"
           />
           <NumberField
             label="Ağırlık (kg)"
             value={draft.targetWeightKg}
-            onChange={(v) => onUpdate(draft.id, 'targetWeightKg', v)}
+            onChange={(v) =>
+              onUpdate(
+                draft.id,
+                'targetWeightKg',
+                sanitizeDecimalInput(
+                  v,
+                  draft.targetWeightKg,
+                  DEFAULT_MAX_DECIMAL_DIGITS,
+                  MAX_WEIGHT_INTEGER_DIGITS
+                )
+              )
+            }
             placeholder="ops."
             keyboardType="decimal-pad"
           />
@@ -542,8 +567,9 @@ function DraftExerciseCard({
         <NumberField
           label="Dinlenme (sn)"
           value={draft.restSeconds}
-          onChange={(v) => onUpdate(draft.id, 'restSeconds', v)}
+          onChange={(v) => onUpdate(draft.id, 'restSeconds', digitsOnly(v))}
           placeholder="90"
+          maxLength={4}
         />
       </View>
     </Card>
@@ -556,12 +582,14 @@ function NumberField({
   onChange,
   placeholder,
   keyboardType = 'number-pad',
+  maxLength,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   keyboardType?: 'number-pad' | 'decimal-pad' | 'default';
+  maxLength?: number;
 }) {
   return (
     <View className="flex-1">
@@ -572,6 +600,7 @@ function NumberField({
         placeholder={placeholder}
         placeholderTextColor={COLORS.muted}
         keyboardType={keyboardType}
+        maxLength={maxLength}
         className="bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl"
       />
     </View>

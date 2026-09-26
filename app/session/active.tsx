@@ -28,6 +28,13 @@ import {
   type WorkoutSet,
 } from '@/db/schema';
 import { newId } from '@/lib/id';
+import {
+  DEFAULT_MAX_DECIMAL_DIGITS,
+  MAX_REP_DIGITS,
+  MAX_WEIGHT_INTEGER_DIGITS,
+  digitsOnly,
+  sanitizeDecimalInput,
+} from '@/lib/format';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { getLastSessionForExercise, type LastSessionData } from '@/lib/lastSession';
 import { getPreviousBestE1rm } from '@/lib/exerciseHistory';
@@ -609,7 +616,13 @@ function SetRow({
     }
   };
 
-  const updateWeight = async (v: string) => {
+  const updateWeight = async (raw: string) => {
+    const v = sanitizeDecimalInput(
+      raw,
+      weight,
+      DEFAULT_MAX_DECIMAL_DIGITS,
+      MAX_WEIGHT_INTEGER_DIGITS
+    );
     setWeight(v);
     const parsed = parseFloat(v.replace(',', '.'));
     await db
@@ -618,7 +631,8 @@ function SetRow({
       .where(eq(setsTable.id, set.id));
   };
 
-  const updateReps = async (v: string) => {
+  const updateReps = async (raw: string) => {
+    const v = digitsOnly(raw);
     setReps(v);
     const parsed = parseInt(v, 10);
     await db
@@ -668,6 +682,7 @@ function SetRow({
         placeholder={previousSet?.reps ? String(previousSet.reps) : '-'}
         placeholderTextColor={COLORS.muted}
         keyboardType="number-pad"
+        maxLength={MAX_REP_DIGITS}
         editable={!set.isCompleted}
         className={`w-16 h-12 text-center text-lg font-semibold tabular-nums px-2 rounded-xl ml-2 ${
           set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-white'

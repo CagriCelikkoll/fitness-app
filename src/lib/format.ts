@@ -154,23 +154,30 @@ function decimalDigitCount(text: string): number {
   return sepIndex === -1 ? 0 : text.length - sepIndex - 1;
 }
 
+function integerDigitCount(text: string): number {
+  const sepIndex = text.search(/[.,]/);
+  return sepIndex === -1 ? text.length : sepIndex;
+}
+
 /**
  * Ondalık sayı girişini temizler: eksi işareti ve harfler atılır,
  * yalnızca rakam ve ondalık ayırıcı (virgül ya da nokta) kalır.
- * Tam sayı kısmı sınırsız.
+ * Tam sayı kısmı varsayılan olarak sınırsız.
  *
  * Şu girişler yok sayılır ve `previous` döner:
  * - ikinci bir ayırıcı ("1,2,3" → "1,23" kullanıcının fark etmeyeceği
  *   bir değer değişikliği olurdu)
  * - ondalık kısmı `maxDecimals` haneyi aşan giriş ("1,2" + "3")
+ * - tam sayı kısmı `maxIntegerDigits` haneyi aşan giriş
  *
- * Kayıttan yüklenmiş, sınırdan fazla ondalıklı bir değer kırpılmaz;
- * ondalık hanesi artmadığı sürece düzenlenebilir (ör. hane silmek).
+ * Kayıttan yüklenmiş, sınırdan uzun bir değer kırpılmaz; hane sayısı
+ * artmadığı sürece düzenlenebilir (ör. hane silmek).
  */
 export function sanitizeDecimalInput(
   text: string,
   previous: string,
-  maxDecimals: number = DEFAULT_MAX_DECIMAL_DIGITS
+  maxDecimals: number = DEFAULT_MAX_DECIMAL_DIGITS,
+  maxIntegerDigits: number = Infinity
 ): string {
   const cleaned = text.replace(/[^\d.,]/g, '');
   const separatorCount = (cleaned.match(/[.,]/g) ?? []).length;
@@ -180,7 +187,39 @@ export function sanitizeDecimalInput(
   if (decimals > maxDecimals && decimals > decimalDigitCount(previous)) {
     return previous;
   }
+  const integers = integerDigitCount(cleaned);
+  if (integers > maxIntegerDigits && integers > integerDigitCount(previous)) {
+    return previous;
+  }
   return cleaned;
+}
+
+/** Ağırlık girişlerinde tam sayı kısmı için hane sınırı (9999 kg) */
+export const MAX_WEIGHT_INTEGER_DIGITS = 4;
+
+/** Tekrar aralığında her iki uç için hane sınırı ("100-120") */
+export const MAX_REP_DIGITS = 3;
+
+/**
+ * Tekrar hedefi girişini temizler: "10" ya da "8-12" gibi bir aralık.
+ * Harfler ve boşluklar atılır; yalnızca rakam ve tek bir tire kalır.
+ *
+ * Şu girişler yok sayılır ve `previous` döner:
+ * - tire ile başlayan giriş ("-8")
+ * - ikinci bir tire ("8--12", "8-12-15")
+ * - bir ucu `MAX_REP_DIGITS` haneyi aşan giriş
+ *
+ * Yazarken "8-" gibi yarım bir aralık geçerli sayılır.
+ */
+export function sanitizeRepRange(text: string, previous: string): string {
+  const cleaned = text.replace(/[^\d-]/g, '');
+  const pattern = new RegExp(`^(\\d{1,${MAX_REP_DIGITS}}(-\\d{0,${MAX_REP_DIGITS}})?)?$`);
+  return pattern.test(cleaned) ? cleaned : previous;
+}
+
+/** Kaydederken yarım kalmış aralığın sondaki tiresini atar: "8-" → "8" */
+export function trimRepRange(text: string): string {
+  return text.replace(/-$/, '');
 }
 
 /**

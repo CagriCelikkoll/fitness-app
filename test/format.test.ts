@@ -8,7 +8,9 @@ import {
   isValidDateKey,
   partsToDateKey,
   sanitizeDecimalInput,
+  sanitizeRepRange,
   toDateKey,
+  trimRepRange,
 } from '@/lib/format';
 
 describe('partsToDateKey / dateKeyToParts', () => {
@@ -119,6 +121,78 @@ describe('sanitizeDecimalInput', () => {
 
   it('boş giriş boş kalıyor', () => {
     expect(sanitizeDecimalInput('', '82,5')).toBe('');
+  });
+
+  it('tam sayı hane sınırını aşan girişi reddediyor', () => {
+    expect(sanitizeDecimalInput('1234', '123', 1, 4)).toBe('1234');
+    expect(sanitizeDecimalInput('12345', '1234', 1, 4)).toBe('1234');
+    expect(sanitizeDecimalInput('1234,5', '1234,', 1, 4)).toBe('1234,5');
+  });
+
+  it('kayıtlı uzun tam sayı kırpılmıyor, silinebiliyor', () => {
+    expect(sanitizeDecimalInput('12345', '12345', 1, 4)).toBe('12345');
+    expect(sanitizeDecimalInput('1234', '12345', 1, 4)).toBe('1234');
+  });
+});
+
+describe('sanitizeRepRange', () => {
+  it('tek sayı ve aralık geçerli', () => {
+    expect(sanitizeRepRange('10', '1')).toBe('10');
+    expect(sanitizeRepRange('8-12', '8-1')).toBe('8-12');
+    expect(sanitizeRepRange('100-120', '100-12')).toBe('100-120');
+  });
+
+  it('yazarken yarım aralık geçerli', () => {
+    expect(sanitizeRepRange('8-', '8')).toBe('8-');
+  });
+
+  it('boş giriş boş kalıyor', () => {
+    expect(sanitizeRepRange('', '8')).toBe('');
+  });
+
+  it('ikinci tireyi reddediyor', () => {
+    expect(sanitizeRepRange('8--', '8-')).toBe('8-');
+    expect(sanitizeRepRange('8--12', '8-12')).toBe('8-12');
+    expect(sanitizeRepRange('8-12-15', '8-12')).toBe('8-12');
+  });
+
+  it('tire ile başlayan girişi reddediyor', () => {
+    expect(sanitizeRepRange('-', '')).toBe('');
+    expect(sanitizeRepRange('-8', '8')).toBe('8');
+  });
+
+  it('harfleri ve boşlukları atıyor', () => {
+    expect(sanitizeRepRange('8a', '8')).toBe('8');
+    expect(sanitizeRepRange('8 - 12', '8')).toBe('8-12');
+    expect(sanitizeRepRange('abc', '')).toBe('');
+  });
+
+  it('3 haneyi aşan ucu reddediyor', () => {
+    expect(sanitizeRepRange('1000', '100')).toBe('100');
+    expect(sanitizeRepRange('8-1000', '8-100')).toBe('8-100');
+  });
+
+  it('"8--12" harf harf yazıldığında "8-12" kalıyor', () => {
+    let value = '';
+    for (const ch of '8--12') {
+      value = sanitizeRepRange(value + ch, value);
+    }
+    expect(value).toBe('8-12');
+  });
+});
+
+describe('trimRepRange', () => {
+  it('sondaki tireyi atıyor', () => {
+    expect(trimRepRange('8-')).toBe('8');
+  });
+
+  it('tam aralığa ve tek sayıya dokunmuyor', () => {
+    expect(trimRepRange('8-12')).toBe('8-12');
+    expect(trimRepRange('10')).toBe('10');
+  });
+
+  it('boş giriş boş kalıyor', () => {
+    expect(trimRepRange('')).toBe('');
   });
 });
 
