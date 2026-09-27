@@ -7,13 +7,17 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Image, Linking, Text, View } from 'react-native';
+import { Image, Linking, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import type { Exercise } from '@/db/schema';
 import { getExerciseImageUrls } from '@/lib/exerciseImage';
+import {
+  parseInstructions,
+  resolveInstructions,
+} from '@/lib/exerciseTranslations';
 import {
   equipmentLabel,
   forceLabel,
@@ -63,7 +67,13 @@ export function ExerciseDetailContent({
     parseMuscles(exercise.primaryMuscles),
     parseMuscles(exercise.secondaryMuscles)
   );
-  const instructions = parseJsonArray(exercise.instructions);
+  const resolved = resolveInstructions(exercise.id, exercise.instructions);
+  // Hareket id'sine bağlı: seçicide başka harekete geçince Türkçeye döner
+  const [originalFor, setOriginalFor] = useState<string | null>(null);
+  const showOriginal = resolved.isTranslated && originalFor === exercise.id;
+  const instructions = showOriginal
+    ? parseInstructions(exercise.instructions)
+    : resolved.steps;
   const displayName = exercise.nameTr ?? exercise.name;
 
   const openVideo = () => {
@@ -165,17 +175,19 @@ export function ExerciseDetailContent({
           ))}
         </Card>
       )}
+      {resolved.isTranslated && (
+        <Pressable
+          onPress={() => setOriginalFor(showOriginal ? null : exercise.id)}
+          hitSlop={8}
+          className="self-start active:opacity-60"
+        >
+          <Text className="text-muted text-sm underline">
+            {showOriginal ? 'Çeviriyi göster' : 'Orijinalini göster'}
+          </Text>
+        </Pressable>
+      )}
     </>
   );
-}
-
-function parseJsonArray(value: string | null): string[] {
-  if (!value) return [];
-  try {
-    return JSON.parse(value);
-  } catch {
-    return [];
-  }
 }
 
 // ============================================================================

@@ -1,0 +1,173 @@
+{
+  "Barbell_Ab_Rollout": {
+    "instructions": [
+      "Bu hareket için şınav pozisyonuna geçmen gerekecek, ancak ellerin yerde olmak yerine bir olimpik halteri (her iki tarafına 5-10 lb, yani yaklaşık 2,5-5 kg yüklenmiş) kavrayacaksın. Bu, başlangıç pozisyonun.",
+      "Sırtında hafif bir kavis korurken kalçanı kaldır ve nefes vererek halteri ayaklarına doğru yuvarla. İpucu: Hareketi yaparken kalça kasların yukarı çıkmalı; karın kaslarını sıkı tutmalı ve sırt duruşunu her zaman korumalısın. Ayrıca kolların hareket boyunca yere dik kalmalı. Aksi hâlde karın kaslarından çok omuzlarını ve sırtını çalıştırırsın.",
+      "Üstte bir saniyelik kasılmanın ardından nefes alarak halteri yavaşça başlangıç pozisyonuna doğru ileri yuvarlamaya başla.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Barbell_Bench_Press_-_Medium_Grip": {
+    "instructions": [
+      "Düz bir sehpaya sırt üstü uzan. Orta genişlikte bir tutuşla (hareketin ortasında ön kollarınla üst kolların arasında 90 derecelik açı oluşturan bir tutuş) barı rack'ten al ve kolların kilitli şekilde tam üstünde tut. Bu, başlangıç pozisyonun.",
+      "Başlangıç pozisyonundan nefes al ve bar göğsünün ortasına değene kadar yavaşça inmeye başla.",
+      "Kısa bir an bekledikten sonra nefes vererek barı başlangıç pozisyonuna geri it. Barı göğüs kaslarınla itmeye odaklan. Hareketin en üstündeki kasılı pozisyonda kollarını kilitle ve göğsünü sık, bir saniye bekle ve ardından yeniden yavaşça inmeye başla. İpucu: İdeal olarak ağırlığı indirmek, kaldırmanın yaklaşık iki katı sürmeli.",
+      "Hareketi belirlenen tekrar sayısı kadar tekrarla.",
+      "Bitirdiğinde barı rack'e geri yerleştir."
+    ]
+  },
+  "Barbell_Curl": {
+    "instructions": [
+      "Gövden dik şekilde ayakta dur ve halteri omuz genişliğinde bir tutuşla tut. Avuçların öne bakmalı ve dirseklerin gövdene yakın olmalı. Bu, başlangıç pozisyonun.",
+      "Üst kollarını sabit tutarak, nefes verirken biceps'ini kasıp ağırlığı öne doğru kıvırarak kaldır. İpucu: Yalnızca ön kolların hareket etmeli.",
+      "Biceps'in tamamen kasılıp bar omuz hizasına gelene kadar harekete devam et. Kasılı pozisyonda bir saniye bekle ve biceps'ini güçlüce sık.",
+      "Nefes alırken barı yavaşça başlangıç pozisyonuna geri indirmeye başla.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Barbell_Squat": {
+    "instructions": [
+      "Bu hareket güvenlik açısından en iyi squat rack içinde yapılır. Başlamak için önce barı rack'e omuz hizasının hemen altına gelecek şekilde yerleştir. Doğru yükseklik seçilip bar yüklendikten sonra barın altına gir ve omuzlarının arkasını (boynun biraz altı) barın üzerine yerleştir.",
+      "Barı iki kolunla iki yandan tut ve önce bacaklarınla iterek, aynı anda gövdeni düzleştirerek barı rack'ten kaldır.",
+      "Rack'ten uzaklaş ve bacaklarını omuz genişliğinde, orta genişlikte bir duruşla, ayak uçların hafifçe dışa bakacak şekilde konumlandır. Başını her zaman yukarıda ve sırtını düz tut. Bu, başlangıç pozisyonun. (Not: Bu anlatımda genel gelişimi hedefleyen, yukarıda tarif edilen orta genişlikteki duruşu kullanacağız; ancak ayak duruşları bölümünde anlatılan üç duruştan herhangi birini seçebilirsin.)",
+      "Başın yukarıda, dik bir duruşu korurken dizlerini ve kalçanı bükerek barı yavaşça indirmeye başla. Üst bacağınla baldırların arasındaki açı 90 derecenin biraz altına inene kadar inmeye devam et. Hareketin bu kısmında nefes al. İpucu: Hareketi doğru yaptıysan dizlerinin önü, ayak parmaklarınla birlikte ön tarafa dik, hayali düz bir çizgi oluşturmalı. Dizlerin bu hayali çizgiyi geçiyorsa (ayak parmaklarını geçiyorsa) dizine gereksiz yük bindiriyorsun ve hareketi yanlış yapmışsın demektir.",
+      "Topuklarınla zemini iterek bacaklarını yeniden düzleştirirken nefes vererek barı kaldırmaya başla ve başlangıç pozisyonuna dön.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Bent_Over_Barbell_Row": {
+    "instructions": [
+      "Halteri üstten tutuşla (avuçlar aşağı bakacak şekilde) tutarken dizlerini hafifçe bük ve sırtını düz tutarak belinden eğilip gövdeni öne getir; gövden yere neredeyse paralel olana kadar devam et. İpucu: Başını yukarıda tuttuğundan emin ol. Kolların yere ve gövdene dik şekilde sarkarken halter tam önünde asılı durmalı. Bu, başlangıç pozisyonun.",
+      "Şimdi gövdeni sabit tutarak nefes ver ve halteri kendine doğru kaldır. Dirseklerini vücuduna yakın tut ve ağırlığı tutmak için yalnızca ön kollarını kullan. En üstteki kasılı pozisyonda sırt kaslarını sık ve kısa bir an bekle.",
+      "Ardından nefes al ve halteri yavaşça başlangıç pozisyonuna indir.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Chest_And_Front_Of_Shoulder_Stretch": {
+    "instructions": [
+      "Bacakların bitişik şekilde ayakta dur ve bir body bar ya da süpürge sapı tut.",
+      "Çubuğu omuz genişliğinden biraz geniş bir tutuşla kavra ve avuçların aşağı bakacak şekilde önünde tut.",
+      "Çubuğu dikkatlice yukarı ve başının arkasına doğru kaldır."
+    ]
+  },
+  "Clean_and_Jerk": {
+    "instructions": [
+      "Halter yerde, kaval kemiklerine yakın dururken, bacaklarının hemen dışından üstten tutuş ya da kanca tutuşla kavra. Ağırlık topuklarında olacak şekilde kalçanı indir; sırtın düz, başın ileri bakıyor, göğsün yukarıda ve omuzların barın hemen önünde olsun. Bu, başlangıç pozisyonun.",
+      "Topuklarından iterek, dizlerini açarak ilk çekişe başla. Sırtının açısı aynı kalmalı ve kolların düz kalmalı. Ağırlığı kontrollü şekilde hareket ettirerek dizlerin üstüne kadar devam et.",
+      "Sonra clean'in ana ivme kaynağı olan ikinci çekiş gelir. Bar uyluk ortasına yaklaşırken kalçanı açmaya başla. Zıplar gibi bir hareketle kalçanı, dizlerini ve ayak bileklerini açarak hızlan; barı yukarı taşımak için hızı kullan. Ağırlığı hızlandırmak için kollarınla aktif olarak çekmene gerek olmamalı; ikinci çekişin sonunda vücudun tamamen açılmış, hafifçe geriye yatık ve kolların hâlâ düz olmalı.",
+      "Tam açılmaya ulaştığında omuzlarını sertçe silkip (shrug) dirseklerin yukarıda ve dışarıda olacak şekilde kollarını bükerek üçüncü çekişe geç. En yüksek açılma noktasında kendini sertçe aşağı çek ve bunu yaparken dirseklerini barın altına döndür. Barı front squat pozisyonunda karşıla; bu pozisyonun derinliği, üçüncü çekişin sonunda barın yüksekliğine bağlıdır. Bar öne doğru çekilmiş omuzlarının üzerine oturmalı, boğazına hafifçe değmeli ve ellerin gevşek olmalı. En alttaki squat pozisyonuna inmeye devam et; bu, doğrulmana yardımcı olur.",
+      "Topuklarından iterek, gövdeni dik ve dirseklerini yukarıda tutarak hemen doğrul. Ayakta durma pozisyonuna yükselene kadar devam et.",
+      "İkinci aşama, ağırlığı baş üstüne kaldıran jerk'tür. Ağırlık omuzlarının önünde dururken ayakta dur ve dip ile başla. Ayakların tam kalçanın altındayken kalçanı geriye götürmeden dizlerini bük. Yalnızca hafifçe aşağı in ve olabildiğince güçlü şekilde yön değiştir.",
+      "Olabildiğince fazla hız ve kuvvet oluşturmak için topuklarından it ve bar omuzlarından ayrılırken başını yoldan çekmeyi unutma.",
+      "Ayakların yerden kesildiği bu anda ayaklarını olabildiğince hızlı şekilde karşılama pozisyonuna yerleştir. Ayaklarının platformu aktif olarak itmediği bu kısa anda, barı yukarı itme çaban seni aşağı iter. Ayaklarını biri önde, biri arkada olacak şekilde aç. Barı kolların baş üstünde kilitli olarak karşıla. Ayakta durma pozisyonuna dön."
+    ]
+  },
+  "Dumbbell_Shoulder_Press": {
+    "instructions": [
+      "Her elinde bir dambıl tutarken, sırt desteği olan bir military press sehpasına ya da çok amaçlı sehpaya otur. Dambılları dik şekilde uyluklarının üzerine koy.",
+      "Şimdi uyluklarından destek alarak dambılları itip teker teker omuz yüksekliğine kaldır.",
+      "Avuçların öne bakacak şekilde bileklerini çevirdiğinden emin ol. Bu, başlangıç pozisyonun.",
+      "Şimdi nefes ver ve dambılları en üstte birbirine değene kadar yukarı it.",
+      "Ardından en üstteki kasılı pozisyonda kısa bir an bekledikten sonra nefes alarak ağırlıkları yavaşça başlangıç pozisyonuna indir.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Front_Box_Jump": {
+    "instructions": [
+      "Önünde 1-2 fit (yaklaşık 30-60 cm) mesafede, uygun yükseklikte bir kutuyla başla. Ayakların omuz genişliğinde açık şekilde dur. Bu, başlangıç pozisyonun.",
+      "Zıplamaya hazırlanmak için kollarını arkaya savurarak kısa bir çömelme yap.",
+      "Bu pozisyondan hızla sıçrayarak kalçanı, dizlerini ve ayak bileklerini açıp olabildiğince yükseğe zıpla. Kollarını öne ve yukarı savur.",
+      "Dizlerin bükülü şekilde kutunun üzerine in ve darbeyi bacaklarınla emerek karşıla. Kutudan yere zıplayarak inebilirsin ya da tercihen bacaklarını teker teker indirerek aşağı in."
+    ]
+  },
+  "Hamstring_Stretch": {
+    "instructions": [
+      "Sırt üstü uzan; bir bacağın yukarıda düz, kalçan doksan derecede olsun. Diğer bacağını yerde düz tut.",
+      "Bir kemeri, bandı ya da halatı ayak tabanının ön kısmına dola. Bu, başlangıç pozisyonun.",
+      "Baldırlarında ve arka bacak kaslarında gerilim oluşturmak için kemeri çek. Bu esnemede 10-30 saniye bekle ve diğer bacakla tekrarla."
+    ]
+  },
+  "Hang_Clean": {
+    "instructions": [
+      "Omuz genişliğinde, iki elle üstten tutuş ya da kanca tutuşla başla; bar uyluk ortası hizasında asılı olsun. Sırtın düz ve hafifçe öne eğik olmalı.",
+      "Kalçanı, dizlerini ve ayak bileklerini sert bir şekilde açarak ağırlığı yukarı it. Bunu yaparken omuzlarını kulaklarına doğru silk (shrug).",
+      "Topuklarından iterek, gövdeni dik ve dirseklerini yukarıda tutarak hemen doğrul. Ayakta durma pozisyonuna yükselene kadar devam et."
+    ]
+  },
+  "Kneeling_Hip_Flexor": {
+    "instructions": [
+      "Bir matın üzerinde diz çök; sağ dizini öne getirerek ayak tabanını yere bas ve sol bacağını arkana doğru uzatarak ayağının üstünü yere koy.",
+      "Kalçanda gerilme hissedene kadar ağırlığını öne aktar. 15 saniye bekle, ardından diğer tarafla tekrarla."
+    ]
+  },
+  "Leg_Extensions": {
+    "instructions": [
+      "Bu hareket için bir leg extension makinesi kullanman gerekecek. Önce ağırlığını seç ve bacakların pedin altında (ayak uçların öne bakacak şekilde), ellerin yan tutamakları tutarak makineye otur. Bu, başlangıç pozisyonun. İpucu: Pedi, alt bacağının üzerine (ayaklarının hemen üstüne) gelecek şekilde ayarlaman gerekecek. Ayrıca alt ve üst bacağın arasında 90 derecelik bir açı oluştuğundan emin ol. Açı 90 dereceden küçükse diz ayak parmaklarının önüne geçiyor demektir, bu da diz ekleminde gereksiz yük oluşturur. Makine bu şekilde tasarlanmışsa ya başka bir makine ara ya da hareketi yapmaya başladığında 90 derecelik açıya ulaşınca inmeyi bıraktığından emin ol.",
+      "Ön bacak kaslarını kullanarak, nefes verirken bacaklarını sonuna kadar uzat. Vücudunun geri kalanının oturakta sabit kaldığından emin ol. Kasılı pozisyonda bir saniye bekle.",
+      "Nefes alırken ağırlığı yavaşça ilk pozisyona indir; 90 derecelik açı sınırını geçmediğinden emin ol.",
+      "Önerilen sayı kadar tekrarla."
+    ]
+  },
+  "Leg_Press": {
+    "instructions": [
+      "Bir leg press makinesine otur ve bacaklarını tam önündeki platforma orta genişlikte (omuz genişliğinde) bir ayak duruşuyla yerleştir. (Not: Bu anlatımda genel gelişimi hedefleyen, yukarıda tarif edilen orta genişlikteki duruşu kullanacağız; ancak ayak konumlandırma bölümünde anlatılan üç duruştan herhangi birini seçebilirsin.)",
+      "Ağırlıklı platformu yerinde tutan güvenlik barlarını indir ve bacakların önünde tamamen düz olana kadar platformu yukarı it. İpucu: Dizlerini kilitlemediğinden emin ol. Gövdenle bacakların tam 90 derecelik bir açı oluşturmalı. Bu, başlangıç pozisyonun.",
+      "Nefes alırken, üst ve alt bacağın 90 derecelik bir açı oluşturana kadar platformu yavaşça indir.",
+      "Ağırlıklı olarak topuklarınla iterek ve ön bacak kaslarını kullanarak nefes verirken başlangıç pozisyonuna dön.",
+      "Önerilen tekrar sayısı kadar tekrarla ve bitirdiğinde güvenlik pimlerini düzgünce kilitlediğinden emin ol. Tam yüklü platformun üzerine düşmesini istemezsin."
+    ]
+  },
+  "Lying_Leg_Curls": {
+    "instructions": [
+      "Makine kolunu boyuna göre ayarla ve leg curl makinesine yüzüstü uzan; makine kolunun pedi bacaklarının arkasında (baldırlarının birkaç santim altında) olsun. İpucu: Mümkünse düz yerine açılı bir leg curl makinesi kullan, çünkü açılı pozisyon arka bacak kaslarını devreye sokmak için daha uygundur.",
+      "Gövdeni sehpada düz tutarak bacaklarının tamamen gergin olduğundan emin ol ve makinenin yan tutamaklarını tut. Ayak uçlarını düz konumlandır (ya da ayak konumlandırma bölümünde anlatılan diğer iki duruştan birini de kullanabilirsin). Bu, başlangıç pozisyonun.",
+      "Nefes verirken, üst bacaklarını pedden kaldırmadan bacaklarını olabildiğince yukarı bük. Tam kasılı pozisyona ulaştığında bir saniye bekle.",
+      "Nefes alırken bacaklarını ilk pozisyona geri getir. Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Pullups": {
+    "instructions": [
+      "Barfiks barını belirlenen tutuşla, avuçların öne bakacak şekilde tut. Tutuşlarla ilgili not: Geniş tutuşta ellerinin arası omuz genişliğinden fazla olmalı. Orta tutuşta ellerinin arası omuz genişliğine eşit, dar tutuşta ise omuz genişliğinden az olmalı.",
+      "İki kolun önünde uzanmış, barı seçtiğin tutuş genişliğinde tutarken, belinde bir kavis oluşturup göğsünü öne çıkararak gövdeni yaklaşık 30 derece geriye yatır. Bu, başlangıç pozisyonun.",
+      "Omuzlarını ve üst kollarını aşağı ve geriye çekerek bar göğsünün üst kısmına değene kadar gövdeni yukarı çek. Hareketin bu kısmında nefes ver. İpucu: Tam kasılı pozisyona ulaştığında sırt kaslarını sıkmaya odaklan. Üst gövden havada hareket ederken sabit kalmalı, yalnızca kolların hareket etmeli. Ön kolların barı tutmak dışında hiçbir iş yapmamalı.",
+      "Kasılı pozisyonda bir saniye bekledikten sonra nefes almaya başla ve kolların tamamen düz, kanat kasların tamamen gerilmiş olana kadar gövdeni yavaşça başlangıç pozisyonuna indir.",
+      "Bu hareketi belirlenen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Romanian_Deadlift": {
+    "instructions": [
+      "Önündeki yere bir halter koy ve onu omuz genişliğinden biraz geniş bir üstten tutuşla (avuçlar aşağı bakacak şekilde) tut. İpucu: Kullandığın ağırlığa bağlı olarak hareketi yapmak için bilek sargısına, daha iyi bir hareket açıklığı için de yükseltilmiş bir platforma ihtiyacın olabilir.",
+      "Dizlerini hafifçe bük; kaval kemiklerini dik, kalçanı geride ve sırtını düz tut. Bu, başlangıç pozisyonun.",
+      "Sırtını ve kollarını her zaman tamamen düz tutarak, nefes verirken barı kalçanı kullanarak kaldır. İpucu: Hareket hızlı değil, dengeli ve kontrollü olmalı.",
+      "Tamamen dik durduğunda, squat yaparken olduğundan farklı olarak dizlerini yalnızca hafifçe bükerek ve kalçanı geriye iterek barı indir. İpucu: Hareketin başında derin bir nefes al ve göğsünü yukarıda tut. İndirirken nefesini tut, hareketi tamamlarken nefes ver.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Seated_Cable_Rows": {
+    "instructions": [
+      "Bu hareket için V bar takılı bir alt makara row makinesine ihtiyacın olacak. Not: V bar, avuçlarının birbirine baktığı nötr bir tutuş yapmanı sağlar. Başlangıç pozisyonuna geçmek için önce makineye otur ve ayaklarını öndeki platforma ya da çapraz bara yerleştir; dizlerinin hafif bükülü olduğundan ve kilitli olmadığından emin ol.",
+      "Sırtının doğal hizasını koruyarak öne eğil ve V barın tutamaklarını kavra.",
+      "Kolların düz şekilde, gövden bacaklarınla 90 derecelik açı yapana kadar geriye çekil. Sırtın hafifçe kavisli ve göğsün öne çıkmış olmalı. Barı önünde tutarken kanat kaslarında güzel bir gerilme hissetmelisin. Bu, hareketin başlangıç pozisyonu.",
+      "Gövdeni sabit tutarak, kollarını gövdene yakın tutup karın kaslarına değene kadar tutamakları gövdene doğru çek. Bu hareketi yaparken nefes ver. Bu noktada sırt kaslarını güçlüce sıkıyor olmalısın. Kasılmayı bir saniye koru ve nefes alarak yavaşça ilk pozisyona dön.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Side_Lateral_Raise": {
+    "instructions": [
+      "Bir çift dambıl al; gövden düz, dambıllar yanlarında, kolların tam uzanmış ve avuçların sana bakacak şekilde dur. Bu, başlangıç pozisyonun.",
+      "Gövdeni sabit tutarken (savurma yok), dirseklerin hafif bükülü ve ellerin bardağa su döker gibi hafifçe öne eğik şekilde dambılları yanlara kaldır. Kolların yere paralel olana kadar kaldırmaya devam et. Bu hareketi yaparken nefes ver ve en üstte bir saniye bekle.",
+      "Nefes alırken dambılları yavaşça başlangıç pozisyonuna indir.",
+      "Önerilen tekrar sayısı kadar tekrarla."
+    ]
+  },
+  "Wide-Grip_Lat_Pulldown": {
+    "instructions": [
+      "Üst makarasına geniş bir bar takılı bir pulldown makinesine otur. Makinenin diz pedini boyuna göre ayarladığından emin ol. Bu pedler, bara bağlı direncin vücudunu yukarı kaldırmasını önler.",
+      "Barı belirlenen tutuşla, avuçların öne bakacak şekilde tut. Tutuşlarla ilgili not: Geniş tutuşta ellerinin arası omuz genişliğinden fazla olmalı. Orta tutuşta ellerinin arası omuz genişliğine eşit, dar tutuşta ise omuz genişliğinden az olmalı.",
+      "İki kolun önünde uzanmış, barı seçtiğin tutuş genişliğinde tutarken, belinde bir kavis oluşturup göğsünü öne çıkararak gövdeni yaklaşık 30 derece geriye yatır. Bu, başlangıç pozisyonun.",
+      "Nefes verirken omuzlarını ve üst kollarını aşağı ve geriye çekerek barı göğsünün üst kısmına değene kadar indir. İpucu: Tam kasılı pozisyona ulaştığında sırt kaslarını sıkmaya odaklan. Üst gövden sabit kalmalı, yalnızca kolların hareket etmeli. Ön kolların barı tutmak dışında hiçbir iş yapmamalı; bu yüzden barı ön kollarınla aşağı çekmeye çalışma.",
+      "Kasılı pozisyonda kürek kemiklerini birbirine doğru sıkarak bir saniye bekledikten sonra, kolların tamamen düz ve kanat kasların tamamen gerilmiş olana kadar barı yavaşça başlangıç pozisyonuna geri götür. Hareketin bu kısmında nefes al.",
+      "Bu hareketi belirlenen tekrar sayısı kadar tekrarla."
+    ]
+  }
+}
