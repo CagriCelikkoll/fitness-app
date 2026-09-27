@@ -57,8 +57,7 @@ describe('exercises.tr.json geçerliliği', () => {
 });
 
 describe('exercises.tr.json kapsamı', () => {
-  // Toplu çeviri bitince açılacak (spec Aşama 5)
-  it.skip('talimatı olan her hareketin çevirisi var', () => {
+  it('talimatı olan her hareketin çevirisi var', () => {
     const missing = source
       .filter((e) => e.instructions.some((s) => s.trim() !== ''))
       .filter((e) => !Object.prototype.hasOwnProperty.call(translations, e.id))

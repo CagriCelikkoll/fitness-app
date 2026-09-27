@@ -8,19 +8,29 @@
  * hareketler, kardiyo modları) veritabanındaki talimatla gösteriliyor.
  *
  * `require` ile okunuyor, `import` ile değil — bkz. `src/db/seed.ts`.
+ * Dosya ~1 MB; açılışta değil, ilk talimat gösteriminde yükleniyor ve
+ * sonrası için önbellekte tutuluyor.
  */
 
 export type TranslationFile = Record<string, { instructions: string[] }>;
 
-const translations =
-  require('../../assets/seed/exercises.tr.json') as TranslationFile;
+let translations: TranslationFile | null = null;
+
+function loadTranslations(): TranslationFile {
+  if (!translations) {
+    translations =
+      require('../../assets/seed/exercises.tr.json') as TranslationFile;
+  }
+  return translations;
+}
 
 /** Türkçe talimat varsa döndürür, yoksa null */
 export function getInstructionsTr(exerciseId: string): string[] | null {
-  if (!Object.prototype.hasOwnProperty.call(translations, exerciseId)) {
+  const all = loadTranslations();
+  if (!Object.prototype.hasOwnProperty.call(all, exerciseId)) {
     return null;
   }
-  return translations[exerciseId].instructions;
+  return all[exerciseId].instructions;
 }
 
 /** Veritabanındaki JSON talimat dizisi; bozuksa boş dizi */
