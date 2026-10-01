@@ -52,17 +52,6 @@ interface CardioModeRow {
   instructions: string[];
 }
 
-/**
- * JSON'ları `require` ile alıyoruz: Metro bunları app bundle'ına gömüyor.
- * `import` de çalışırdı ama tsc 876 kayıtlık dosyanın tamamı için literal
- * tip çıkarmaya kalkıyor ve type-check'i gereksiz yere yavaşlatıyor;
- * `require` + cast bu maliyeti ortadan kaldırıyor.
- */
-const freeExerciseDb =
-  require('../../assets/seed/exercises.json') as FreeExerciseDbRow[];
-const cardioModes =
-  require('../../assets/seed/cardio-modes.json') as CardioModeRow[];
-
 /** SQLite'ın 999 parametrelik bind limitini aşmamak için */
 const BATCH_SIZE = 100;
 
@@ -84,6 +73,20 @@ export async function seedIfEmpty(db: Db): Promise<{
   if (exerciseCount > 0) {
     return { seeded: false, exerciseCount };
   }
+
+  // JSON'lar `require` ile alınıyor: Metro bunları app bundle'ına gömüyor.
+  // `import` de çalışırdı ama tsc 876 kayıtlık dosyanın tamamı için literal
+  // tip çıkarmaya kalkıyor ve type-check'i gereksiz yere yavaşlatıyor;
+  // `require` + cast bu maliyeti ortadan kaldırıyor.
+  //
+  // Modül üstünde değil burada: exercises.json ~1 MB ve seed yalnızca
+  // tablo boşken (ilk kurulum) çalışıyor. Metro modülü ilk `require`
+  // anında değerlendirdiği için sonraki açılışlarda dosya belleğe
+  // hiç yüklenmiyor.
+  const freeExerciseDb =
+    require('../../assets/seed/exercises.json') as FreeExerciseDbRow[];
+  const cardioModes =
+    require('../../assets/seed/cardio-modes.json') as CardioModeRow[];
 
   const strengthRows: NewExercise[] = freeExerciseDb.map((e) => ({
     id: e.id,

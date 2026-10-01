@@ -13,7 +13,7 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react-native';
+import { Check, ChevronLeft, ChevronRight, Info, Plus, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useDb } from '@/hooks/useDb';
@@ -284,12 +284,33 @@ function SessionContent({ sessionId }: { sessionId: string }) {
           />
         </Pressable>
         <View className="flex-1 items-center px-2">
-          <Text
-            className="text-white text-xl font-semibold tracking-tight"
-            numberOfLines={1}
+          {/* Hareket adı detayı açar; seans ekranı yığında kaldığı için
+              set satırları ve dinlenme sayacı korunur */}
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: '/exercise/[id]',
+                params: { id: current.exercise.id },
+              })
+            }
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel="Hareket detayını aç"
+            className="flex-row items-center max-w-full active:opacity-60"
           >
-            {current.exercise.nameTr ?? current.exercise.name}
-          </Text>
+            <Text
+              className="text-white text-xl font-semibold tracking-tight shrink"
+              numberOfLines={1}
+            >
+              {current.exercise.nameTr ?? current.exercise.name}
+            </Text>
+            <Info
+              color={COLORS.muted}
+              size={16}
+              strokeWidth={1.75}
+              style={{ marginLeft: 6 }}
+            />
+          </Pressable>
           <Text className="text-muted/70 text-xs tabular-nums tracking-widest mt-0.5">
             {safeIndex + 1} / {seData.length}
           </Text>
