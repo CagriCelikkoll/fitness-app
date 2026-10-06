@@ -66,6 +66,8 @@ import { getAppVersion, shareBackup } from '@/lib/backupFile';
 import { formatDateTime } from '@/lib/format';
 import { ChipGroup } from '@/components/ChipGroup';
 import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
+import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
+import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { COLORS } from '@/theme';
 import {
   DangerButton,
@@ -278,6 +280,7 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
 
   const [rest, setRest] = useState(String(settings?.defaultRestSeconds ?? 90));
   const [vibrate, setVibrate] = useState(settings?.restTimerVibrate ?? true);
+  const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
 
   const persist = async (values: Partial<typeof appSettings.$inferInsert>) => {
     try {
@@ -317,6 +320,21 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
           Yeni rutin oluştururken öntanımlı değer. 0 = zamanlayıcı yok.
         </Text>
       </View>
+
+      {/* Hedef kv-store'da; okunmadan seçici gösterilmesin, yanlış
+          "Hedef yok" görünmesin */}
+      {goalLoaded && (
+        <View>
+          <WeeklyGoalPicker
+            label="Haftalık hedef (gün)"
+            value={goal}
+            onChange={(days) => void setGoal(days)}
+          />
+          <Text className="text-muted text-xs mt-2">
+            Ana sayfadaki halka ve seri bu hedefe göre hesaplanır.
+          </Text>
+        </View>
+      )}
 
       {/* "Dinlenme bitiminde ses" anahtarı kaldırıldı: ses çalma henüz
           uygulanmadı, restTimerSound alanı şemada duruyor. */}

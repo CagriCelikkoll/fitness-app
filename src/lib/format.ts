@@ -248,7 +248,7 @@ export function formatSignedKg(delta: number): string {
   return `${sign}${formatDecimal(Math.abs(rounded))} kg`;
 }
 
-const SHORT_MONTHS_TR = [
+export const SHORT_MONTHS_TR = [
   'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
   'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
 ];
@@ -263,4 +263,20 @@ export function formatShortDate(isoString: string, now: Date = new Date()): stri
   return date.getFullYear() === now.getFullYear()
     ? base
     : `${base} ${date.getFullYear()}`;
+}
+
+/**
+ * Gün anahtarı → "Bugün" / "Dün" / "3 gün önce"; 30 gün ve üzeri
+ * "12 Eyl". Takvim günü farkı yerel saatle (saat farkı değil).
+ */
+export function formatDaysAgo(key: string, now: Date = new Date()): string {
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Yaz saati geçişinde gün 23/25 saat olabilir; yuvarlama bunu emer
+  const diffDays = Math.round((today.getTime() - date.getTime()) / 86_400_000);
+  if (diffDays <= 0) return 'Bugün';
+  if (diffDays === 1) return 'Dün';
+  if (diffDays < 30) return `${diffDays} gün önce`;
+  return formatShortDate(date.toISOString(), now);
 }

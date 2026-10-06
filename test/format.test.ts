@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dateKeyToParts,
   formatDateKey,
+  formatDaysAgo,
   formatShortDate,
   isValidCalendarDate,
   isValidDateKey,
@@ -209,5 +210,21 @@ describe('formatShortDate', () => {
     expect(formatShortDate(new Date(2025, 0, 3, 10).toISOString(), now)).toBe(
       '3 Oca 2025'
     );
+  });
+});
+
+describe('formatDaysAgo', () => {
+  // Saat günün başına yakın: fark saatle değil takvim günüyle ölçülmeli
+  const now = new Date(2026, 9, 7, 0, 30);
+
+  it('bugün / dün / gün önce', () => {
+    expect(formatDaysAgo('2026-10-07', now)).toBe('Bugün');
+    expect(formatDaysAgo('2026-10-06', now)).toBe('Dün');
+    expect(formatDaysAgo('2026-10-04', now)).toBe('3 gün önce');
+  });
+
+  it('30 gün ve üzeri kısa tarih', () => {
+    expect(formatDaysAgo('2026-09-01', now)).toBe('1 Eyl');
+    expect(formatDaysAgo('2025-12-20', now)).toBe('20 Ara 2025');
   });
 });

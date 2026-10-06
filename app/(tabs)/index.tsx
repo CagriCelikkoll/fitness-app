@@ -1,21 +1,36 @@
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Play } from 'lucide-react-native';
+import { Play, Scale, Target } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
-import { exercises, routines, workoutSessions } from '@/db/schema';
+import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
+import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
   isOnboardingDone,
   markOnboardingDone,
   shouldShowOnboarding,
 } from '@/lib/onboarding';
+import { formatDaysAgo, formatDecimal } from '@/lib/format';
+import {
+  goalStreak,
+  workoutDayKeys,
+  workoutDaysThisWeek,
+} from '@/lib/workoutCalendar';
 import { COLORS } from '@/theme';
-import { Card, ListRow, SectionHeader, StatTile } from '@/components/ui';
+import {
+  Card,
+  ListRow,
+  SecondaryButton,
+  SectionHeader,
+} from '@/components/ui';
+import { GoalRing } from '@/components/GoalRing';
+import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
+import { WorkoutCalendar } from '@/components/WorkoutCalendar';
 
 /**
  * Karşılama kararı uygulama açılışı başına bir kez verilir; sekmeler
@@ -87,19 +102,37 @@ function HomeContent() {
   const db = useDb();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
+  const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
+  const [goalPickerOpen, setGoalPickerOpen] = useState(false);
 
-  const exerciseStats = useLiveQuery(
-    db.select({ count: sql<number>`count(*)` }).from(exercises)
-  );
-  const sessionStats = useLiveQuery(
+  // Bitmiş tüm seanslar: takvim, haftalık hedef, seri ve toplam sayı.
+  // Join yok, useLiveQuery seans bitince kendiliğinden güncelliyor.
+  const finishedSessions = useLiveQuery(
     db
-      .select({ count: sql<number>`count(*)` })
+      .select({
+        id: workoutSessions.id,
+        name: workoutSessions.name,
+        startedAt: workoutSessions.startedAt,
+        endedAt: workoutSessions.endedAt,
+        durationSeconds: workoutSessions.durationSeconds,
+      })
       .from(workoutSessions)
       .where(isNotNull(workoutSessions.endedAt))
   );
-  const routineStats = useLiveQuery(
-    db.select({ count: sql<number>`count(*)` }).from(routines)
+  const latestWeight = useLiveQuery(
+    db
+      .select({ date: bodyMetrics.date, weightKg: bodyMetrics.weightKg })
+      .from(bodyMetrics)
+      .where(isNotNull(bodyMetrics.weightKg))
+      .orderBy(desc(bodyMetrics.date))
+      .limit(1)
   );
+
+  const sessions = finishedSessions.data ?? [];
+  const now = new Date();
+  const dayKeys = useMemo(() => workoutDayKeys(sessions), [sessions]);
+  const doneThisWeek = workoutDaysThisWeek(dayKeys, now);
+  const streak = goalStreak(dayKeys, goal, now);
 
   // Son 3 tamamlanmış antrenman
   const recentSessions = useLiveQuery(
@@ -144,28 +177,29 @@ function HomeContent() {
         </Link>
       )}
 
-      {/* İstatistikler — bir geniş + iki dar kart */}
+      {/* Yan yana: haftalık hedef + güncel kilo */}
       <View className="flex-row gap-3">
-        <StatTile
-          label="Antrenman"
-          value={sessionStats.data?.[0]?.count ?? 0}
-          className="flex-1 min-h-[164px]"
+        <GoalCard
+          loaded={goalLoaded}
+          goal={goal}
+          done={doneThisWeek}
+          streak={streak}
+          onPress={() => setGoalPickerOpen(true)}
         />
-        <View className="flex-1 gap-3">
-          <StatTile
-            label="Egzersiz"
-            value={exerciseStats.data?.[0]?.count ?? 0}
-            size="sm"
-            className="flex-1"
-          />
-          <StatTile
-            label="Rutin"
-            value={routineStats.data?.[0]?.count ?? 0}
-            size="sm"
-            className="flex-1"
-          />
-        </View>
+        <WeightCard
+          loaded={latestWeight.updatedAt != null}
+          latest={latestWeight.data?.[0]}
+        />
       </View>
+
+      <WorkoutCalendar sessions={sessions} totalCount={sessions.length} />
+
+      <GoalPickerModal
+        visible={goalPickerOpen}
+        goal={goal}
+        onChange={(days) => void setGoal(days)}
+        onClose={() => setGoalPickerOpen(false)}
+      />
 
       {/* Hızlı aksiyon */}
       {!activeSessionId && (
@@ -227,6 +261,150 @@ function HomeContent() {
         )}
       </Card>
     </ScrollView>
+  );
+}
+
+// ============================================================================
+// Bento kartları
+// ============================================================================
+
+const BENTO_CARD_CLASS = 'flex-1 min-h-[180px] items-center justify-center';
+
+function GoalCard({
+  loaded,
+  goal,
+  done,
+  streak,
+  onPress,
+}: {
+  loaded: boolean;
+  goal: number | null;
+  done: number;
+  streak: number;
+  onPress: () => void;
+}) {
+  // Hedef okunmadan "belirle" daveti göstermeyelim — boş kart
+  if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
+
+  if (goal == null) {
+    return (
+      <Card onPress={onPress} className={BENTO_CARD_CLASS}>
+        <View className="w-12 h-12 rounded-full bg-accent items-center justify-center">
+          <Target color={COLORS.accentFg} size={22} />
+        </View>
+        <Text className="text-white text-base font-semibold text-center mt-3">
+          Haftalık hedef belirle
+        </Text>
+        <Text className="text-muted text-xs text-center mt-1">
+          Haftada kaç gün?
+        </Text>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      onPress={onPress}
+      className={BENTO_CARD_CLASS}
+      accessibilityLabel="Haftalık hedefi değiştir"
+    >
+      <GoalRing done={done} goal={goal} />
+      {streak >= 2 && (
+        <Text className="text-white text-xs font-medium mt-3">
+          🔥 {streak} haftalık seri
+        </Text>
+      )}
+    </Card>
+  );
+}
+
+function WeightCard({
+  loaded,
+  latest,
+}: {
+  loaded: boolean;
+  latest?: { date: string; weightKg: number | null };
+}) {
+  if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
+
+  if (latest?.weightKg == null) {
+    return (
+      <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
+        <Card className={BENTO_CARD_CLASS}>
+          <View className="w-12 h-12 rounded-full bg-bg-elevated border border-border items-center justify-center">
+            <Scale color={COLORS.text} size={22} />
+          </View>
+          <Text className="text-white text-base font-semibold text-center mt-3">
+            Kilonu ekle
+          </Text>
+          <Text className="text-muted text-xs text-center mt-1">
+            İlerlemeni takip et
+          </Text>
+        </Card>
+      </Link>
+    );
+  }
+
+  return (
+    <Link href="/(tabs)/progress" asChild>
+      <Card className={BENTO_CARD_CLASS}>
+        <Text className="text-muted text-xs tracking-widest">GÜNCEL KİLO</Text>
+        <View className="flex-row items-baseline mt-2">
+          <Text className="text-white text-4xl font-bold tracking-tight tabular-nums">
+            {formatDecimal(latest.weightKg)}
+          </Text>
+          <Text className="text-muted text-base ml-1">kg</Text>
+        </View>
+        <Text className="text-muted text-xs mt-2">
+          {formatDaysAgo(latest.date)}
+        </Text>
+      </Card>
+    </Link>
+  );
+}
+
+/** Ana sayfadan haftalık hedef seçimi — Ayarlar'daki seçicinin aynısı */
+function GoalPickerModal({
+  visible,
+  goal,
+  onChange,
+  onClose,
+}: {
+  visible: boolean;
+  goal: number | null;
+  onChange: (days: number | null) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable className="flex-1 bg-black/60 justify-end" onPress={onClose}>
+        {/* İçerideki basışlar arka plana gidip modalı kapatmasın */}
+        <Pressable onPress={() => {}} className="bg-bg-surface rounded-t-3xl px-5 pt-6 pb-10 gap-5 border-t border-border">
+          <View>
+            <Text className="text-white text-xl font-semibold tracking-tight">
+              Haftalık hedef
+            </Text>
+            <Text className="text-muted text-sm mt-1">
+              Haftada kaç gün antrenman yapmak istiyorsun?
+            </Text>
+          </View>
+          <WeeklyGoalPicker
+            label="Gün sayısı"
+            value={goal}
+            onChange={(days) => {
+              onChange(days);
+              onClose();
+            }}
+          />
+          <SecondaryButton label="Kapat" onPress={onClose} />
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 

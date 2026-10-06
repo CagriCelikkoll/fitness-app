@@ -45,6 +45,7 @@ import { applyTemplate } from '@/lib/applyTemplate';
 import {
   TRAINING_DAYS_OPTIONS,
   markOnboardingDone,
+  saveGoalForAddedTemplate,
   suggestedTemplate,
   type TrainingDaysChoice,
 } from '@/lib/onboarding';
@@ -111,6 +112,11 @@ export default function OnboardingScreen() {
     try {
       await applyTemplate(db, template);
       setAddedTemplateIds((ids) => [...ids, template.id]);
+      // Hedef seçimde değil, program eklenince yazılır. Hata programın
+      // eklenmesini geri almasın; sadece loglanır.
+      saveGoalForAddedTemplate(Storage, template).catch((err) =>
+        console.error('[ONBOARDING] Haftalık hedef kaydedilemedi:', err)
+      );
     } catch (err) {
       console.error('[ONBOARDING] Program eklenemedi:', err);
       Alert.alert('Hata', String(err));

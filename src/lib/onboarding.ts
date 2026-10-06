@@ -8,7 +8,8 @@
  * bellek içi bir taklitle denenebilsin.
  */
 
-import { getTemplate } from '@/lib/workoutTemplates';
+import { getTemplate, type WorkoutTemplate } from '@/lib/workoutTemplates';
+import { setWeeklyGoal, type RemovableKeyValueStore } from '@/lib/weeklyGoal';
 
 /** kv-store'daki anahtar. Değiştirme: mevcut cihazlarda bayrak kaybolur. */
 export const ONBOARDING_FLAG_KEY = 'onboarding.done';
@@ -65,6 +66,19 @@ const TEMPLATE_BY_DAYS: Record<2 | 3 | 4, string> = {
 /** Seçime önerilen hazır programın id'si; kendi programını kuracaksa null */
 export function templateIdForDays(choice: TrainingDaysChoice): string | null {
   return choice === 'custom' ? null : TEMPLATE_BY_DAYS[choice];
+}
+
+/**
+ * Karşılamada "Bu programı ekle"ye basılınca eklenen programın gün
+ * sayısını haftalık hedef yapar. Sadece seçim yapıp program eklemeyen ya
+ * da "Kendi programımı kuracağım"ı seçen kullanıcı için çağrılmaz:
+ * karşılama Ayarlar'dan yeniden açılsa da mevcut hedef korunur.
+ */
+export async function saveGoalForAddedTemplate(
+  store: RemovableKeyValueStore,
+  template: Pick<WorkoutTemplate, 'dayCount'>
+): Promise<void> {
+  await setWeeklyGoal(store, template.dayCount);
 }
 
 /** Önerilen program; kendi programını kuracaksa ya da id bulunamazsa undefined */
