@@ -23,12 +23,9 @@ import { useDb } from '@/hooks/useDb';
 import {
   routineExercises,
   routines,
-  sessionExercises,
-  sets,
-  workoutSessions,
   type Routine,
 } from '@/db/schema';
-import { newId } from '@/lib/id';
+import { createSessionFromRoutine } from '@/lib/startSession';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { COLORS } from '@/theme';
 import {
@@ -73,58 +70,14 @@ export default function WorkoutScreen() {
     if (starting) return;
     setStarting(true);
     try {
-      // Rutindeki egzersizleri çek
-      const exercisesInRoutine = await db
-        .select()
-        .from(routineExercises)
-        .where(eq(routineExercises.routineId, routine.id))
-        .orderBy(asc(routineExercises.orderIndex));
+      const sessionId = await createSessionFromRoutine(db, routine);
 
-      if (exercisesInRoutine.length === 0) {
+      if (sessionId == null) {
         Alert.alert(
           'Boş Rutin',
           'Bu rutin egzersiz içermiyor. Önce egzersiz ekle.'
         );
         return;
-      }
-
-      // Yeni session oluştur
-      const sessionId = newId();
-      await db.insert(workoutSessions).values({
-        id: sessionId,
-        routineId: routine.id,
-        name: routine.name,
-        startedAt: new Date().toISOString(),
-      });
-
-      // Rutindeki egzersizleri session_exercises'e snapshot et
-      const sessionExerciseRows = exercisesInRoutine.map((re, idx) => ({
-        id: newId(),
-        sessionId,
-        exerciseId: re.exerciseId,
-        orderIndex: idx,
-        supersetGroup: re.supersetGroup,
-      }));
-      await db.insert(sessionExercises).values(sessionExerciseRows);
-
-      // Her egzersiz için target_sets kadar boş "normal" set oluştur (kullanıcı doldurur)
-      const allSets: (typeof sets.$inferInsert)[] = [];
-      exercisesInRoutine.forEach((re, exIdx) => {
-        const targetSets = re.targetSets ?? 3;
-        for (let i = 0; i < targetSets; i++) {
-          allSets.push({
-            id: newId(),
-            sessionExerciseId: sessionExerciseRows[exIdx].id,
-            setNumber: i + 1,
-            setType: 'normal',
-            weightKg: re.targetWeightKg,
-            reps: null,
-            isCompleted: false,
-          });
-        }
-      });
-      if (allSets.length > 0) {
-        await db.insert(sets).values(allSets);
       }
 
       startSession(sessionId);
