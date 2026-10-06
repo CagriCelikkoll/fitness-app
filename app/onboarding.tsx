@@ -1,0 +1,500 @@
+/**
+ * İlk açılış (karşılama) akışı: dört kısa adım.
+ *
+ * 1. Hoş geldin — ne işe yaradığı
+ * 2. Profil — boy/doğum tarihi/cinsiyet (Ayarlar'daki formun aynısı)
+ * 3. Program — haftalık gün sayısına göre hazır program önerisi
+ * 4. İpuçları — ✓ ile onaylama ve yedek alma
+ *
+ * Tek ekran, adım durumu içeride: adımlar seçilen programı paylaşıyor ve
+ * ayrı ayrı derin bağlantıya ihtiyaçları yok.
+ *
+ * Kime gösterileceğine ana sayfa karar veriyor (`app/(tabs)/index.tsx`);
+ * Ayarlar → Hakkında'dan da açılabiliyor. "Atla" ya da "Başla" bayrağı
+ * set edip Antrenman sekmesine gider.
+ */
+
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { eq } from 'drizzle-orm';
+import Storage from 'expo-sqlite/kv-store';
+import {
+  Check,
+  Dumbbell,
+  History,
+  Plus,
+  TrendingUp,
+  Upload,
+  type LucideIcon,
+} from 'lucide-react-native';
+
+import { useDb } from '@/hooks/useDb';
+import { appSettings, type AppSettings } from '@/db/schema';
+import { applyTemplate } from '@/lib/applyTemplate';
+import {
+  TRAINING_DAYS_OPTIONS,
+  markOnboardingDone,
+  suggestedTemplate,
+  type TrainingDaysChoice,
+} from '@/lib/onboarding';
+import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
+import {
+  Card,
+  Chip,
+  PrimaryButton,
+  SecondaryButton,
+} from '@/components/ui';
+import { COLORS } from '@/theme';
+
+const STEP_COUNT = 4;
+
+export default function OnboardingScreen() {
+  const db = useDb();
+  const router = useRouter();
+
+  const { data: settingsRows, updatedAt } = useLiveQuery(
+    db.select().from(appSettings).where(eq(appSettings.id, 1)).limit(1)
+  );
+
+  const [step, setStep] = useState(0);
+  const [choice, setChoice] = useState<TrainingDaysChoice | null>(null);
+  const [addedTemplateIds, setAddedTemplateIds] = useState<string[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+
+  const next = () => setStep((s) => Math.min(s + 1, STEP_COUNT - 1));
+  const back = () => setStep((s) => Math.max(s - 1, 0));
+
+  // Android geri tuşu 2-4. adımlarda bir önceki adıma döner ("Geri" ile
+  // aynı). 1. adımda dinleyici yok: varsayılan davranış (çıkış / Ayarlar'a
+  // dönüş) kalır. Ekrandan çıkınca ya da adım değişince temizlenir.
+  useEffect(() => {
+    if (step === 0) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setStep((s) => Math.max(s - 1, 0));
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
+
+  /** Atla ve Başla: bayrak set edilir, Antrenman sekmesine gidilir */
+  const finish = async () => {
+    if (finishing) return;
+    setFinishing(true);
+    try {
+      await markOnboardingDone(Storage);
+    } catch (err) {
+      // Bayrak yazılamazsa karşılama bir dahaki açılışta yeniden çıkar;
+      // kullanıcıyı burada bekletmenin anlamı yok.
+      console.error('[ONBOARDING] Bayrak yazılamadı:', err);
+    }
+    // Ayarlar'dan açıldıysa sekmelere geri döner, ilk açılışta (sekmeler
+    // yığında yok) bu ekranın yerine geçer.
+    router.dismissTo('/workout');
+  };
+
+  const addTemplate = async () => {
+    const template = choice != null ? suggestedTemplate(choice) : undefined;
+    if (!template) return;
+    setAdding(true);
+    try {
+      await applyTemplate(db, template);
+      setAddedTemplateIds((ids) => [...ids, template.id]);
+    } catch (err) {
+      console.error('[ONBOARDING] Program eklenemedi:', err);
+      Alert.alert('Hata', String(err));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const layout = { step, onSkip: finish, onBack: back, skipDisabled: finishing };
+
+  if (step === 0) {
+    return (
+      <StepLayout
+        {...layout}
+        footer={<PrimaryButton label="Devam" onPress={next} />}
+      >
+        <WelcomeStep />
+      </StepLayout>
+    );
+  }
+
+  if (step === 1) {
+    // Form durumu kayıtlı ayarlardan kuruluyor; ayarlar gelmeden kurulmasın
+    if (!updatedAt) {
+      return (
+        <StepLayout {...layout} footer={null}>
+          <View className="pt-10">
+            <ActivityIndicator color={COLORS.accent} />
+          </View>
+        </StepLayout>
+      );
+    }
+    return (
+      <ProfileStep
+        key={settingsRows?.[0]?.id ?? 'new'}
+        layout={layout}
+        settings={settingsRows?.[0]}
+        onNext={next}
+      />
+    );
+  }
+
+  if (step === 2) {
+    return (
+      <StepLayout
+        {...layout}
+        footer={<PrimaryButton label="Devam" onPress={next} />}
+      >
+        <ProgramStep
+          choice={choice}
+          onChoose={setChoice}
+          addedTemplateIds={addedTemplateIds}
+          adding={adding}
+          onAdd={() => void addTemplate()}
+        />
+      </StepLayout>
+    );
+  }
+
+  return (
+    <StepLayout
+      {...layout}
+      footer={
+        <PrimaryButton
+          label="Başla"
+          loading={finishing}
+          onPress={() => void finish()}
+        />
+      }
+    >
+      <TipsStep />
+    </StepLayout>
+  );
+}
+
+// ============================================================================
+// Ortak iskelet: üstte Geri / Atla, ortada içerik, altta noktalar + düğme
+// ============================================================================
+
+interface StepLayoutProps {
+  step: number;
+  onSkip: () => void;
+  onBack: () => void;
+  skipDisabled: boolean;
+  footer: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function StepLayout({
+  step,
+  onSkip,
+  onBack,
+  skipDisabled,
+  footer,
+  children,
+}: StepLayoutProps) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View className="flex-1 bg-bg" style={{ paddingTop: insets.top }}>
+      <View className="flex-row items-center justify-between px-5 h-12">
+        {step > 0 ? (
+          <Pressable onPress={onBack} hitSlop={12} className="active:opacity-60">
+            <Text className="text-muted text-base font-medium">Geri</Text>
+          </Pressable>
+        ) : (
+          <View />
+        )}
+        <Pressable
+          onPress={onSkip}
+          disabled={skipDisabled}
+          hitSlop={12}
+          className="active:opacity-60"
+        >
+          <Text className="text-muted text-base font-medium">Atla</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-5 pt-4 pb-6 gap-4"
+        keyboardShouldPersistTaps="handled"
+      >
+        {children}
+      </ScrollView>
+
+      <View
+        className="px-5 pt-3 gap-4 border-t border-border bg-bg"
+        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+      >
+        <StepDots step={step} />
+        {footer}
+      </View>
+    </View>
+  );
+}
+
+function StepDots({ step }: { step: number }) {
+  return (
+    <View
+      className="flex-row justify-center gap-2"
+      accessibilityLabel={`Adım ${step + 1} / ${STEP_COUNT}`}
+    >
+      {Array.from({ length: STEP_COUNT }, (_, i) => (
+        <View
+          key={i}
+          className={`h-2 rounded-full ${
+            i === step ? 'w-6 bg-accent' : 'w-2 bg-border'
+          }`}
+        />
+      ))}
+    </View>
+  );
+}
+
+function StepTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <View className="mb-2">
+      <Text className="text-white text-3xl font-bold tracking-tight">
+        {title}
+      </Text>
+      {subtitle != null && (
+        <Text className="text-muted text-sm leading-5 mt-2">{subtitle}</Text>
+      )}
+    </View>
+  );
+}
+
+// ============================================================================
+// 1) Hoş geldin
+// ============================================================================
+
+const WELCOME_POINTS: { icon: LucideIcon; text: string }[] = [
+  {
+    icon: Dumbbell,
+    text: 'Hazır programla başla ya da kendi rutinini kur',
+  },
+  {
+    icon: History,
+    text: 'Setlerini kaydet; bir sonraki antrenmanda önceki değerlerin hazır gelir',
+  },
+  {
+    icon: TrendingUp,
+    text: 'İlerlemeni, rekorlarını ve hangi kası ne kadar çalıştırdığını gör',
+  },
+];
+
+function WelcomeStep() {
+  return (
+    <>
+      <StepTitle title="Hoş geldin 💪" />
+      {WELCOME_POINTS.map(({ icon: Icon, text }) => (
+        <Card key={text} className="flex-row items-center">
+          <View className="w-11 h-11 rounded-full bg-accent items-center justify-center">
+            <Icon color={COLORS.accentFg} size={20} />
+          </View>
+          <Text className="flex-1 ml-4 text-white text-base leading-6">
+            {text}
+          </Text>
+        </Card>
+      ))}
+      <Text className="text-muted text-xs text-center mt-2">
+        Verilerin sadece bu telefonda saklanır, internet gerekmez.
+      </Text>
+    </>
+  );
+}
+
+// ============================================================================
+// 2) Profil
+// ============================================================================
+
+function ProfileStep({
+  layout,
+  settings,
+  onNext,
+}: {
+  layout: Omit<StepLayoutProps, 'footer' | 'children'>;
+  settings?: AppSettings;
+  onNext: () => void;
+}) {
+  const form = useProfileForm(settings);
+
+  // Boş form da kaydedilir (alanlar null kalır); geçersiz girişte
+  // hata gösterilir ve adım ilerlemez — "Atla" yine çalışır.
+  const handleNext = async () => {
+    if (await form.save()) onNext();
+  };
+
+  return (
+    <StepLayout
+      {...layout}
+      footer={
+        <PrimaryButton
+          label="Devam"
+          loading={form.saving}
+          onPress={() => void handleNext()}
+        />
+      }
+    >
+      <StepTitle
+        title="Profil"
+        subtitle="Vücut kitle indeksi ve bazal metabolizma hesapları için. İstersen sonra Ayarlar'dan da girebilirsin."
+      />
+      <Card className="gap-4">
+        <ProfileFields form={form} />
+      </Card>
+    </StepLayout>
+  );
+}
+
+// ============================================================================
+// 3) Program
+// ============================================================================
+
+function ProgramStep({
+  choice,
+  onChoose,
+  addedTemplateIds,
+  adding,
+  onAdd,
+}: {
+  choice: TrainingDaysChoice | null;
+  onChoose: (choice: TrainingDaysChoice) => void;
+  addedTemplateIds: string[];
+  adding: boolean;
+  onAdd: () => void;
+}) {
+  const template = choice != null ? suggestedTemplate(choice) : undefined;
+  const added = template != null && addedTemplateIds.includes(template.id);
+
+  return (
+    <>
+      <StepTitle title="Haftada kaç gün antrenman yapmayı düşünüyorsun?" />
+      <View className="flex-row flex-wrap gap-2">
+        {TRAINING_DAYS_OPTIONS.map((opt) => (
+          <Chip
+            key={String(opt.value)}
+            label={opt.label}
+            active={choice === opt.value}
+            onPress={() => onChoose(opt.value)}
+          />
+        ))}
+      </View>
+
+      {choice === 'custom' && (
+        <Card>
+          <Text className="text-white text-base leading-6">
+            Antrenman sekmesinden kendi rutinlerini oluşturabilirsin. Hazır
+            programlara da istediğin zaman oradan göz atabilirsin.
+          </Text>
+        </Card>
+      )}
+
+      {template && (
+        <Card className="gap-3">
+          <Text className="text-muted text-xs tracking-widest">ÖNERİLEN PROGRAM</Text>
+          <Text className="text-white text-xl font-semibold tracking-tight">
+            {template.name}
+          </Text>
+          <Text className="text-white text-sm">
+            {template.days.map((d, i) => `${i + 1}. ${d.name}`).join('  ·  ')}
+          </Text>
+          <Text className="text-muted text-sm leading-5">
+            {template.description}
+          </Text>
+          {added ? (
+            <View className="flex-row items-center gap-2 mt-1">
+              <Check color={COLORS.accent} size={18} strokeWidth={3} />
+              <Text className="text-accent text-sm font-semibold">
+                {template.dayCount} rutin Antrenman sekmesine eklendi
+              </Text>
+            </View>
+          ) : (
+            <SecondaryButton
+              label="Bu programı ekle"
+              icon={Plus}
+              loading={adding}
+              onPress={onAdd}
+              className="mt-1"
+            />
+          )}
+        </Card>
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// 4) Bilmen gereken iki şey
+// ============================================================================
+
+function TipsStep() {
+  return (
+    <>
+      <StepTitle title="Bilmen gereken iki şey" />
+
+      <Card className="gap-3">
+        <Text className="text-white text-lg font-semibold">✓ ile onayla</Text>
+        <Text className="text-muted text-sm leading-5">
+          Setin değerlerini girdikten sonra sağdaki ✓'ye bas. Onaylanmayan
+          setler antrenman bitince sorulur.
+        </Text>
+        <SetRowMock />
+      </Card>
+
+      <Card className="gap-3">
+        <View className="flex-row items-center gap-2">
+          <Upload color={COLORS.text} size={18} />
+          <Text className="text-white text-lg font-semibold">Yedek al</Text>
+        </View>
+        <Text className="text-muted text-sm leading-5">
+          Verilerin sadece bu telefonda. Telefon değiştirirsen ya da
+          uygulamayı silersen kaybolmasın diye ara sıra Ayarlar'dan yedek al.
+        </Text>
+      </Card>
+    </>
+  );
+}
+
+/**
+ * Antrenman ekranındaki set satırının statik taklidi: değerler girilmiş,
+ * ✓ henüz basılmamış ve vurgulu. Gerçek bileşen değil, dokunulmaz.
+ */
+function SetRowMock() {
+  return (
+    <View
+      className="flex-row items-center px-2 py-2 rounded-2xl bg-bg-elevated/50"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Text className="text-white text-lg font-semibold tabular-nums w-7">1</Text>
+      <Text className="flex-1 text-muted text-sm tabular-nums text-center">
+        60 × 8
+      </Text>
+      <View className="w-16 h-11 rounded-xl bg-bg-elevated items-center justify-center">
+        <Text className="text-white text-lg font-semibold tabular-nums">62,5</Text>
+      </View>
+      <View className="w-12 h-11 rounded-xl bg-bg-elevated items-center justify-center ml-2">
+        <Text className="text-white text-lg font-semibold tabular-nums">8</Text>
+      </View>
+      <View className="w-11 h-11 rounded-xl items-center justify-center ml-2 border-2 border-accent">
+        <Check color={COLORS.accent} size={20} strokeWidth={3} />
+      </View>
+    </View>
+  );
+}

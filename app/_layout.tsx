@@ -166,6 +166,10 @@ export default function RootLayout() {
                   gestureEnabled: false,
                 }}
               />
+              <Stack.Screen
+                name="onboarding"
+                options={{ headerShown: false, gestureEnabled: false }}
+              />
             </Stack>
           </DatabaseInitializer>
         </SQLiteProvider>

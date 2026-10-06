@@ -50,7 +50,7 @@ import {
   type AppSettings,
 } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
-import { calculateAge } from '@/lib/bodyMetrics';
+import { saveSettings } from '@/lib/appSettings';
 import {
   BACKUP_TABLE_KEYS,
   TABLE_LABELS,
@@ -63,37 +63,17 @@ import {
   type BackupFile,
 } from '@/lib/backup';
 import { getAppVersion, shareBackup } from '@/lib/backupFile';
-import { DateInput } from '@/components/DateInput';
-import {
-  dateKeyToParts,
-  formatDateTime,
-  getDateInputError,
-  partsToDateKey,
-  sanitizeDecimalInput,
-  type DateParts,
-} from '@/lib/format';
+import { formatDateTime } from '@/lib/format';
+import { ChipGroup } from '@/components/ChipGroup';
+import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { COLORS } from '@/theme';
 import {
-  Chip,
   DangerButton,
   ListRow,
   PrimaryButton,
   SecondaryButton,
   SectionHeader,
 } from '@/components/ui';
-
-type Gender = 'male' | 'female' | 'unspecified';
-
-/** Doğum tarihi için en erken yıl */
-const BIRTH_DATE_MIN_YEAR = 1900;
-
-const EMPTY_DATE_PARTS: DateParts = { day: '', month: '', year: '' };
-
-const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: 'male', label: 'Erkek' },
-  { value: 'female', label: 'Kadın' },
-  { value: 'unspecified', label: 'Belirtmek istemiyorum' },
-];
 
 type WeightUnit = 'kg' | 'lb';
 type DistanceUnit = 'km' | 'mi';
@@ -111,29 +91,6 @@ const DISTANCE_UNITS: { value: DistanceUnit; label: string }[] = [
 /** Dinlenme süresi sınırları — 0 = zamanlayıcı yok */
 const MIN_REST_SECONDS = 0;
 const MAX_REST_SECONDS = 600;
-
-/** Boy sınırları (cm) */
-const MIN_HEIGHT_CM = 50;
-const MAX_HEIGHT_CM = 272;
-
-/**
- * Doğum tarihi opsiyonel: üç alan da boşsa hata yok. Aksi halde ortak
- * tarih doğrulaması, ardından yaşın makul aralıkta olması.
- */
-function getBirthDateError(parts: DateParts, submitted: boolean): string | null {
-  if (!parts.day && !parts.month && !parts.year) return null;
-
-  const error = getDateInputError(parts, {
-    minYear: BIRTH_DATE_MIN_YEAR,
-    submitted,
-    futureError: 'Doğum tarihi ileri bir tarih olamaz.',
-  });
-  if (error != null) return error;
-
-  const key = partsToDateKey(parts);
-  if (key != null && calculateAge(key) == null) return 'Geçerli bir doğum tarihi gir.';
-  return null;
-}
 
 export default function SettingsScreen() {
   const db = useDb();
@@ -223,34 +180,6 @@ function Section({
 const INPUT_CLASS =
   'bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl';
 
-function ChipGroup<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { value: T; label: string }[];
-  value: T | null;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <View>
-      <Text className="text-muted text-xs mb-2">{label}</Text>
-      <View className="flex-row flex-wrap gap-2">
-        {options.map((opt) => (
-          <Chip
-            key={opt.value}
-            label={opt.label}
-            active={value === opt.value}
-            onPress={() => onChange(opt.value)}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function ToggleRow({
   label,
   description,
@@ -316,125 +245,24 @@ function ActionButton({
   );
 }
 
-/** Ayar satırını (id = 1) upsert eder; satır seed'de oluşuyor ama yoksa da çalışsın */
-async function saveSettings(
-  db: ReturnType<typeof useDb>,
-  values: Partial<typeof appSettings.$inferInsert>
-): Promise<void> {
-  const patch = { ...values, updatedAt: new Date().toISOString() };
-  await db
-    .insert(appSettings)
-    .values({ id: 1, ...patch })
-    .onConflictDoUpdate({ target: appSettings.id, set: patch });
-}
-
 // ============================================================================
 // a) Profil
 // ============================================================================
 
 function ProfileSection({ settings }: { settings?: AppSettings }) {
-  const db = useDb();
-
-  const [height, setHeight] = useState(
-    settings?.heightCm != null ? String(settings.heightCm) : ''
-  );
-  const [birthParts, setBirthParts] = useState<DateParts>(
-    settings?.birthDate ? dateKeyToParts(settings.birthDate) : EMPTY_DATE_PARTS
-  );
-  const [birthSubmitted, setBirthSubmitted] = useState(false);
-  const [gender, setGender] = useState<Gender | null>(
-    (settings?.gender as Gender | null) ?? null
-  );
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const birthError = getBirthDateError(birthParts, birthSubmitted);
-
-  // "Kaydedildi" etiketi yeni bir değişiklikte kaybolsun
-  const touch = () => setSaved(false);
-
-  const handleSave = async () => {
-    const heightCm = parseFloatOrNull(height);
-    if (
-      heightCm != null &&
-      (heightCm < MIN_HEIGHT_CM || heightCm > MAX_HEIGHT_CM)
-    ) {
-      Alert.alert('Hata', 'Boyu santimetre olarak gir (ör. 178).');
-      return;
-    }
-    // Doğum tarihi hatası Alert yerine alanların altında gösteriliyor
-    setBirthSubmitted(true);
-    if (getBirthDateError(birthParts, true) != null) return;
-
-    setSaving(true);
-    try {
-      await saveSettings(db, {
-        heightCm,
-        birthDate: partsToDateKey(birthParts), // üç alan da boşsa null
-        gender,
-      });
-      setSaved(true);
-    } catch (err) {
-      console.error('[SETTINGS-SAVE] HATA:', err);
-      Alert.alert('Kaydetme hatası', String(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const age = settings?.birthDate ? calculateAge(settings.birthDate) : null;
+  const form = useProfileForm(settings);
 
   return (
     <Section
       title="Profil"
       description="VKİ ve bazal metabolizma hesapları için kullanılır."
     >
-      {/* DateInput üç alanıyla yarım satıra sığmadığı için boy ayrı satırda */}
-      <View>
-        <Text className="text-muted text-xs mb-2">Boy (cm)</Text>
-        <TextInput
-          value={height}
-          onChangeText={(v) => {
-            touch();
-            setHeight((prev) => sanitizeDecimalInput(v, prev));
-          }}
-          placeholder="178"
-          placeholderTextColor={COLORS.muted}
-          keyboardType="decimal-pad"
-          className={`${INPUT_CLASS} w-28`}
-        />
-      </View>
-
-      <DateInput
-        label="Doğum tarihi"
-        value={birthParts}
-        onChange={(parts) => {
-          touch();
-          setBirthParts(parts);
-        }}
-        error={birthError}
-      />
-      {age != null && (
-        <Text className="text-muted text-xs -mt-2 tabular-nums">
-          Kayıtlı yaş: {age}
-        </Text>
-      )}
-
-      <ChipGroup
-        label="Cinsiyet"
-        options={GENDER_OPTIONS}
-        value={gender}
-        onChange={(v) => {
-          touch();
-          setGender(v);
-        }}
-      />
-
+      <ProfileFields form={form} />
       <ActionButton
-        label={saved ? 'Kaydedildi ✓' : 'Profili Kaydet'}
-        busy={saving}
+        label={form.saved ? 'Kaydedildi ✓' : 'Profili Kaydet'}
+        busy={form.saving}
         busyLabel="Kaydediliyor..."
-        onPress={handleSave}
+        onPress={() => void form.save()}
         variant="accent"
       />
     </Section>
@@ -752,6 +580,7 @@ function DangerSection() {
 
 function AboutSection() {
   const db = useDb();
+  const router = useRouter();
 
   const exerciseCount = useLiveQuery(
     db.select({ count: sql<number>`count(*)` }).from(exercises)
@@ -800,6 +629,9 @@ function AboutSection() {
             <Text className="text-muted text-base">{row.label}</Text>
           </ListRow>
         ))}
+        <ListRow divider chevron onPress={() => router.push('/onboarding')}>
+          <Text className="text-white text-base">Tanıtımı tekrar göster</Text>
+        </ListRow>
       </View>
     </Section>
   );
@@ -817,11 +649,4 @@ function updateIdText(): string {
 
 function countText(n: number | undefined): string {
   return (n ?? 0).toLocaleString('tr-TR');
-}
-
-function parseFloatOrNull(v: string): number | null {
-  const trimmed = v.trim().replace(',', '.');
-  if (!trimmed) return null;
-  const n = parseFloat(trimmed);
-  return isNaN(n) ? null : n;
 }

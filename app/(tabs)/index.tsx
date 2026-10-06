@@ -1,16 +1,89 @@
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
+import Storage from 'expo-sqlite/kv-store';
 import { Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
+import {
+  isOnboardingDone,
+  markOnboardingDone,
+  shouldShowOnboarding,
+} from '@/lib/onboarding';
 import { COLORS } from '@/theme';
 import { Card, ListRow, SectionHeader, StatTile } from '@/components/ui';
 
+/**
+ * Karşılama kararı uygulama açılışı başına bir kez verilir; sekmeler
+ * arasında gidip gelirken ana sayfa yeniden mount olunca tekrar sorgulanmaz.
+ */
+let onboardingChecked = false;
+
+/**
+ * Karşılama kontrolü burada, `_layout.tsx`'te değil: giriş noktasındaki
+ * bir hata bütün uygulamayı durdururdu. Bu ekran DatabaseInitializer'ın
+ * içinde, yani migration ve seed bittikten sonra mount oluyor.
+ *
+ * Karar verilene kadar boş zemin çiziliyor; karşılama gösterilecekse ana
+ * sayfa hiç render edilmeden yerine geçiliyor (flash yok).
+ */
 export default function HomeScreen() {
+  const db = useDb();
+  const router = useRouter();
+  const [ready, setReady] = useState(onboardingChecked);
+
+  useEffect(() => {
+    if (onboardingChecked) return;
+    let cancelled = false;
+
+    const decide = async (): Promise<boolean> => {
+      const flagDone = await isOnboardingDone(Storage);
+      if (flagDone) return false;
+
+      const [routineRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(routines);
+      const [sessionRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(workoutSessions);
+      const show = shouldShowOnboarding({
+        flagDone,
+        routineCount: routineRow?.count ?? 0,
+        sessionCount: sessionRow?.count ?? 0,
+      });
+      // Karşılama eklenmeden önce uygulamayı kullanmaya başlamış kullanıcı
+      if (!show) await markOnboardingDone(Storage);
+      return show;
+    };
+
+    decide()
+      .catch((err) => {
+        // Karar verilemezse ana sayfayı göster; karşılama zorunlu değil
+        console.error('[ONBOARDING] Karar verilemedi:', err);
+        return false;
+      })
+      .then((show) => {
+        // Yarıda unmount olduysa karar bir sonraki mount'ta yeniden verilir
+        if (cancelled) return;
+        onboardingChecked = true;
+        if (show) router.replace('/onboarding');
+        else setReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [db, router]);
+
+  if (!ready) return <View className="flex-1 bg-bg" />;
+  return <HomeContent />;
+}
+
+function HomeContent() {
   const db = useDb();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
