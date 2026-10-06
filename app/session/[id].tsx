@@ -37,8 +37,11 @@ import {
   formatDuration,
   formatVolume,
 } from '@/lib/format';
+import { saveSessionNote } from '@/lib/notes';
+import { rirLabel } from '@/lib/rir';
 import { COLORS } from '@/theme';
 import { Card, DangerButton } from '@/components/ui';
+import { NoteEditor } from '@/components/NoteEditor';
 
 interface ExerciseGroup {
   se: SessionExercise;
@@ -203,6 +206,15 @@ export default function SessionDetailScreen() {
         </View>
       </View>
 
+      {/* Antrenman notu ("bugün nasıldı") */}
+      <NoteEditor
+        key={session.id}
+        initialValue={session.notes}
+        onSave={(text) => saveSessionNote(db, session.id, text)}
+        addLabel="Antrenman notu ekle"
+        placeholder="Bugün nasıldı?"
+      />
+
       {/* Egzersizler */}
       {exerciseGroups.map((group) => (
         <ExerciseDetailCard key={group.se.id} group={group} />
@@ -223,16 +235,6 @@ export default function SessionDetailScreen() {
               />
             ))}
           </View>
-        </Card>
-      )}
-
-      {/* Seans notu */}
-      {session.notes && (
-        <Card>
-          <Text className="text-muted text-xs uppercase tracking-widest mb-2">
-            Not
-          </Text>
-          <Text className="text-white text-base">{session.notes}</Text>
         </Card>
       )}
 
@@ -264,6 +266,8 @@ function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
         : best,
     null
   );
+  // RIR sütunu yalnızca en az bir sette RIR girildiyse
+  const showRir = group.sets.some((set) => set.rir != null);
 
   return (
     <Card>
@@ -286,6 +290,11 @@ function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
             <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
               TEKRAR
             </Text>
+            {showRir && (
+              <Text className="text-muted text-[11px] tracking-widest w-12 text-right">
+                RIR
+              </Text>
+            )}
             <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
               HACİM
             </Text>
@@ -305,6 +314,11 @@ function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
               <Text className="text-white text-base font-semibold tabular-nums flex-1 text-right">
                 {set.reps != null ? String(set.reps) : '—'}
               </Text>
+              {showRir && (
+                <Text className="text-muted text-base tabular-nums w-12 text-right">
+                  {set.rir != null ? rirLabel(set.rir) : '—'}
+                </Text>
+              )}
               <Text className="text-muted text-base tabular-nums flex-1 text-right">
                 {setVolume(set) > 0 ? Math.round(setVolume(set)) : '—'}
               </Text>
@@ -329,6 +343,11 @@ function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
             )}
           </View>
         </>
+      )}
+
+      {/* Hareket notu (aktif antrenmanda yazılan) */}
+      {group.se.notes && (
+        <Text className="text-muted text-sm mt-3">📝 {group.se.notes}</Text>
       )}
     </Card>
   );

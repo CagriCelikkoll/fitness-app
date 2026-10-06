@@ -14,11 +14,14 @@ import {
   workoutSessions,
   type WorkoutSet,
 } from '@/db/schema';
+import { normalizeNote } from '@/lib/notes';
 
 export interface LastSessionData {
   sessionId: string;
   sessionDate: string;
   sets: WorkoutSet[];
+  /** O seansta bu hareket için yazılan not; yoksa null */
+  notes: string | null;
 }
 
 /**
@@ -77,9 +80,26 @@ export async function getLastSessionForExercise(
     )
     .orderBy(sets.setNumber);
 
+  // O seansın o hareketteki notu. Hareket seansta birden fazla kez
+  // varsa notlar alt alta birleşiyor.
+  const noteRows = await db
+    .select({ notes: sessionExercises.notes })
+    .from(sessionExercises)
+    .where(
+      and(
+        eq(sessionExercises.sessionId, lastSession.sessionId),
+        eq(sessionExercises.exerciseId, exerciseId)
+      )
+    )
+    .orderBy(sessionExercises.orderIndex);
+  const notes = noteRows
+    .map((r) => normalizeNote(r.notes))
+    .filter((n): n is string => n != null);
+
   return {
     sessionId: lastSession.sessionId,
     sessionDate: lastSession.startedAt,
     sets: lastSets.map((r) => r.sets),
+    notes: notes.length > 0 ? notes.join('\n') : null,
   };
 }

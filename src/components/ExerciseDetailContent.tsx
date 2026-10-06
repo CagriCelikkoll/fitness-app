@@ -37,6 +37,7 @@ import {
 } from '@/lib/exerciseTaxonomy';
 import { exerciseHighlight } from '@/lib/muscleMap';
 import { getExerciseSetHistory } from '@/lib/exerciseHistory';
+import { getExerciseSessionNotes } from '@/lib/notes';
 import {
   buildSessionPoints,
   computeRecords,
@@ -371,6 +372,8 @@ function formatBestSet(set: SessionPoint['bestSet']): string {
 function ExerciseProgressSection({ exerciseId }: { exerciseId: string }) {
   const db = useDb();
   const [points, setPoints] = useState<SessionPoint[] | null>(null);
+  // Not yazılmış seansların id'leri (son seanslar listesindeki 📝)
+  const [notedSessions, setNotedSessions] = useState<Set<string>>(new Set());
   const [metric, setMetric] = useState<Metric>('e1rm');
 
   useFocusEffect(
@@ -379,6 +382,13 @@ function ExerciseProgressSection({ exerciseId }: { exerciseId: string }) {
       getExerciseSetHistory(db, exerciseId).then((rows) => {
         if (active) setPoints(buildSessionPoints(rows));
       });
+      getExerciseSessionNotes(db, exerciseId)
+        .then((notes) => {
+          if (active) setNotedSessions(new Set(notes.keys()));
+        })
+        .catch((err) => {
+          console.warn('[NOTE] Notlar okunamadı:', err);
+        });
       return () => {
         active = false;
       };
@@ -433,6 +443,7 @@ function ExerciseProgressSection({ exerciseId }: { exerciseId: string }) {
           >
             <Text className="text-muted text-base tabular-nums">
               {formatShortDate(p.date)}
+              {notedSessions.has(p.sessionId) && '  📝'}
             </Text>
           </ListRow>
         ))}

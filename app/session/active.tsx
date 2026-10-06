@@ -43,7 +43,10 @@ import {
   isNewE1rmRecord,
   sessionRecordBaseline,
 } from '@/lib/exerciseProgress';
+import { saveSessionExerciseNote } from '@/lib/notes';
+import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
 import { RestTimer } from '@/components/RestTimer';
+import { NoteEditor } from '@/components/NoteEditor';
 import { COLORS, DISABLED_ICON } from '@/theme';
 import { SecondaryButton } from '@/components/ui';
 
@@ -340,6 +343,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
           sessionId={sessionId}
           sessionExerciseId={current.se.id}
           exercise={current.exercise}
+          initialNote={current.se.notes}
         />
       </ScrollView>
 
@@ -358,12 +362,15 @@ interface ExerciseSetEditorProps {
   sessionId: string;
   sessionExerciseId: string;
   exercise: Exercise;
+  /** Bu antrenmanda bu hareketin notu (session_exercises.notes) */
+  initialNote: string | null;
 }
 
 function ExerciseSetEditor({
   sessionId,
   sessionExerciseId,
   exercise,
+  initialNote,
 }: ExerciseSetEditorProps) {
   const db = useDb();
 
@@ -496,19 +503,24 @@ function ExerciseSetEditor({
   return (
     <View className="gap-3">
       {/* Auto-fill bilgisi */}
-      {lastSession && lastSession.sets.length > 0 && (
+      {lastSession && (lastSession.sets.length > 0 || lastSession.notes) && (
         <View className="bg-bg-surface border border-border rounded-2xl px-4 py-3">
           <Text className="text-muted text-xs uppercase tracking-widest">
             Son antrenman ({formatDate(lastSession.sessionDate)})
           </Text>
-          <Text className="text-white text-sm mt-1.5 tabular-nums">
-            {lastSession.sets
-              .map(
-                (s) =>
-                  `${s.weightKg ?? '-'}kg × ${s.reps ?? '-'}`
-              )
-              .join('  •  ')}
-          </Text>
+          {lastSession.sets.length > 0 && (
+            <Text className="text-white text-sm mt-1.5 tabular-nums">
+              {lastSession.sets
+                .map((s) => formatSetSummary(s.weightKg, s.reps, s.rir))
+                .join('  •  ')}
+            </Text>
+          )}
+          {/* Önceki antrenmanın hareket notu (salt okunur) */}
+          {lastSession.notes && (
+            <Text className="text-muted text-sm mt-1.5">
+              📝 {lastSession.notes}
+            </Text>
+          )}
         </View>
       )}
 
@@ -548,6 +560,18 @@ function ExerciseSetEditor({
         <Plus color={COLORS.text} size={18} />
         <Text className="text-white text-base font-semibold ml-2">Set Ekle</Text>
       </Pressable>
+
+      {/* Hareket notu. key: başka harekete geçince alan yeniden kurulsun,
+          önceki hareketin bekleyen notu kaldırılırken kaydedilsin */}
+      <View className="mt-2">
+        <NoteEditor
+          key={sessionExerciseId}
+          initialValue={initialNote}
+          onSave={(text) => saveSessionExerciseNote(db, sessionExerciseId, text)}
+          addLabel="Not ekle"
+          placeholder="Bu hareketle ilgili not (ör. sol omuzda sıkışma)"
+        />
+      </View>
     </View>
   );
 }
@@ -592,6 +616,23 @@ function SetRow({
   const previousLabel = previousSet
     ? `${previousSet.weightKg ?? '-'} × ${previousSet.reps ?? '-'}`
     : '—';
+
+  // RIR: tamamlanmış sette, girilmemişse ince seçici sırası; girilmişse
+  // "RIR 2" etiketi (basınca seçici yeniden açılır). Set geri alınınca
+  // değer silinmiyor, yalnızca gizleniyor.
+  const [rirEditing, setRirEditing] = useState(false);
+  const [rirHelp, setRirHelp] = useState(false);
+  const showRirPicker = set.isCompleted && (set.rir == null || rirEditing);
+  const showRirLabel = set.isCompleted && set.rir != null && !rirEditing;
+
+  const selectRir = async (value: number) => {
+    await db
+      .update(setsTable)
+      .set({ rir: value })
+      .where(eq(setsTable.id, set.id));
+    setRirEditing(false);
+    setRirHelp(false);
+  };
 
   const toggleComplete = async () => {
     const parsedWeight = parseFloat(weight.replace(',', '.'));
@@ -663,6 +704,7 @@ function SetRow({
   };
 
   return (
+    <View>
     <View
       className={`flex-row items-center min-h-[60px] px-2 py-2 rounded-2xl ${
         set.isCompleted ? 'bg-accent/10' : ''
@@ -684,6 +726,18 @@ function SetRow({
               🏆 Rekor
             </Text>
           </View>
+        )}
+        {showRirLabel && (
+          <Pressable
+            onPress={() => setRirEditing(true)}
+            hitSlop={6}
+            accessibilityLabel="RIR değerini değiştir"
+            className="border border-border rounded-full px-2 py-0.5 mt-1 active:opacity-60"
+          >
+            <Text className="text-muted text-[11px] font-semibold tabular-nums">
+              RIR {rirLabel(set.rir!)}
+            </Text>
+          </Pressable>
         )}
       </View>
       <TextInput
@@ -722,6 +776,76 @@ function SetRow({
           />
         </View>
       </Pressable>
+    </View>
+    {showRirPicker && (
+      <RirPicker
+        selected={set.rir}
+        showHelp={rirHelp}
+        onToggleHelp={() => setRirHelp((h) => !h)}
+        onSelect={selectRir}
+      />
+    )}
+    </View>
+  );
+}
+
+/**
+ * Tamamlanmış setin altındaki ince RIR sırası: `RIR ?  0 1 2 3 4+`.
+ * Tamamen isteğe bağlı; basılmazsa hiçbir şey yazılmıyor.
+ */
+function RirPicker({
+  selected,
+  showHelp,
+  onToggleHelp,
+  onSelect,
+}: {
+  selected: number | null;
+  showHelp: boolean;
+  onToggleHelp: () => void;
+  onSelect: (value: number) => void;
+}) {
+  return (
+    <View className="px-2 pb-1">
+      <View className="flex-row items-center">
+        <Text className="text-muted text-[11px] tracking-widest w-9">RIR</Text>
+        <Pressable
+          onPress={onToggleHelp}
+          hitSlop={8}
+          accessibilityLabel="RIR nedir?"
+          className="w-6 h-6 rounded-full border border-border items-center justify-center mr-2 active:opacity-60"
+        >
+          <Text className="text-muted text-[11px] font-semibold">?</Text>
+        </Pressable>
+        {RIR_OPTIONS.map((value) => {
+          const active = selected != null && rirLabel(selected) === rirLabel(value);
+          return (
+            <Pressable
+              key={value}
+              onPress={() => onSelect(value)}
+              hitSlop={4}
+              accessibilityLabel={`RIR ${rirLabel(value)}`}
+              className={`h-7 min-w-[32px] px-2 rounded-full items-center justify-center mr-1 ${
+                active
+                  ? 'bg-accent'
+                  : 'bg-bg-surface border border-border active:bg-bg-elevated'
+              }`}
+            >
+              <Text
+                className={`text-xs font-semibold tabular-nums ${
+                  active ? 'text-accent-fg' : 'text-muted'
+                }`}
+              >
+                {rirLabel(value)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {showHelp && (
+        <Text className="text-muted text-xs mt-1.5">
+          Bu sette kaç tekrar daha yapabilirdin? 0 = tükeniş, 3 = rahat.
+        </Text>
+      )}
     </View>
   );
 }

@@ -8,7 +8,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Db } from '@/db/client';
+import { eq } from 'drizzle-orm';
+import { sets } from '@/db/schema';
 import { getLastSessionForExercise } from '@/lib/lastSession';
+import { saveSessionExerciseNote } from '@/lib/notes';
 import {
   createCompletedSession,
   createSession,
@@ -203,5 +206,80 @@ describe('getLastSessionForExercise', () => {
 
     expect(result?.sets).toHaveLength(1);
     expect(result?.sets[0]?.weightKg).toBe(60);
+  });
+});
+
+describe('getLastSessionForExercise — hareket notu', () => {
+  it('önceki seansın hareket notunu döndürüyor', async () => {
+    const exerciseId = await seedExercise(db);
+    const previous = await createCompletedSession(db, {
+      exerciseId,
+      startedAt: '2026-09-10T10:00:00.000Z',
+      setSeeds: [{ reps: 8, weightKg: 80 }],
+    });
+    await saveSessionExerciseNote(
+      db,
+      previous.sessionExerciseId,
+      'Sol omuzda hafif sıkışma'
+    );
+
+    const result = await getLastSessionForExercise(db, exerciseId, null);
+
+    expect(result?.notes).toBe('Sol omuzda hafif sıkışma');
+  });
+
+  it('not yoksa null', async () => {
+    const exerciseId = await seedExercise(db);
+    await createCompletedSession(db, {
+      exerciseId,
+      startedAt: '2026-09-10T10:00:00.000Z',
+      setSeeds: [{ reps: 8, weightKg: 80 }],
+    });
+
+    const result = await getLastSessionForExercise(db, exerciseId, null);
+
+    expect(result?.notes).toBeNull();
+  });
+
+  it('mevcut seansın notu "önceki" olarak gelmiyor', async () => {
+    const exerciseId = await seedExercise(db);
+    await createCompletedSession(db, {
+      exerciseId,
+      startedAt: '2026-09-10T10:00:00.000Z',
+      setSeeds: [{ reps: 8, weightKg: 80 }],
+    });
+    const current = await createSession(db, {
+      exerciseId,
+      startedAt: '2026-09-14T10:00:00.000Z',
+      endedAt: null,
+      setSeeds: [{ reps: 8, weightKg: 80 }],
+    });
+    await saveSessionExerciseNote(db, current.sessionExerciseId, 'Bugünkü not');
+
+    const result = await getLastSessionForExercise(
+      db,
+      exerciseId,
+      current.sessionId
+    );
+
+    expect(result?.sessionId).not.toBe(current.sessionId);
+    expect(result?.notes).toBeNull();
+  });
+
+  it('setlere RIR bilgisi geliyor', async () => {
+    const exerciseId = await seedExercise(db);
+    const previous = await createCompletedSession(db, {
+      exerciseId,
+      startedAt: '2026-09-10T10:00:00.000Z',
+      setSeeds: [{ reps: 8, weightKg: 80 }],
+    });
+    await db
+      .update(sets)
+      .set({ rir: 2 })
+      .where(eq(sets.id, previous.setIds[0]!));
+
+    const result = await getLastSessionForExercise(db, exerciseId, null);
+
+    expect(result?.sets[0]?.rir).toBe(2);
   });
 });
