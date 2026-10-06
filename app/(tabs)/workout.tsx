@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, count, eq } from 'drizzle-orm';
 import {
@@ -25,7 +26,11 @@ import {
   routines,
   type Routine,
 } from '@/db/schema';
-import { createSessionFromRoutine } from '@/lib/startSession';
+import { EXERCISE_IMAGE_CACHE } from '@/lib/exerciseImage';
+import {
+  createSessionFromRoutine,
+  sessionExerciseImageUrls,
+} from '@/lib/startSession';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { COLORS } from '@/theme';
 import {
@@ -82,6 +87,14 @@ export default function WorkoutScreen() {
 
       startSession(sessionId);
       router.push('/session/active');
+
+      // Hareket görsellerini arka planda önbelleğe al; salonda internet
+      // olmasa da detayda görünsünler. Beklenmiyor, hata antrenmanı etkilemez.
+      sessionExerciseImageUrls(db, sessionId)
+        .then((urls) =>
+          urls.length > 0 ? Image.prefetch(urls, EXERCISE_IMAGE_CACHE) : true
+        )
+        .catch((err) => console.warn('[IMAGE-PREFETCH] Atlandı:', err));
     } catch (err) {
       console.error('Antrenman başlatılırken hata:', err);
       Alert.alert('Hata', String(err));

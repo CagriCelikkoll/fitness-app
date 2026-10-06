@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Fitness Tracker",
+    "name": "Dinç",
     "slug": "fitness-tracker",
-    "scheme": "fitnesstracker",
-    "version": "0.9.0",
+    "scheme": "dinc",
+    "version": "0.10.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.fitnesstracker.app"
+      "bundleIdentifier": "com.dincapp.antrenman"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,8 +23,11 @@
         "backgroundColor": "#0f172a"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.fitnesstracker.app",
-      "versionCode": 3
+      "package": "com.dincapp.antrenman",
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ],
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -43,7 +46,16 @@
       "expo-sharing",
       "expo-asset",
       "expo-font",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true

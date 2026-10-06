@@ -36,3 +36,6 @@ export const FALLBACK_REST_SECONDS = 90;
 
 /** Ayar okunamadığında titreşim açık kabul edilir (şema varsayılanı) */
 export const FALLBACK_REST_VIBRATE = true;
+
+/** Ayar okunamadığında bitiş sesi açık kabul edilir (şema varsayılanı) */
+export const FALLBACK_REST_SOUND = true;

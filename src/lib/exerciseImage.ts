@@ -12,6 +12,13 @@ const GITHUB_BASE =
 // İleride: const CDN_BASE = 'https://cdn.fitnesstracker.app/exercises';
 
 /**
+ * expo-image önbellek politikası — görseller bellek + diskte tutuluyor,
+ * bir kez görülen ya da ön yüklenen görsel internetsiz de görünüyor.
+ * Gösterim ve ön yükleme aynı politikayı kullanmalı.
+ */
+export const EXERCISE_IMAGE_CACHE = 'memory-disk' as const;
+
+/**
  * Image path JSON array string'inden tam URL listesi üretir.
  * @param imagePaths - schema'daki exercises.image_paths alanı (JSON string)
  */

@@ -2,11 +2,13 @@ import { asc, eq } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
 import {
+  exercises,
   routineExercises,
   sessionExercises,
   sets,
   workoutSessions,
 } from '@/db/schema';
+import { getExerciseImageUrls } from '@/lib/exerciseImage';
 import { newId } from '@/lib/id';
 
 /**
@@ -72,4 +74,23 @@ export async function createSessionFromRoutine(
   }
 
   return sessionId;
+}
+
+/**
+ * Seanstaki hareketlerin bütün görsel URL'leri (sırayla, tekrarsız).
+ * Antrenman başlarken arka planda ön yüklemek için: salonda internet
+ * olmasa da detaydaki görseller önbellekten gelsin.
+ */
+export async function sessionExerciseImageUrls(
+  db: Db,
+  sessionId: string
+): Promise<string[]> {
+  const rows = await db
+    .select({ imagePaths: exercises.imagePaths })
+    .from(sessionExercises)
+    .innerJoin(exercises, eq(exercises.id, sessionExercises.exerciseId))
+    .where(eq(sessionExercises.sessionId, sessionId))
+    .orderBy(asc(sessionExercises.orderIndex));
+
+  return [...new Set(rows.flatMap((r) => getExerciseImageUrls(r.imagePaths)))];
 }

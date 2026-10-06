@@ -13,7 +13,7 @@ import {
   sets,
   workoutSessions,
 } from '@/db/schema';
-import { createSessionFromRoutine } from '@/lib/startSession';
+import { createSessionFromRoutine, sessionExerciseImageUrls } from '@/lib/startSession';
 import { createRoutine, createTestDb, seedExercise, type TestDb } from './helpers/testDb';
 
 let t: TestDb;
@@ -76,5 +76,34 @@ describe('createSessionFromRoutine', () => {
     const { routineId } = await createRoutine(db);
     expect(await createSessionFromRoutine(db, { id: routineId, name: 'Boş' })).toBeNull();
     expect(await db.select().from(workoutSessions)).toHaveLength(0);
+  });
+});
+
+describe('sessionExerciseImageUrls', () => {
+  it('seans sırasıyla bütün görseller, tekrarsız; görselsiz hareket atlanıyor', async () => {
+    const a = await seedExercise(db, {
+      name: 'A',
+      imagePaths: JSON.stringify(['A/0.jpg', 'A/1.jpg']),
+    });
+    const b = await seedExercise(db, { name: 'B', imagePaths: null });
+    const c = await seedExercise(db, {
+      name: 'C',
+      imagePaths: JSON.stringify(['C/0.jpg']),
+    });
+    // A iki kez: aynı görseller bir kez
+    const { routineId } = await createRoutine(db, { exerciseIds: [c, a, b, a] });
+    const sessionId = await createSessionFromRoutine(db, { id: routineId, name: 'X' });
+
+    const urls = await sessionExerciseImageUrls(db, sessionId!);
+    expect(urls.map((u) => u.split('/exercises/')[1])).toEqual([
+      'C/0.jpg',
+      'A/0.jpg',
+      'A/1.jpg',
+    ]);
+    expect(urls.every((u) => u.startsWith('https://'))).toBe(true);
+  });
+
+  it('bilinmeyen seans boş liste', async () => {
+    expect(await sessionExerciseImageUrls(db, 'yok')).toEqual([]);
   });
 });

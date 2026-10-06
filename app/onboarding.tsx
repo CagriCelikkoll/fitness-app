@@ -11,7 +11,9 @@
  *
  * Kime gösterileceğine ana sayfa karar veriyor (`app/(tabs)/index.tsx`);
  * Ayarlar → Hakkında'dan da açılabiliyor. "Atla" ya da "Başla" bayrağı
- * set edip Antrenman sekmesine gider.
+ * set edip Antrenman sekmesine gider. İlk adımdaki "Geri yükle"
+ * Ayarlar'daki yedek akışını açar; başarılıysa bayrak set edilip ana
+ * sayfaya gidilir.
  */
 
 import { useEffect, useState } from 'react';
@@ -40,6 +42,7 @@ import {
 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useBackupRestore } from '@/hooks/useBackupRestore';
 import { appSettings, type AppSettings } from '@/db/schema';
 import { applyTemplate } from '@/lib/applyTemplate';
 import {
@@ -125,13 +128,47 @@ export default function OnboardingScreen() {
     }
   };
 
+  // Eski uygulamadan yedekle geçen kullanıcı karşılamayı atlayıp verisine
+  // ulaşsın. Akış Ayarlar'dakiyle aynı; başarılıysa bayrak set edilip ana
+  // sayfaya gidilir.
+  const { importing, startRestore } = useBackupRestore(async () => {
+    try {
+      await markOnboardingDone(Storage);
+    } catch (err) {
+      console.error('[ONBOARDING] Bayrak yazılamadı:', err);
+    }
+    router.dismissTo('/');
+  });
+
   const layout = { step, onSkip: finish, onBack: back, skipDisabled: finishing };
 
   if (step === 0) {
     return (
       <StepLayout
         {...layout}
-        footer={<PrimaryButton label="Devam" onPress={next} />}
+        footer={
+          <>
+            <PrimaryButton label="Devam" onPress={next} />
+            <Pressable
+              onPress={() => void startRestore()}
+              disabled={importing}
+              accessibilityRole="button"
+              hitSlop={8}
+              className="self-center py-1 active:opacity-60"
+            >
+              <Text className="text-muted text-sm">
+                {importing ? (
+                  'Geri yükleniyor...'
+                ) : (
+                  <>
+                    Yedeğin var mı?{' '}
+                    <Text className="text-accent font-semibold">Geri yükle</Text>
+                  </>
+                )}
+              </Text>
+            </Pressable>
+          </>
+        }
       >
         <WelcomeStep />
       </StepLayout>

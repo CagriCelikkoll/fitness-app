@@ -190,6 +190,46 @@ describe('gidiş-dönüş', () => {
     }
   });
 
+  it('eski uygulamanın (0.9.0) yedek dosyası yeni kuruluma yükleniyor', async () => {
+    // Uygulama adı/paketi değişince (Fitness Tracker → Dinç) kullanıcılar
+    // yedekle geçiyor: eski uygulamada dosya → yeni kurulumda metin →
+    // validateBackup → restoreBackup. Yeni kurulumda egzersiz kütüphanesi
+    // seed'le zaten dolu; yedekteki kütüphane onun yerine geçmeli.
+    const { bench, routineId } = await seedFullDatabase(db);
+    await db
+      .update(routineExercises)
+      .set({ supersetGroup: 1 })
+      .where(eq(routineExercises.routineId, routineId));
+    const raw = JSON.stringify(await buildBackup(db, '0.9.0'));
+    const counts = await snapshotCounts(db);
+
+    const fresh = createTestDb();
+    try {
+      // Yeni kurulumun seed'i: aynı kimlikli bir egzersiz + yedekte olmayan bir tane
+      await seedExercise(fresh.db, { id: bench, name: 'Bench Press (seed)' });
+      await seedExercise(fresh.db, { name: 'Yalnızca seed' });
+
+      const result = validateBackup(raw);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.appVersion).toBe('0.9.0');
+      expect(result.data.formatVersion).toBe(BACKUP_FORMAT_VERSION);
+
+      await restoreBackup(fresh.db, result.data);
+      expect(await snapshotCounts(fresh.db)).toEqual(counts);
+
+      const original = JSON.parse(raw) as { tables: Record<string, unknown[]> };
+      const restored = await buildBackup(fresh.db, '0.10.0');
+      for (const key of BACKUP_TABLE_KEYS) {
+        expect(sortRows(restored.tables[key]!), key).toEqual(
+          sortRows(original.tables[key]!)
+        );
+      }
+    } finally {
+      fresh.close();
+    }
+  });
+
   it('countRecords yedekteki satır sayılarını veriyor', async () => {
     await seedFullDatabase(db);
     const backup = await buildBackup(db, '0.1.0');
@@ -399,7 +439,7 @@ describe('restoreBackup atomikliği', () => {
 describe('backupFileName', () => {
   it('yerel tarihle adlandırıyor', () => {
     expect(backupFileName(new Date(2026, 8, 15, 23, 30))).toBe(
-      'fitness-yedek-2026-09-15.json'
+      'dinc-yedek-2026-09-15.json'
     );
   });
 });

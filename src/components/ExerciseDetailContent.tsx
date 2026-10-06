@@ -10,7 +10,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
-  Image,
   Linking,
   Pressable,
   StyleSheet,
@@ -18,11 +17,12 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { Image } from 'expo-image';
 import { Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import type { Exercise } from '@/db/schema';
-import { getExerciseImageUrls } from '@/lib/exerciseImage';
+import { EXERCISE_IMAGE_CACHE, getExerciseImageUrls } from '@/lib/exerciseImage';
 import {
   parseInstructions,
   resolveInstructions,
@@ -202,7 +202,10 @@ const CROSSFADE_MS = 250;
  *
  * - Animasyon iki görsel de `Image.prefetch` ile indirildikten sonra
  *   başlıyor; o zamana kadar ilk görsel sabit duruyor (yarım yüklenmiş
- *   karede titreme olmasın).
+ *   karede titreme olmasın). expo-image önbelleğindeki görsel internetsiz
+ *   de hazır sayılıyor.
+ * - Üst kare expo-image'ı saran bir Animated.View; opaklık onun üstünde
+ *   (expo-image'ın Animated sürümü yok, RN Animated.Image'dan taşındı).
  * - Ön yükleme başarısızsa (internet yok) ya da cihazda "hareketi azalt"
  *   açıksa eski yan yana görünüm.
  * - Tek görselde de eski görünüm (tek kutu).
@@ -247,7 +250,7 @@ function ExerciseImages({ urls }: { urls: string[] }) {
   useEffect(() => {
     if (!animated) return;
     let active = true;
-    Promise.all(urls.map((u) => Image.prefetch(u)))
+    Promise.all(urls.map((u) => Image.prefetch(u, EXERCISE_IMAGE_CACHE)))
       .then((results) => {
         if (active) setPrefetch(results.every(Boolean) ? 'ready' : 'failed');
       })
@@ -291,7 +294,8 @@ function ExerciseImages({ urls }: { urls: string[] }) {
             <Image
               source={{ uri: url }}
               style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy={EXERCISE_IMAGE_CACHE}
             />
           </View>
         ))}
@@ -315,13 +319,17 @@ function ExerciseImages({ urls }: { urls: string[] }) {
       <Image
         source={{ uri: urls[0] }}
         style={StyleSheet.absoluteFill}
-        resizeMode="cover"
+        contentFit="cover"
+        cachePolicy={EXERCISE_IMAGE_CACHE}
       />
-      <Animated.Image
-        source={{ uri: urls[1] }}
-        style={[StyleSheet.absoluteFill, { opacity }]}
-        resizeMode="cover"
-      />
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
+        <Image
+          source={{ uri: urls[1] }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          cachePolicy={EXERCISE_IMAGE_CACHE}
+        />
+      </Animated.View>
       {paused && (
         <View className="absolute right-3 bottom-3 w-9 h-9 rounded-full bg-bg/80 items-center justify-center">
           <Play color={COLORS.text} size={16} fill={COLORS.text} />

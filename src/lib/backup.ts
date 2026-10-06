@@ -132,9 +132,9 @@ export async function buildBackup(
   };
 }
 
-/** `fitness-yedek-2026-09-15.json` */
+/** `dinc-yedek-2026-09-15.json` */
 export function backupFileName(date: Date = new Date()): string {
-  return `fitness-yedek-${toDateKey(date)}.json`;
+  return `dinc-yedek-${toDateKey(date)}.json`;
 }
 
 /** Yedek dosyasındaki kayıt sayıları — özet göstermek için */
@@ -174,7 +174,7 @@ export function validateBackup(raw: string): ValidationResult {
   if (typeof obj.formatVersion !== 'number') {
     return {
       ok: false,
-      error: 'Dosyada "formatVersion" alanı yok. Bu bir fitness yedeği değil.',
+      error: 'Dosyada "formatVersion" alanı yok. Bu bir Dinç yedeği değil.',
     };
   }
   if (!SUPPORTED_FORMAT_VERSIONS.includes(obj.formatVersion)) {

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   FlatList,
-  Image,
   Pressable,
   ScrollView,
   Text,
@@ -10,12 +9,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Link } from 'expo-router';
+import { Image } from 'expo-image';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
-import { getExerciseCoverUrl } from '@/lib/exerciseImage';
+import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
 import {
   exerciseListCondition,
   exerciseListOrder,
@@ -144,7 +144,8 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
             <Image
               source={{ uri: coverUrl }}
               style={{ width: 56, height: 56 }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy={EXERCISE_IMAGE_CACHE}
             />
           ) : (
             <Text className="text-muted text-xs">

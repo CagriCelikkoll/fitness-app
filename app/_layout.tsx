@@ -13,7 +13,12 @@ import migrations from '../drizzle/migrations';
 import { DATABASE_NAME } from '@/db/client';
 import { seedIfEmpty } from '@/db/seed';
 import { useDb } from '@/hooks/useDb';
+import { installRestNotifications } from '@/lib/restNative';
 import { COLORS } from '@/theme';
+
+// Dinlenme bildirimi: ön plan işleyicisi + sayaç dinleyicisi. İzin
+// burada istenmiyor, ilk dinlenme başlarken soruluyor.
+installRestNotifications();
 
 // SQLiteProvider'ın açtığı bağlantı için başlangıç ayarları.
 // foreign_keys bağlantı düzeyinde bir pragma ve SQLite'ta varsayılan

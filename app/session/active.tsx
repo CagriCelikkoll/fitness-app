@@ -46,6 +46,7 @@ import {
 import { saveSessionExerciseNote } from '@/lib/notes';
 import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
 import { afterSetCompleted, supersetPositions } from '@/lib/superset';
+import { restNotificationScheduler } from '@/lib/restNative';
 import { RestTimer } from '@/components/RestTimer';
 import { NoteEditor } from '@/components/NoteEditor';
 import { COLORS, DISABLED_ICON } from '@/theme';
@@ -206,9 +207,13 @@ function SessionContent({ sessionId }: { sessionId: string }) {
       setNextHint(
         result.next ? { fromIndex: currentExerciseIndex, ...result.next } : null
       );
+      // v2.0: dinlenme bildirimi barla aynı "Sıradaki" metnini taşısın.
+      // Sayaç bundan sonra başlıyor; metin o sayaca bağlanıyor.
+      restNotificationScheduler.setNextLabel(result.next?.label ?? null);
       return result.startRest;
     } catch (err) {
       console.warn('[SUPERSET] Dinlenme kararı verilemedi:', err);
+      restNotificationScheduler.setNextLabel(null);
       return true;
     }
   };

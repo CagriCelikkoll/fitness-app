@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -10,13 +9,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { inArray } from 'drizzle-orm';
 import { Check, ChevronLeft, Info, Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exercises, type Exercise } from '@/db/schema';
-import { getExerciseCoverUrl } from '@/lib/exerciseImage';
+import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
 import {
   exerciseListCondition,
   exerciseListOrder,
@@ -324,7 +324,8 @@ function PickerRow({
           <Image
             source={{ uri: coverUrl }}
             style={{ width: 56, height: 56 }}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy={EXERCISE_IMAGE_CACHE}
           />
         ) : (
           <Text className="text-muted text-xs">

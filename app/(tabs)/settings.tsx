@@ -8,10 +8,12 @@
  * Profil düzenleme İlerleme sekmesinden buraya taşındı; ölçüm
  * hesaplarında kullanılan boy/yaş/cinsiyet artık tek yerden giriliyor.
  *
- * Tema, dil ve dinlenme sesi `app_settings` şemasında duruyor ama
- * arayüzde yok: uygulama şu an sabit koyu tema ve Türkçe, ses de
- * henüz çalmıyor (expo-audio kurulmadı). Çalışmayan bir anahtar
- * göstermek kullanıcıyı yanıltır; ses eklenince anahtar geri gelir.
+ * Tema ve dil `app_settings` şemasında duruyor ama arayüzde yok:
+ * uygulama şu an sabit koyu tema ve Türkçe. Çalışmayan bir anahtar
+ * göstermek kullanıcıyı yanıltır.
+ *
+ * Dinlenme sesi ve titreşimi `app_settings`'te; dinlenme bildirimi
+ * ayarı kv-store'da (bkz. `restNotification.ts`).
  */
 
 import { useState } from 'react';
@@ -26,8 +28,6 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
@@ -52,22 +52,20 @@ import {
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { saveSettings } from '@/lib/appSettings';
 import {
-  BACKUP_TABLE_KEYS,
-  TABLE_LABELS,
   backupFileName,
   buildBackup,
   countRecords,
-  restoreBackup,
-  validateBackup,
   wipeUserData,
-  type BackupFile,
 } from '@/lib/backup';
 import { getAppVersion, shareBackup } from '@/lib/backupFile';
-import { formatDateTime } from '@/lib/format';
 import { ChipGroup } from '@/components/ChipGroup';
 import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
+import { useRestNotificationSetting } from '@/hooks/useRestNotificationSetting';
+import { summarizeCounts, useBackupRestore } from '@/hooks/useBackupRestore';
+import type { RestNotificationPermissionState } from '@/lib/restNotification';
+import { openNotificationSettings } from '@/lib/restNative';
 import { COLORS } from '@/theme';
 import {
   DangerButton,
@@ -280,7 +278,9 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
 
   const [rest, setRest] = useState(String(settings?.defaultRestSeconds ?? 90));
   const [vibrate, setVibrate] = useState(settings?.restTimerVibrate ?? true);
+  const [sound, setSound] = useState(settings?.restTimerSound ?? true);
   const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
+  const restNotification = useRestNotificationSetting();
 
   const persist = async (values: Partial<typeof appSettings.$inferInsert>) => {
     try {
@@ -336,8 +336,15 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
         </View>
       )}
 
-      {/* "Dinlenme bitiminde ses" anahtarı kaldırıldı: ses çalma henüz
-          uygulanmadı, restTimerSound alanı şemada duruyor. */}
+      <ToggleRow
+        label="Dinlenme bitiminde ses"
+        description="Uygulama açıkken kısa bip. iPhone sessizdeyken çalmaz."
+        value={sound}
+        onChange={(v) => {
+          setSound(v);
+          void persist({ restTimerSound: v });
+        }}
+      />
       <ToggleRow
         label="Dinlenme bitiminde titreşim"
         value={vibrate}
@@ -346,7 +353,57 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
           void persist({ restTimerVibrate: v });
         }}
       />
+      {/* kv-store'da; okunmadan anahtar gösterilmesin, yanlış değer
+          görünüp sonra zıplamasın */}
+      {restNotification.loaded && (
+        <RestNotificationRow
+          enabled={restNotification.enabled}
+          permission={restNotification.permission}
+          onChange={(v) => void restNotification.setEnabled(v)}
+        />
+      )}
     </Section>
+  );
+}
+
+const PERMISSION_TEXT: Record<RestNotificationPermissionState, string> = {
+  granted: 'Telefon kilitliyken dinlenme bitince bildirim gelir.',
+  notAsked: 'İzin ilk dinlenme başladığında istenecek.',
+  denied: 'Bildirim izni verilmedi. Telefon ayarlarından açabilirsin.',
+};
+
+function RestNotificationRow({
+  enabled,
+  permission,
+  onChange,
+}: {
+  enabled: boolean;
+  permission: RestNotificationPermissionState | null;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <View>
+      <ToggleRow
+        label="Dinlenme bildirimi"
+        description={
+          enabled && permission != null ? PERMISSION_TEXT[permission] : undefined
+        }
+        value={enabled}
+        onChange={onChange}
+      />
+      {enabled && permission === 'denied' && (
+        <Pressable
+          onPress={openNotificationSettings}
+          accessibilityRole="button"
+          hitSlop={8}
+          className="self-start mt-4 active:opacity-70"
+        >
+          <Text className="text-accent text-sm font-semibold">
+            Telefon ayarlarını aç
+          </Text>
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -391,21 +448,11 @@ function UnitsSection({ settings }: { settings?: AppSettings }) {
 // d) Veri yönetimi
 // ============================================================================
 
-/** "3 antrenman, 2 rutin, 5 ölçüm" — boş tablolar atlanır */
-function summarizeCounts(counts: Record<string, number>): string {
-  const lines = BACKUP_TABLE_KEYS.filter((key) => counts[key] > 0).map(
-    (key) => `${TABLE_LABELS[key] ?? key}: ${counts[key]}`
-  );
-  return lines.length > 0 ? lines.join('\n') : 'Yedekte hiç kayıt yok.';
-}
-
 function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
   const db = useDb();
   const router = useRouter();
-  const endSession = useActiveWorkoutStore((s) => s.endSession);
 
   const [exporting, setExporting] = useState(false);
-  const [importing, setImporting] = useState(false);
 
   const handleExport = async () => {
     setExporting(true);
@@ -424,83 +471,11 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
     }
   };
 
-  /** Onay alındıktan sonraki asıl geri yükleme */
-  const runRestore = async (data: BackupFile) => {
-    setImporting(true);
-    try {
-      await restoreBackup(db, data);
-      // Silinen seansa işaret eden state kalmasın
-      endSession();
-      onDataReplaced();
-      Alert.alert('Geri yüklendi', 'Yedekteki veriler yüklendi.');
-      router.replace('/');
-    } catch (err) {
-      console.error('[BACKUP-IMPORT] HATA:', err);
-      Alert.alert('Geri yükleme hatası', String(err));
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleImport = async () => {
-    try {
-      // Tür filtresi yok: bazı dosya sağlayıcıları JSON'u application/json
-      // olarak bildirmiyor, filtreleyince yedek dosyası seçilemez hale
-      // geliyor. Dosyanın gerçekten yedek olup olmadığını validateBackup
-      // söylüyor.
-      const picked = await DocumentPicker.getDocumentAsync({
-        copyToCacheDirectory: true,
-      });
-      if (picked.canceled) return;
-
-      const asset = picked.assets[0];
-      if (!asset) return;
-
-      setImporting(true);
-      const raw = await new File(asset.uri).text();
-      setImporting(false);
-
-      const result = validateBackup(raw);
-      if (!result.ok) {
-        Alert.alert('Dosya okunamadı', result.error);
-        return;
-      }
-
-      const data = result.data;
-      const counts = countRecords(data);
-      const exportedAt = data.exportedAt
-        ? formatDateTime(data.exportedAt)
-        : 'bilinmiyor';
-
-      Alert.alert(
-        'Yedek içeriği',
-        `Alındığı tarih: ${exportedAt}\nUygulama sürümü: ${data.appVersion}\n\n${summarizeCounts(counts)}`,
-        [
-          { text: 'Vazgeç', style: 'cancel' },
-          {
-            text: 'Devam',
-            onPress: () =>
-              Alert.alert(
-                'Mevcut tüm veriler silinecek',
-                'Geri yükleme birleştirme yapmaz. Cihazdaki rutinler, antrenmanlar, ölçümler ve egzersiz kütüphanesi silinip yedektekiyle değiştirilecek. Bu işlem geri alınamaz.',
-                [
-                  { text: 'Vazgeç', style: 'cancel' },
-                  {
-                    text: 'Evet, geri yükle',
-                    style: 'destructive',
-                    onPress: () => void runRestore(data),
-                  },
-                ]
-              ),
-          },
-        ]
-      );
-    } catch (err) {
-      setImporting(false);
-      console.error('[BACKUP-IMPORT] HATA:', err);
-      Alert.alert('Dosya okunamadı', String(err));
-    }
-  };
+  // Seç → doğrula → onay → geri yükle akışı karşılamayla ortak
+  const { importing, startRestore } = useBackupRestore(() => {
+    onDataReplaced();
+    router.replace('/');
+  });
 
   return (
     <Section
@@ -519,7 +494,7 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
         label="Yedekten Geri Yükle"
         busy={importing}
         busyLabel="Geri yükleniyor..."
-        onPress={handleImport}
+        onPress={() => void startRestore()}
         icon={Download}
       />
     </Section>

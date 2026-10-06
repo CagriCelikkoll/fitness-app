@@ -1,10 +1,16 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { AppState, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Minus, Plus, X, type LucideIcon } from 'lucide-react-native';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
-import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
+import {
+  FALLBACK_REST_SOUND,
+  FALLBACK_REST_VIBRATE,
+  useAppSettings,
+} from '@/hooks/useAppSettings';
+import { shouldPlayRestSound } from '@/lib/restSound';
+import { playRestDoneSound, preloadRestDoneSound } from '@/lib/restNative';
 import { COLORS } from '@/theme';
 
 /**
@@ -14,6 +20,8 @@ import { COLORS } from '@/theme';
  * Sıfıra ulaştığında:
  * - Ayarlardaki "dinlenme bitiminde titreşim" açıksa haptic notification
  *   çalar (Android'de titreşim)
+ * - "Dinlenme bitiminde ses" açıksa ve uygulama ön plandaysa kısa bip
+ *   (telefon kilitliyken bitişi `restNative.ts`'teki bildirim haber veriyor)
  * - "Dinlenme tamamlandı" uyarısı 3 saniye görünür kalır
  *
  * Kullanıcı sürebilir: +/- 15 saniye, manuel iptal.
@@ -32,6 +40,9 @@ export function RestTimer() {
   // Bitiş zamanlayıcısı ayar değişince yeniden kurulmasın diye ref
   const vibrateRef = useRef(vibrate);
   vibrateRef.current = vibrate;
+  const sound = settings?.restTimerSound ?? FALLBACK_REST_SOUND;
+  const soundRef = useRef(sound);
+  soundRef.current = sound;
 
   const [completed, setCompleted] = useState(false);
 
@@ -46,11 +57,24 @@ export function RestTimer() {
       return;
     }
 
+    const endAt = restTimer.startedAt + restTimer.durationSeconds * 1000;
+
     const complete = () => {
       setCompleted(true);
       // Bitiş haptic'i — kullanıcı titreşimi kapattıysa atlanır
       if (vibrateRef.current) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      // Bitiş sesi — titreşimden bağımsız ayar; arka planda ve geç
+      // kalmış bitişte çalmaz (bkz. shouldPlayRestSound)
+      if (
+        shouldPlayRestSound({
+          enabled: soundRef.current,
+          foreground: AppState.currentState === 'active',
+          remainingMs: endAt - Date.now(),
+        })
+      ) {
+        playRestDoneSound();
       }
     };
 
@@ -60,6 +84,9 @@ export function RestTimer() {
       complete();
       return;
     }
+
+    // Ses dosyası bitişten önce yüklensin, ilk bip gecikmesin
+    if (soundRef.current) preloadRestDoneSound();
 
     setCompleted(false);
     const timeout = setTimeout(complete, remainingMs);
