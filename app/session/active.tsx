@@ -45,6 +45,7 @@ import {
 } from '@/lib/exerciseProgress';
 import { saveSessionExerciseNote } from '@/lib/notes';
 import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
+import { afterSetCompleted, supersetPositions } from '@/lib/superset';
 import { RestTimer } from '@/components/RestTimer';
 import { NoteEditor } from '@/components/NoteEditor';
 import { COLORS, DISABLED_ICON } from '@/theme';
@@ -129,6 +130,52 @@ function SessionContent({ sessionId }: { sessionId: string }) {
     [sessionId]
   );
 
+  // ── v1.9 süperset ─────────────────────────────────────────────────────
+  // Hareketlerin süperset konumu (A1, A2 ...); süperset değilse null
+  const supersets = useMemo(
+    () => supersetPositions((seData ?? []).map((r) => r.se.supersetGroup)),
+    [seData]
+  );
+  const currentSuperset = seData
+    ? supersets[Math.min(currentExerciseIndex, Math.max(0, seData.length - 1))]
+    : null;
+
+  // Bulunulan grubun tüm setleri — dinlenme kararı için. Süperset
+  // değilse boş liste, sorgu hiçbir satır döndürmez.
+  const groupSeIds =
+    seData && currentSuperset
+      ? seData
+          .slice(currentSuperset.start, currentSuperset.end + 1)
+          .map((r) => r.se.id)
+      : [];
+  const { data: groupSets } = useLiveQuery(
+    db
+      .select({
+        id: setsTable.id,
+        sessionExerciseId: setsTable.sessionExerciseId,
+        isCompleted: setsTable.isCompleted,
+      })
+      .from(setsTable)
+      .where(inArray(setsTable.sessionExerciseId, groupSeIds)),
+    [groupSeIds.join(',')]
+  );
+
+  // "Sıradaki" barı. fromIndex: barın çıktığı hareket; kullanıcı bara
+  // basmadan elle başka harekete geçerse bar kaybolur. Otomatik geçiş yok:
+  // tamamlanan setin altındaki RIR seçimi ve rekor rozeti görülebilsin.
+  const [nextHint, setNextHint] = useState<{
+    fromIndex: number;
+    exerciseIndex: number;
+    label: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (nextHint && nextHint.fromIndex !== currentExerciseIndex) {
+      setNextHint(null);
+    }
+  }, [currentExerciseIndex, nextHint]);
+  // ──────────────────────────────────────────────────────────────────────
+
   if (!seData) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -139,6 +186,32 @@ function SessionContent({ sessionId }: { sessionId: string }) {
 
   const safeIndex = Math.min(currentExerciseIndex, Math.max(0, seData.length - 1));
   const current = seData[safeIndex];
+
+  /**
+   * v1.9: set tamamlanınca dinlenme başlasın mı (bkz. afterSetCompleted).
+   * Süperset olmayan harekette her zaman true — v1.9 öncesiyle aynı.
+   * Hesap patlarsa da true: set tamamlama akışı etkilenmesin.
+   */
+  const handleSetCompleted = (completedSetId: string): boolean => {
+    try {
+      const result = afterSetCompleted({
+        exercises: seData.map((r) => ({
+          name: r.exercise.nameTr ?? r.exercise.name,
+          supersetGroup: r.se.supersetGroup,
+          sets: (groupSets ?? []).filter((s) => s.sessionExerciseId === r.se.id),
+        })),
+        currentIndex: safeIndex,
+        completedSetId,
+      });
+      setNextHint(
+        result.next ? { fromIndex: currentExerciseIndex, ...result.next } : null
+      );
+      return result.startRest;
+    } catch (err) {
+      console.warn('[SUPERSET] Dinlenme kararı verilemedi:', err);
+      return true;
+    }
+  };
 
   /**
    * Seansı kapatır. Tek transaction: onaylanmamış setlerin akıbeti,
@@ -301,6 +374,13 @@ function SessionContent({ sessionId }: { sessionId: string }) {
             accessibilityLabel="Hareket detayını aç"
             className="flex-row items-center max-w-full active:opacity-60"
           >
+            {currentSuperset && (
+              <View className="bg-accent rounded-md px-1.5 py-0.5 mr-2">
+                <Text className="text-accent-fg text-xs font-bold tabular-nums">
+                  {currentSuperset.label}
+                </Text>
+              </View>
+            )}
             <Text
               className="text-white text-xl font-semibold tracking-tight shrink"
               numberOfLines={1}
@@ -333,6 +413,43 @@ function SessionContent({ sessionId }: { sessionId: string }) {
         </Pressable>
       </View>
 
+      {/* v1.9: süperset üyeleri — basınca o üyeye geçilir */}
+      {currentSuperset && (
+        <View className="flex-row flex-wrap justify-center gap-2 px-3 py-2 bg-bg border-b border-border">
+          {seData
+            .slice(currentSuperset.start, currentSuperset.end + 1)
+            .map((r, i) => {
+              const memberIndex = currentSuperset.start + i;
+              const active = memberIndex === safeIndex;
+              return (
+                <Pressable
+                  key={r.se.id}
+                  onPress={() => setCurrentExerciseIndex(memberIndex)}
+                  disabled={active}
+                  hitSlop={6}
+                  className={`flex-row items-center rounded-full px-3 h-8 max-w-[48%] active:opacity-70 ${
+                    active ? 'bg-accent' : 'bg-bg-surface border border-border'
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-bold tabular-nums mr-1.5 ${
+                      active ? 'text-accent-fg' : 'text-accent'
+                    }`}
+                  >
+                    {supersets[memberIndex]?.label}
+                  </Text>
+                  <Text
+                    className={`text-xs shrink ${active ? 'text-accent-fg font-semibold' : 'text-white'}`}
+                    numberOfLines={1}
+                  >
+                    {r.exercise.nameTr ?? r.exercise.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+        </View>
+      )}
+
       {/* Egzersiz içeriği (set listesi) */}
       <ScrollView
         className="flex-1"
@@ -344,11 +461,29 @@ function SessionContent({ sessionId }: { sessionId: string }) {
           sessionExerciseId={current.se.id}
           exercise={current.exercise}
           initialNote={current.se.notes}
+          onSetCompleted={handleSetCompleted}
         />
       </ScrollView>
 
       {/* Alt aksiyon: antrenmanı bitir */}
       <View className="bg-bg px-4 py-3 border-t border-border">
+        {/* v1.9: süperset "Sıradaki" barı. Dinlenme sayacı bu bölümün
+            altında ayrı duruyor; ikisi birlikte görünebilir. */}
+        {nextHint && nextHint.fromIndex === currentExerciseIndex && (
+          <Pressable
+            onPress={() => {
+              setCurrentExerciseIndex(nextHint.exerciseIndex);
+              setNextHint(null);
+            }}
+            accessibilityRole="button"
+            className="flex-row items-center justify-between min-h-[48px] px-4 mb-3 rounded-2xl bg-accent/10 border border-accent/50 active:opacity-70"
+          >
+            <Text className="text-accent text-base font-semibold shrink" numberOfLines={1}>
+              {nextHint.label}
+            </Text>
+            <ChevronRight color={COLORS.accent} size={20} />
+          </Pressable>
+        )}
         <SecondaryButton
           onPress={handleFinishWorkout}
           label="Antrenmanı Bitir"
@@ -364,6 +499,8 @@ interface ExerciseSetEditorProps {
   exercise: Exercise;
   /** Bu antrenmanda bu hareketin notu (session_exercises.notes) */
   initialNote: string | null;
+  /** v1.9: set tamamlanınca dinlenme başlasın mı (süperset kararı) */
+  onSetCompleted: (setId: string) => boolean;
 }
 
 function ExerciseSetEditor({
@@ -371,6 +508,7 @@ function ExerciseSetEditor({
   sessionExerciseId,
   exercise,
   initialNote,
+  onSetCompleted,
 }: ExerciseSetEditorProps) {
   const db = useDb();
 
@@ -549,6 +687,7 @@ function ExerciseSetEditor({
           vibrate={vibrate}
           isRecord={recordSetIds.has(set.id)}
           isRecordCompletion={isRecordCompletion}
+          onSetCompleted={onSetCompleted}
         />
       ))}
 
@@ -586,6 +725,8 @@ interface SetRowProps {
   isRecord: boolean;
   /** Tamamlama rekor mu — yalnızca başarı titreşimi için */
   isRecordCompletion: (set: WorkoutSet, weightKg: number, reps: number) => boolean;
+  /** v1.9: tamamlamadan sonra dinlenme başlasın mı (süperset değilse hep true) */
+  onSetCompleted: (setId: string) => boolean;
 }
 
 function SetRow({
@@ -595,6 +736,7 @@ function SetRow({
   vibrate,
   isRecord,
   isRecordCompletion,
+  onSetCompleted,
 }: SetRowProps) {
   const db = useDb();
   const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
@@ -657,7 +799,9 @@ function SetRow({
       if (vibrate) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
-      if (restSeconds > 0) {
+      // v1.9: süpersette tur bitmeden dinlenme başlamaz. Süperset olmayan
+      // harekette onSetCompleted hep true döner; koşul eskisiyle aynı kalır.
+      if (onSetCompleted(set.id) && restSeconds > 0) {
         startRestTimer(restSeconds);
       }
       // Rekor kontrolü: tamamlama yazıldıktan sonra, ek olarak. Hata

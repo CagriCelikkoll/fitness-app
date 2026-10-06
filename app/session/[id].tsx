@@ -39,6 +39,7 @@ import {
 } from '@/lib/format';
 import { saveSessionNote } from '@/lib/notes';
 import { rirLabel } from '@/lib/rir';
+import { supersetPositions, type SupersetPosition } from '@/lib/superset';
 import { COLORS } from '@/theme';
 import { Card, DangerButton } from '@/components/ui';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -116,6 +117,12 @@ export default function SessionDetailScreen() {
 
     return [...groups.values()];
   }, [rowsData]);
+
+  // Süperset üyeleri: kartlarda dikey çizgi ve "Süperset A" etiketi
+  const supersets = useMemo(
+    () => supersetPositions(exerciseGroups.map((g) => g.se.supersetGroup)),
+    [exerciseGroups]
+  );
 
   const totalVolume = exerciseGroups.reduce(
     (sum, group) => sum + group.sets.reduce((s, set) => s + setVolume(set), 0),
@@ -216,8 +223,12 @@ export default function SessionDetailScreen() {
       />
 
       {/* Egzersizler */}
-      {exerciseGroups.map((group) => (
-        <ExerciseDetailCard key={group.se.id} group={group} />
+      {exerciseGroups.map((group, idx) => (
+        <ExerciseDetailCard
+          key={group.se.id}
+          group={group}
+          superset={supersets[idx]}
+        />
       ))}
 
       {/* Cardio segmentleri */}
@@ -257,7 +268,13 @@ export default function SessionDetailScreen() {
   );
 }
 
-function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
+function ExerciseDetailCard({
+  group,
+  superset,
+}: {
+  group: ExerciseGroup;
+  superset: SupersetPosition | null;
+}) {
   const volume = group.sets.reduce((sum, set) => sum + setVolume(set), 0);
   const heaviest = group.sets.reduce<WorkoutSet | null>(
     (best, set) =>
@@ -270,7 +287,12 @@ function ExerciseDetailCard({ group }: { group: ExerciseGroup }) {
   const showRir = group.sets.some((set) => set.rir != null);
 
   return (
-    <Card>
+    <Card className={superset ? 'border-l-4 border-l-accent' : ''}>
+      {superset && (
+        <Text className="text-accent text-xs font-semibold tracking-widest mb-1">
+          SÜPERSET {superset.letter} · {superset.label}
+        </Text>
+      )}
       <Text className="text-white text-xl font-semibold tracking-tight">
         {group.exercise.nameTr ?? group.exercise.name}
       </Text>

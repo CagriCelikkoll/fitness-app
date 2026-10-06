@@ -25,7 +25,14 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { asc, eq, sql } from 'drizzle-orm';
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react-native';
+import {
+  ChevronDown,
+  ChevronUp,
+  Link2,
+  Plus,
+  Trash2,
+  Unlink,
+} from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { FALLBACK_REST_SECONDS, useAppSettings } from '@/hooks/useAppSettings';
@@ -44,6 +51,17 @@ import {
   sanitizeRepRange,
   trimRepRange,
 } from '@/lib/format';
+import {
+  applyGroups,
+  isLinkedWithNext,
+  linkWithNext,
+  moveAndDetach,
+  normalizeSupersetGroups,
+  removeAndNormalize,
+  supersetPositions,
+  unlinkAfter,
+  type SupersetPosition,
+} from '@/lib/superset';
 import { ExercisePickerModal } from '@/components/ExercisePickerModal';
 import { COLORS, DISABLED_ICON } from '@/theme';
 import { Card, PrimaryButton } from '@/components/ui';
@@ -59,6 +77,8 @@ interface DraftExercise {
   targetWeightKg: string;
   targetDurationSeconds: string;
   restSeconds: string;
+  /** Süperset grubu; ardışık aynı numaralar bir grup, null süperset değil */
+  supersetGroup: number | null;
 }
 
 export default function RoutineEditorScreen() {
@@ -126,8 +146,7 @@ export default function RoutineEditorScreen() {
 
         if (cancelled) return;
 
-        setDraftExercises(
-          rows.map((r) => ({
+        const loaded: DraftExercise[] = rows.map((r) => ({
             id: r.re.id,
             exerciseId: r.re.exerciseId,
             name: r.exercise.nameTr ?? r.exercise.name,
@@ -142,7 +161,13 @@ export default function RoutineEditorScreen() {
                 : '',
             restSeconds:
               r.re.restSeconds != null ? String(r.re.restSeconds) : '90',
-          }))
+            supersetGroup: r.re.supersetGroup,
+          }));
+        setDraftExercises(
+          applyGroups(
+            loaded,
+            normalizeSupersetGroups(loaded.map((d) => d.supersetGroup))
+          )
         );
         completed = true;
         setLoading(false);
@@ -178,22 +203,33 @@ export default function RoutineEditorScreen() {
       targetWeightKg: '',
       targetDurationSeconds: ex.category === 'cardio' ? '1200' : '',
       restSeconds: ex.category === 'cardio' ? '0' : defaultRest,
+      supersetGroup: null,
     }));
     setDraftExercises((prev) => [...prev, ...newDrafts]);
     setPickerOpen(false);
   };
 
+  // Silinen üyenin grubu normalleşir: tek kalan üye süperset olmaktan çıkar
   const removeExercise = (draftId: string) => {
-    setDraftExercises((prev) => prev.filter((e) => e.id !== draftId));
+    setDraftExercises((prev) => {
+      const index = prev.findIndex((e) => e.id === draftId);
+      return index < 0 ? prev : removeAndNormalize(prev, index);
+    });
   };
 
+  // Taşınan hareket süperset grubundan çıkar (grup blok halinde taşınmıyor)
   const moveExercise = (index: number, direction: -1 | 1) => {
+    setDraftExercises((prev) => moveAndDetach(prev, index, direction));
+  };
+
+  /** `index` ile bir sonraki hareketi bağlar ya da aralarındaki bağı koparır */
+  const toggleSupersetLink = (index: number) => {
     setDraftExercises((prev) => {
-      const target = index + direction;
-      if (target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
+      const groups = prev.map((d) => d.supersetGroup);
+      const next = isLinkedWithNext(groups, index)
+        ? unlinkAfter(groups, index)
+        : linkWithNext(groups, index);
+      return applyGroups(prev, next);
     });
   };
 
@@ -223,6 +259,9 @@ export default function RoutineEditorScreen() {
       const expectedCount = draftExercises.length;
       const now = new Date().toISOString();
 
+      const groups = normalizeSupersetGroups(
+        draftExercises.map((d) => d.supersetGroup)
+      );
       const rows = draftExercises.map((d, idx) => ({
         id: d.id,
         routineId,
@@ -233,6 +272,7 @@ export default function RoutineEditorScreen() {
         targetWeightKg: parseFloatOrNull(d.targetWeightKg),
         targetDurationSeconds: parseIntOrNull(d.targetDurationSeconds),
         restSeconds: parseIntOrNull(d.restSeconds) ?? 90,
+        supersetGroup: groups[idx],
       }));
 
       console.log('[ROUTINE-SAVE] Başlıyor', {
@@ -299,6 +339,8 @@ export default function RoutineEditorScreen() {
       setSaving(false);
     }
   };
+
+  const supersets = supersetPositions(draftExercises.map((d) => d.supersetGroup));
 
   if (notFound) {
     return (
@@ -401,15 +443,26 @@ export default function RoutineEditorScreen() {
           ) : (
             <>
               {draftExercises.map((draft, idx) => (
-                <DraftExerciseCard
-                  key={draft.id}
-                  draft={draft}
-                  index={idx}
-                  total={draftExercises.length}
-                  onUpdate={updateDraft}
-                  onRemove={removeExercise}
-                  onMove={moveExercise}
-                />
+                <View key={draft.id} className="gap-3">
+                  <DraftExerciseCard
+                    draft={draft}
+                    index={idx}
+                    total={draftExercises.length}
+                    superset={supersets[idx]}
+                    onUpdate={updateDraft}
+                    onRemove={removeExercise}
+                    onMove={moveExercise}
+                  />
+                  {idx < draftExercises.length - 1 && (
+                    <SupersetLinkButton
+                      linked={
+                        supersets[idx] != null &&
+                        supersets[idx]!.end > idx
+                      }
+                      onPress={() => toggleSupersetLink(idx)}
+                    />
+                  )}
+                </View>
               ))}
               <Pressable
                 onPress={() => setPickerOpen(true)}
@@ -435,10 +488,50 @@ export default function RoutineEditorScreen() {
   );
 }
 
+/**
+ * İki kartın arasındaki bağlantı düğmesi: "Süperset yap" ya da bağlıysa
+ * "Ayır". Bağlıyken soldaki süperset çizgisi kartlar arasında sürüyor.
+ */
+function SupersetLinkButton({
+  linked,
+  onPress,
+}: {
+  linked: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View className="flex-row items-center -my-1">
+      <View className={`w-1 self-stretch rounded-full ${linked ? 'bg-accent' : ''}`} />
+      <View className="flex-1 items-center">
+        <Pressable
+          onPress={onPress}
+          hitSlop={8}
+          accessibilityLabel={linked ? 'Süperseti ayır' : 'Sonraki hareketle süperset yap'}
+          className={`flex-row items-center gap-1.5 px-3 h-8 rounded-full border active:opacity-60 ${
+            linked ? 'border-accent/50 bg-accent/10' : 'border-border bg-bg'
+          }`}
+        >
+          {linked ? (
+            <Unlink color={COLORS.accent} size={14} />
+          ) : (
+            <Link2 color={COLORS.muted} size={14} />
+          )}
+          <Text
+            className={`text-xs font-medium ${linked ? 'text-accent' : 'text-muted'}`}
+          >
+            {linked ? 'Ayır' : 'Süperset yap'}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 interface DraftCardProps {
   draft: DraftExercise;
   index: number;
   total: number;
+  superset: SupersetPosition | null;
   onUpdate: <K extends keyof DraftExercise>(
     id: string,
     key: K,
@@ -452,6 +545,7 @@ function DraftExerciseCard({
   draft,
   index,
   total,
+  superset,
   onUpdate,
   onRemove,
   onMove,
@@ -460,9 +554,16 @@ function DraftExerciseCard({
   const isCardio = draft.category === 'cardio';
   const canMoveUp = index > 0;
   const canMoveDown = index < total - 1;
+  // Süpersette dinlenme yalnızca grubun son hareketinden sonra
+  const restInactive = superset != null && !superset.isLast;
 
   return (
-    <Card className="gap-4">
+    <Card className={`gap-4 ${superset ? 'border-l-4 border-l-accent' : ''}`}>
+      {superset && (
+        <Text className="text-accent text-xs font-semibold tracking-widest -mb-2">
+          SÜPERSET · {superset.label}
+        </Text>
+      )}
       <View className="flex-row items-center">
         <View className="mr-3 -ml-1">
           <Pressable
@@ -563,14 +664,20 @@ function DraftExerciseCard({
         </View>
       )}
 
-      <View className="flex-row gap-2">
+      <View className="flex-row gap-2 items-end">
         <NumberField
-          label="Dinlenme (sn)"
+          label={superset?.isLast ? 'Tur arası dinlenme (sn)' : 'Dinlenme (sn)'}
           value={draft.restSeconds}
           onChange={(v) => onUpdate(draft.id, 'restSeconds', digitsOnly(v))}
           placeholder="90"
           maxLength={4}
+          disabled={restInactive}
         />
+        {restInactive && (
+          <Text className="flex-1 text-muted text-xs pb-3.5">
+            Süperset içinde dinlenme yok
+          </Text>
+        )}
       </View>
     </Card>
   );
@@ -583,6 +690,7 @@ function NumberField({
   placeholder,
   keyboardType = 'number-pad',
   maxLength,
+  disabled = false,
 }: {
   label: string;
   value: string;
@@ -590,9 +698,11 @@ function NumberField({
   placeholder?: string;
   keyboardType?: 'number-pad' | 'decimal-pad' | 'default';
   maxLength?: number;
+  /** Pasif: düzenlenemez ve soluk (değer korunur) */
+  disabled?: boolean;
 }) {
   return (
-    <View className="flex-1">
+    <View className={`flex-1 ${disabled ? 'opacity-40' : ''}`}>
       <Text className="text-muted text-xs mb-2">{label}</Text>
       <TextInput
         value={value}
@@ -601,6 +711,7 @@ function NumberField({
         placeholderTextColor={COLORS.muted}
         keyboardType={keyboardType}
         maxLength={maxLength}
+        editable={!disabled}
         className="bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl"
       />
     </View>
