@@ -2,8 +2,9 @@
  * Ayarlar sekmesi.
  *
  * Yukarıdan aşağıya: profil (boy/doğum tarihi/cinsiyet), antrenman
- * tercihleri, birimler, veri yönetimi (yedek al / geri yükle),
- * tehlikeli bölge (tüm verileri sıfırla), hakkında.
+ * tercihleri, birimler, veri yönetimi (yedek al / geri yükle), yarım
+ * kalan antrenmanlar (varsa), tehlikeli bölge (tüm verileri sıfırla),
+ * hakkında.
  *
  * Profil düzenleme İlerleme sekmesinden buraya taşındı; ölçüm
  * hesaplarında kullanılan boy/yaş/cinsiyet artık tek yerden giriliyor.
@@ -16,7 +17,7 @@
  * ayarı kv-store'da (bkz. `restNotification.ts`).
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,7 +28,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
@@ -66,6 +67,16 @@ import { useRestNotificationSetting } from '@/hooks/useRestNotificationSetting';
 import { summarizeCounts, useBackupRestore } from '@/hooks/useBackupRestore';
 import type { RestNotificationPermissionState } from '@/lib/restNotification';
 import { openNotificationSettings } from '@/lib/restNative';
+import {
+  canFinishOpenSession,
+  findOpenSessions,
+  type OpenSession,
+} from '@/lib/sessionRecovery';
+import {
+  confirmDiscardSession,
+  openUnfinishedSession,
+} from '@/hooks/useSessionRecovery';
+import { formatDateTime } from '@/lib/format';
 import { COLORS } from '@/theme';
 import {
   DangerButton,
@@ -133,6 +144,7 @@ export default function SettingsScreen() {
       />
       <UnitsSection settings={settings} />
       <DataSection onDataReplaced={() => setFormEpoch((n) => n + 1)} />
+      <UnfinishedSessionsSection />
       <DangerSection />
       <AboutSection />
     </ScrollView>
@@ -498,6 +510,85 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
         icon={Download}
       />
     </Section>
+  );
+}
+
+// ============================================================================
+// Yarım kalan antrenmanlar
+// ============================================================================
+
+/**
+ * Bitirilmemiş seanslar (bkz. `sessionRecovery.ts`). Açılış sorusu
+ * yalnızca son 3 günün en yeni yarım seansı için çıkıyor; eskiler ve
+ * diğerleri burada. Şu an devam eden antrenman listede yok. Liste boşsa
+ * bölüm hiç görünmüyor.
+ *
+ * Join'li sorgu: useLiveQuery dinlemiyor, odaklanınca ve silince yenileniyor.
+ */
+function UnfinishedSessionsSection() {
+  const db = useDb();
+  const router = useRouter();
+  const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
+  const [sessions, setSessions] = useState<OpenSession[]>([]);
+
+  const reload = useCallback(() => {
+    findOpenSessions(db)
+      .then(setSessions)
+      .catch((err) => console.error('[SESSION-RECOVERY] Liste alınamadı:', err));
+  }, [db]);
+
+  useFocusEffect(reload);
+
+  const visible = sessions.filter((s) => s.id !== activeSessionId);
+  if (visible.length === 0) return null;
+
+  return (
+    <Section
+      title="Yarım kalan antrenmanlar"
+      description="Bitirilmeden kapanmış antrenmanlar. Bitir, son tamamlanan sette bitmiş sayar; hiç set tamamlanmadıysa silmen önerilir."
+    >
+      {visible.map((session) => (
+        <UnfinishedSessionRow
+          key={session.id}
+          session={session}
+          onFinish={() => void openUnfinishedSession(router, session, true)}
+          onDelete={() => confirmDiscardSession(db, session, reload)}
+        />
+      ))}
+    </Section>
+  );
+}
+
+function UnfinishedSessionRow({
+  session,
+  onFinish,
+  onDelete,
+}: {
+  session: OpenSession;
+  onFinish: () => void;
+  onDelete: () => void;
+}) {
+  const canFinish = canFinishOpenSession(session);
+  return (
+    <View className="gap-3">
+      <View>
+        <Text className="text-white text-base font-semibold" numberOfLines={1}>
+          {session.name}
+        </Text>
+        <Text className="text-muted text-xs mt-0.5 tabular-nums">
+          {formatDateTime(session.startedAt)} ·{' '}
+          {canFinish
+            ? `${session.completedSetCount} set tamamlandı`
+            : 'Tamamlanmış set yok'}
+        </Text>
+      </View>
+      <View className="flex-row gap-2">
+        {canFinish && (
+          <SecondaryButton label="Bitir" onPress={onFinish} className="flex-1" />
+        )}
+        <DangerButton label="Sil" onPress={onDelete} className="flex-1" />
+      </View>
+    </View>
   );
 }
 

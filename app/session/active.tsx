@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { Check, ChevronLeft, ChevronRight, Info, Plus, X } from 'lucide-react-native';
@@ -47,6 +47,7 @@ import { saveSessionExerciseNote } from '@/lib/notes';
 import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
 import { afterSetCompleted, supersetPositions } from '@/lib/superset';
 import { restNotificationScheduler } from '@/lib/restNative';
+import { finishSessionRecord } from '@/lib/finishSession';
 import { RestTimer } from '@/components/RestTimer';
 import { NoteEditor } from '@/components/NoteEditor';
 import { COLORS, DISABLED_ICON } from '@/theme';
@@ -177,6 +178,27 @@ function SessionContent({ sessionId }: { sessionId: string }) {
   }, [currentExerciseIndex, nextHint]);
   // ──────────────────────────────────────────────────────────────────────
 
+  // ── Yarım kalan antrenman ───────────────────────────────────────────
+  // Açılıştaki "Yarım kalan antrenman" sorusunda Bitir seçildiyse ekran
+  // `finish=1` ile açılıyor: hareketler yüklenince normal bitirme akışı
+  // (onay + onaylanmamış set sorusu) bir kez başlatılıyor. `finishAt`:
+  // son tamamlanan setin zamanı, seans o anda bitmiş sayılıyor.
+  const { finish, finishAt } = useLocalSearchParams<{
+    finish?: string;
+    finishAt?: string;
+  }>();
+  const finishPromptShown = useRef(false);
+  useEffect(() => {
+    if (finish !== '1' || finishPromptShown.current) return;
+    if (!seData || seData.length === 0) return;
+    finishPromptShown.current = true;
+    handleFinishWorkout(finishAt || undefined);
+    // handleFinishWorkout her render'da yeniden tanımlanıyor; tetikleyici
+    // yalnızca hareketlerin yüklenmesi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finish, seData]);
+  // ──────────────────────────────────────────────────────────────────────
+
   if (!seData) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -225,51 +247,25 @@ function SessionContent({ sessionId }: { sessionId: string }) {
    * pendingFilledIds: değer girilmiş ama ✓ ile onaylanmamış setler.
    * mode 'complete' ise bunlar tamamlanmış sayılır, 'delete' ise
    * diğer boş setlerle birlikte silinir.
+   *
+   * endedAt: yalnızca yarım kalan antrenmanı kurtarma yolu veriyor (son
+   * tamamlanan setin zamanı). Verilmezse eskisi gibi "şimdi".
+   * Transaction `finishSessionRecord`'da (test edilebilsin diye).
    */
   const finishSession = async (
     pendingFilledIds: string[],
-    mode: 'complete' | 'delete'
+    mode: 'complete' | 'delete',
+    endedAt?: string
   ) => {
-    const now = new Date().toISOString();
     const sessionExerciseIds = seData.map((s) => s.se.id);
 
     try {
-      await db.transaction(async (tx) => {
-        const session = await tx
-          .select()
-          .from(workoutSessions)
-          .where(eq(workoutSessions.id, sessionId))
-          .limit(1);
-        const startedAt = session[0]?.startedAt;
-        const durationSeconds = startedAt
-          ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
-          : null;
-
-        // Kullanıcı "tamamlanmış say" dediyse önce bunları onayla ki
-        // aşağıdaki silme onlara dokunmasın.
-        if (mode === 'complete' && pendingFilledIds.length > 0) {
-          await tx
-            .update(setsTable)
-            .set({ isCompleted: true, completedAt: now })
-            .where(inArray(setsTable.id, pendingFilledIds));
-        }
-
-        // Geriye kalan onaylanmamış setleri sil (gereksiz kayıt olmasın)
-        if (sessionExerciseIds.length > 0) {
-          await tx
-            .delete(setsTable)
-            .where(
-              and(
-                inArray(setsTable.sessionExerciseId, sessionExerciseIds),
-                eq(setsTable.isCompleted, false)
-              )
-            );
-        }
-
-        await tx
-          .update(workoutSessions)
-          .set({ endedAt: now, durationSeconds })
-          .where(eq(workoutSessions.id, sessionId));
+      await finishSessionRecord(db, {
+        sessionId,
+        sessionExerciseIds,
+        pendingFilledIds,
+        mode,
+        endedAt,
       });
     } catch (err) {
       // Transaction geri alındı; kullanıcı ekranda kalsın, verisi kaybolmasın.
@@ -303,7 +299,8 @@ function SessionContent({ sessionId }: { sessionId: string }) {
     return pending.filter((s) => s.reps != null).map((s) => s.id);
   };
 
-  const handleFinishWorkout = () => {
+  /** endedAt: bkz. finishSession — yalnızca kurtarma yolu veriyor */
+  const handleFinishWorkout = (endedAt?: string) => {
     Alert.alert('Antrenmanı bitir', 'Bu seansı tamamlamak istiyor musun?', [
       { text: 'Devam et', style: 'cancel' },
       {
@@ -313,7 +310,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
           const pendingFilledIds = await findPendingFilledSets();
 
           if (pendingFilledIds.length === 0) {
-            await finishSession([], 'delete');
+            await finishSession([], 'delete', endedAt);
             return;
           }
 
@@ -323,12 +320,12 @@ function SessionContent({ sessionId }: { sessionId: string }) {
             [
               {
                 text: 'Tamamlanmış say',
-                onPress: () => finishSession(pendingFilledIds, 'complete'),
+                onPress: () => finishSession(pendingFilledIds, 'complete', endedAt),
               },
               {
                 text: 'Sil',
                 style: 'destructive',
-                onPress: () => finishSession(pendingFilledIds, 'delete'),
+                onPress: () => finishSession(pendingFilledIds, 'delete', endedAt),
               },
               { text: 'Vazgeç', style: 'cancel' },
             ]
@@ -490,7 +487,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
           </Pressable>
         )}
         <SecondaryButton
-          onPress={handleFinishWorkout}
+          onPress={() => handleFinishWorkout()}
           label="Antrenmanı Bitir"
         />
       </View>

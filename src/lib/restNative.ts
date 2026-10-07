@@ -25,6 +25,9 @@ import {
 /** Android bildirim kanalı. Kimliği değiştirme: kullanıcı ayarları kanala bağlı. */
 const REST_CHANNEL_ID = 'rest';
 
+/** Planlanan dinlenme bildiriminin kimliği; aynı anda tek bildirim var */
+const REST_NOTIFICATION_ID = 'rest-end';
+
 let channelReady: Promise<void> | null = null;
 
 /**
@@ -60,6 +63,10 @@ const api: RestNotificationApi = {
   async schedule(fireAtMs, content) {
     await ensureChannel();
     return Notifications.scheduleNotificationAsync({
+      // Sabit kimlik: aynı kimlikle planlama öncekinin yerine geçiyor.
+      // Uygulama arka planda kapatılıp sayaç geri yüklenince, eski
+      // süreçten kalan bildirimle birlikte iki bildirim gelmesin.
+      identifier: REST_NOTIFICATION_ID,
       content: {
         title: content.title,
         ...(content.body != null ? { body: content.body } : {}),

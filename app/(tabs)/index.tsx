@@ -8,6 +8,7 @@ import { Play, Scale, Target } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
+import { useSessionRecovery } from '@/hooks/useSessionRecovery';
 import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
@@ -100,6 +101,8 @@ export default function HomeScreen() {
 
 function HomeContent() {
   const db = useDb();
+  // Uygulama arka planda kapatıldıysa yarım antrenmanı geri getir
+  useSessionRecovery();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
   const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();

@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
+import Storage from 'expo-sqlite/kv-store';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 
 import migrations from '../drizzle/migrations';
@@ -14,11 +15,19 @@ import { DATABASE_NAME } from '@/db/client';
 import { seedIfEmpty } from '@/db/seed';
 import { useDb } from '@/hooks/useDb';
 import { installRestNotifications } from '@/lib/restNative';
+import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
+import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { COLORS } from '@/theme';
 
 // Dinlenme bildirimi: ön plan işleyicisi + sayaç dinleyicisi. İzin
 // burada istenmiyor, ilk dinlenme başlarken soruluyor.
 installRestNotifications();
+
+// Dinlenme sayacı kv-store'a yazılıyor: uygulama arka planda kapatılırsa
+// yarım antrenmanla birlikte geri gelsin (bkz. useSessionRecovery).
+connectRestTimerPersistence(useActiveWorkoutStore, Storage, (err) =>
+  console.warn('[SESSION-RECOVERY] Sayaç kaydedilemedi:', err)
+);
 
 // SQLiteProvider'ın açtığı bağlantı için başlangıç ayarları.
 // foreign_keys bağlantı düzeyinde bir pragma ve SQLite'ta varsayılan
