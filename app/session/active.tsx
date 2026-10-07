@@ -48,6 +48,13 @@ import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
 import { afterSetCompleted, supersetPositions } from '@/lib/superset';
 import { restNotificationScheduler } from '@/lib/restNative';
 import { finishSessionRecord } from '@/lib/finishSession';
+import {
+  PROGRESSION_HELP,
+  applySuggestedWeight,
+  getProgressionSuggestion,
+  type ProgressionSuggestion,
+} from '@/lib/progression';
+import { useProgressionSetting } from '@/hooks/useProgressionSetting';
 import { RestTimer } from '@/components/RestTimer';
 import { NoteEditor } from '@/components/NoteEditor';
 import { COLORS, DISABLED_ICON } from '@/theme';
@@ -604,6 +611,46 @@ function ExerciseSetEditor({
 
   const bestLoaded = previousBest?.exerciseId === exercise.id;
 
+  // ── v2.1 ilerleme önerisi ─────────────────────────────────────────────
+  // Hesap `progression.ts`'te; burada yalnızca okuma ve görünüm. Hangi
+  // harekete ait olduğu tutuluyor (editör hareket değişince yeniden
+  // kurulmuyor). Okunamazsa öneri gösterilmiyor, ekran etkilenmiyor.
+  const progressionSetting = useProgressionSetting();
+  const [progression, setProgression] = useState<{
+    sessionExerciseId: string;
+    value: ProgressionSuggestion | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!progressionSetting.loaded || !progressionSetting.enabled) return;
+    let cancelled = false;
+    getProgressionSuggestion(db, { sessionId, sessionExerciseId, exerciseId: exercise.id })
+      .then((value) => {
+        if (!cancelled) setProgression({ sessionExerciseId, value });
+      })
+      .catch((err) => {
+        console.warn('[PROGRESSION] Öneri hesaplanamadı:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    db,
+    exercise.id,
+    sessionId,
+    sessionExerciseId,
+    progressionSetting.loaded,
+    progressionSetting.enabled,
+  ]);
+
+  const suggestion =
+    progressionSetting.loaded &&
+    progressionSetting.enabled &&
+    progression?.sessionExerciseId === sessionExerciseId
+      ? progression.value
+      : null;
+  // ──────────────────────────────────────────────────────────────────────
+
   // Rozetler setlerden türetiliyor: geri alınan setin rozeti kalkıyor,
   // egzersiz değiştirip dönünce rozetler duruyor.
   const recordSetIds = useMemo(
@@ -660,6 +707,16 @@ function ExerciseSetEditor({
             <Text className="text-muted text-sm mt-1.5">
               📝 {lastSession.notes}
             </Text>
+          )}
+          {/* v2.1: ilerleme önerisi */}
+          {suggestion && (
+            <ProgressionHint
+              key={sessionExerciseId}
+              suggestion={suggestion}
+              onApply={(weightKg) =>
+                applySuggestedWeight(db, sessionExerciseId, weightKg)
+              }
+            />
           )}
         </View>
       )}
@@ -991,6 +1048,74 @@ function RirPicker({
         <Text className="text-muted text-xs mt-1.5">
           Bu sette kaç tekrar daha yapabilirdin? 0 = tükeniş, 3 = rahat.
         </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * v2.1: "Son antrenman" kutusunun altındaki öneri satırı.
+ * "Uygula" yalnızca ağırlık artışında; tamamlanmamış setlerin ağırlığını
+ * yazar, onay sormaz (değer elle geri değiştirilebilir).
+ */
+function ProgressionHint({
+  suggestion,
+  onApply,
+}: {
+  suggestion: ProgressionSuggestion;
+  onApply: (weightKg: number) => Promise<unknown>;
+}) {
+  const [applied, setApplied] = useState(false);
+
+  const apply = () => {
+    if (suggestion.weightKg == null) return;
+    onApply(suggestion.weightKg)
+      .then(() => setApplied(true))
+      .catch((err) => {
+        console.error('[PROGRESSION] Uygulanamadı:', err);
+        Alert.alert('Hata', 'Öneri uygulanamadı: ' + String(err));
+      });
+  };
+
+  return (
+    <View className="mt-2.5 pt-2.5 border-t border-border">
+      <View className="flex-row items-center">
+        <Text className="text-white text-sm flex-1">
+          💡 Bugün{' '}
+          <Text className="font-semibold tabular-nums">{suggestion.headline}</Text>{' '}
+          dene
+        </Text>
+        <Pressable
+          onPress={() => Alert.alert('İlerleme önerisi', PROGRESSION_HELP)}
+          hitSlop={8}
+          accessibilityLabel="İlerleme önerisi nedir?"
+          className="w-6 h-6 rounded-full border border-border items-center justify-center ml-2 active:opacity-60"
+        >
+          <Text className="text-muted text-[11px] font-semibold">?</Text>
+        </Pressable>
+        {suggestion.canApply && (
+          <Pressable
+            onPress={apply}
+            disabled={applied}
+            hitSlop={6}
+            accessibilityLabel="Önerilen ağırlığı setlere yaz"
+            className={`h-7 px-3 rounded-full items-center justify-center ml-2 ${
+              applied ? 'border border-border' : 'bg-accent active:opacity-80'
+            }`}
+          >
+            <Text
+              className={`text-xs font-semibold ${
+                applied ? 'text-muted' : 'text-accent-fg'
+              }`}
+            >
+              {applied ? 'Uygulandı' : 'Uygula'}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+      <Text className="text-muted text-xs mt-1">{suggestion.reason}</Text>
+      {suggestion.plateauNote && (
+        <Text className="text-muted text-xs mt-1.5">{suggestion.plateauNote}</Text>
       )}
     </View>
   );

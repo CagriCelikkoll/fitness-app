@@ -14,7 +14,8 @@
  * göstermek kullanıcıyı yanıltır.
  *
  * Dinlenme sesi ve titreşimi `app_settings`'te; dinlenme bildirimi
- * ayarı kv-store'da (bkz. `restNotification.ts`).
+ * ayarı kv-store'da (bkz. `restNotification.ts`). İlerleme önerileri
+ * ayarı da kv-store'da (bkz. `progression.ts`).
  */
 
 import { useCallback, useState } from 'react';
@@ -64,6 +65,7 @@ import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { useRestNotificationSetting } from '@/hooks/useRestNotificationSetting';
+import { useProgressionSetting } from '@/hooks/useProgressionSetting';
 import { summarizeCounts, useBackupRestore } from '@/hooks/useBackupRestore';
 import type { RestNotificationPermissionState } from '@/lib/restNotification';
 import { openNotificationSettings } from '@/lib/restNative';
@@ -293,6 +295,7 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
   const [sound, setSound] = useState(settings?.restTimerSound ?? true);
   const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
   const restNotification = useRestNotificationSetting();
+  const progression = useProgressionSetting();
 
   const persist = async (values: Partial<typeof appSettings.$inferInsert>) => {
     try {
@@ -372,6 +375,14 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
           enabled={restNotification.enabled}
           permission={restNotification.permission}
           onChange={(v) => void restNotification.setEnabled(v)}
+        />
+      )}
+      {progression.loaded && (
+        <ToggleRow
+          label="İlerleme önerileri"
+          description="Antrenmanda geçen seansa göre bugün denenecek ağırlık ve tekrar."
+          value={progression.enabled}
+          onChange={(v) => void progression.setEnabled(v)}
         />
       )}
     </Section>
