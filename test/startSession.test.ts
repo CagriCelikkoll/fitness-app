@@ -72,6 +72,31 @@ describe('createSessionFromRoutine', () => {
     expect(allSets.every((s) => !s.isCompleted && s.setType === 'normal')).toBe(true);
   });
 
+  it('ortada hata olursa hiçbir satır kalmıyor (tek transaction)', async () => {
+    const routineId = await routineWithGroups([1, 1, null]);
+    // Son adım (setlerin yazılması) patlasın: seans ve hareketler o ana
+    // kadar yazılmış oluyor, geri alınmaları gerekiyor.
+    t.sqlite.exec(`
+      CREATE TRIGGER test_sets_fail BEFORE INSERT ON sets
+      BEGIN SELECT RAISE(ABORT, 'test: set yazılamadı'); END;
+    `);
+
+    await expect(
+      createSessionFromRoutine(db, { id: routineId, name: 'Push' })
+    ).rejects.toThrow(/set yazılamadı/);
+
+    expect(await db.select().from(workoutSessions)).toHaveLength(0);
+    expect(await db.select().from(sessionExercises)).toHaveLength(0);
+    expect(await db.select().from(sets)).toHaveLength(0);
+
+    // Hata kalkınca aynı rutin sorunsuz başlıyor
+    t.sqlite.exec('DROP TRIGGER test_sets_fail');
+    const sessionId = await createSessionFromRoutine(db, { id: routineId, name: 'Push' });
+    expect(sessionId).not.toBeNull();
+    expect(await db.select().from(workoutSessions)).toHaveLength(1);
+    expect(await db.select().from(sessionExercises)).toHaveLength(3);
+  });
+
   it('boş rutinde seans oluşmuyor', async () => {
     const { routineId } = await createRoutine(db);
     expect(await createSessionFromRoutine(db, { id: routineId, name: 'Boş' })).toBeNull();
