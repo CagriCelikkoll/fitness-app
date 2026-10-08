@@ -29,21 +29,34 @@ let recoveryChecked = false;
  * Açılışta yarım kalan antrenmanı geri getirir (bkz. `sessionRecovery.ts`).
  * Ana sayfada çağrılıyor: orası migration, seed ve karşılama kararından
  * sonra mount oluyor.
+ *
+ * `onDone`: kurtarma bitince (soru sorulduysa yanıtlanınca) bir kez;
+ * hata olsa da çağrılır. Açılıştaki rıza sorusu bunun ardından geliyor.
  */
-export function useSessionRecovery(): void {
+export function useSessionRecovery(onDone?: (result: RecoveryResult) => void): void {
   const db = useDb();
   const router = useRouter();
 
   useEffect(() => {
     if (recoveryChecked) return;
     recoveryChecked = true;
-    recover(db, router).catch((err) =>
-      console.error('[SESSION-RECOVERY] HATA:', err)
-    );
+    recover(db, router)
+      .catch((err) => {
+        console.error('[SESSION-RECOVERY] HATA:', err);
+        return { navigated: false };
+      })
+      .then((result) => onDone?.(result));
+    // onDone ilk çalışmada yakalanıyor; kurtarma açılışta bir kez
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db, router]);
 }
 
-async function recover(db: Db, router: Router): Promise<void> {
+export interface RecoveryResult {
+  /** Kullanıcı yarım antrenmanı açtı (Devam et / Bitir) */
+  navigated: boolean;
+}
+
+async function recover(db: Db, router: Router): Promise<RecoveryResult> {
   // Önce kullanıcı verisi taşımayan boş yarım seanslar. Hata kurtarmayı
   // durdurmasın.
   try {
@@ -68,12 +81,12 @@ async function recover(db: Db, router: Router): Promise<void> {
       `[SESSION-RECOVERY] ${openSessions.length} yarım seans, karar: ${decision.kind}`
     );
   }
-  if (decision.kind === 'none') return;
+  if (decision.kind === 'none') return { navigated: false };
 
   if (decision.kind === 'resume') {
     const saved = parseSavedRestTimer(await Storage.getItem(SAVED_REST_TIMER_KEY));
     // Sorgu sürerken kullanıcı yeni antrenman başlattıysa ona dokunma
-    if (useActiveWorkoutStore.getState().activeSessionId != null) return;
+    if (useActiveWorkoutStore.getState().activeSessionId != null) return { navigated: false };
 
     useActiveWorkoutStore.getState().startSession(decision.sessionId);
     const timer = restorableRestTimer(saved, decision.sessionId, Date.now());
@@ -81,10 +94,10 @@ async function recover(db: Db, router: Router): Promise<void> {
     // başlangıcı "şimdi" yapardı. Dinlenme bildirimi bu değişimi de duyup
     // kalan süreye göre yeniden planlıyor.
     if (timer) useActiveWorkoutStore.setState({ restTimer: timer });
-    return;
+    return { navigated: false };
   }
 
-  askAboutSession(db, router, decision.session);
+  return askAboutSession(db, router, decision.session);
 }
 
 /**
@@ -119,17 +132,18 @@ export function openUnfinishedSession(
   return true;
 }
 
-/** "Sil" onayı; silindikten sonra `onDeleted` */
+/** "Sil" onayı; silindikten sonra `onDeleted`, her durumda en son `onClosed` */
 export function confirmDiscardSession(
   db: Db,
   session: OpenSession,
-  onDeleted?: () => void
+  onDeleted?: () => void,
+  onClosed?: () => void
 ): void {
   Alert.alert(
     'Antrenmanı sil',
     `"${session.name}" ve içindeki bütün setler silinecek. Bu işlem geri alınamaz.`,
     [
-      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Vazgeç', style: 'cancel', onPress: () => onClosed?.() },
       {
         text: 'Sil',
         style: 'destructive',
@@ -139,7 +153,8 @@ export function confirmDiscardSession(
             .catch((err) => {
               console.error('[SESSION-RECOVERY] Silinemedi:', err);
               Alert.alert('Hata', 'Antrenman silinemedi: ' + String(err));
-            });
+            })
+            .finally(() => onClosed?.());
         },
       },
     ]
@@ -149,27 +164,37 @@ export function confirmDiscardSession(
 /**
  * 12 saat – 3 gün arası yarım seans: Devam et / Bitir / Sil. Hiç set
  * tamamlanmadıysa Bitir yok, silme öneriliyor.
+ *
+ * Kullanıcı yanıt verince çözülür; `navigated`: antrenman ekranı açıldı.
  */
-function askAboutSession(db: Db, router: Router, session: OpenSession): void {
-  const started = `"${session.name}" ${formatDateTime(session.startedAt)} tarihinde başladı ve bitirilmedi.`;
-  const resume = () => void openUnfinishedSession(router, session, false);
-  const discard = () => confirmDiscardSession(db, session);
+function askAboutSession(
+  db: Db,
+  router: Router,
+  session: OpenSession
+): Promise<RecoveryResult> {
+  return new Promise((resolve) => {
+    const started = `"${session.name}" ${formatDateTime(session.startedAt)} tarihinde başladı ve bitirilmedi.`;
+    const open = (finish: boolean) =>
+      resolve({ navigated: openUnfinishedSession(router, session, finish) });
+    const discard = () =>
+      confirmDiscardSession(db, session, undefined, () => resolve({ navigated: false }));
 
-  if (!canFinishOpenSession(session)) {
-    Alert.alert(
-      'Yarım kalan antrenman',
-      `${started}\n\nHiç set tamamlanmamış; silmeni öneririz.`,
-      [
-        { text: 'Devam et', onPress: resume },
-        { text: 'Sil', style: 'destructive', onPress: discard },
-      ]
-    );
-    return;
-  }
+    if (!canFinishOpenSession(session)) {
+      Alert.alert(
+        'Yarım kalan antrenman',
+        `${started}\n\nHiç set tamamlanmamış; silmeni öneririz.`,
+        [
+          { text: 'Devam et', onPress: () => open(false) },
+          { text: 'Sil', style: 'destructive', onPress: discard },
+        ]
+      );
+      return;
+    }
 
-  Alert.alert('Yarım kalan antrenman', started, [
-    { text: 'Devam et', onPress: resume },
-    { text: 'Bitir', onPress: () => void openUnfinishedSession(router, session, true) },
-    { text: 'Sil', style: 'destructive', onPress: discard },
-  ]);
+    Alert.alert('Yarım kalan antrenman', started, [
+      { text: 'Devam et', onPress: () => open(false) },
+      { text: 'Bitir', onPress: () => open(true) },
+      { text: 'Sil', style: 'destructive', onPress: discard },
+    ]);
+  });
 }

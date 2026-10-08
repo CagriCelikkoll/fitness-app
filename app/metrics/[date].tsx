@@ -8,6 +8,8 @@
  * date üzerinden upsert yapar. Seçilen tarihte başka bir kayıt varsa
  * kullanıcıdan üzerine yazma onayı alınır. Düzenlemede tarih
  * değiştirilirse eski günün kaydı aynı transaction içinde silinir.
+ *
+ * Vücut ölçüsü açık rızası yoksa form yerine rıza kartı (bkz. consent.ts).
  */
 
 import { useEffect, useState } from 'react';
@@ -27,6 +29,8 @@ import { eq } from 'drizzle-orm';
 import { Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useHealthConsent } from '@/hooks/useHealthConsent';
+import { ConsentCard } from '@/components/ConsentCard';
 import { bodyMetrics } from '@/db/schema';
 import { newId } from '@/lib/id';
 import { DateInput } from '@/components/DateInput';
@@ -106,7 +110,36 @@ function numToField(n: number | null): string {
   return n != null ? String(n) : '';
 }
 
-export default function MetricsEditorScreen() {
+/**
+ * v2.2: ölçü girişi açık rızaya bağlı. Rıza yoksa form yerine rıza kartı;
+ * "Onayla ve devam et" ile rıza yazılır ve form açılır. Ana sayfa ve
+ * İlerleme'deki bütün "ölçüm ekle / düzenle" yolları bu ekrana geliyor.
+ */
+export default function MetricsScreen() {
+  const consent = useHealthConsent();
+
+  if (consent.state == null) {
+    return (
+      <View className="flex-1 bg-bg items-center justify-center">
+        <Stack.Screen options={{ title: 'Ölçüm' }} />
+        <ActivityIndicator color={COLORS.accent} />
+      </View>
+    );
+  }
+
+  if (!consent.granted) {
+    return (
+      <ScrollView className="flex-1 bg-bg" contentContainerClassName="px-5 pt-4 pb-10">
+        <Stack.Screen options={{ title: 'Ölçüm' }} />
+        <ConsentCard action={{ label: 'Onayla ve devam et', onConfirm: consent.grant }} />
+      </ScrollView>
+    );
+  }
+
+  return <MetricsEditorScreen />;
+}
+
+function MetricsEditorScreen() {
   const { date: dateParam } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
   const db = useDb();

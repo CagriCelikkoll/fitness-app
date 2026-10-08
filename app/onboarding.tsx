@@ -1,10 +1,12 @@
 /**
- * İlk açılış (karşılama) akışı: dört kısa adım.
+ * İlk açılış (karşılama) akışı: beş kısa adım.
  *
  * 1. Hoş geldin — ne işe yaradığı
- * 2. Profil — boy/doğum tarihi/cinsiyet (Ayarlar'daki formun aynısı)
- * 3. Program — haftalık gün sayısına göre hazır program önerisi
- * 4. İpuçları — ✓ ile onaylama ve yedek alma
+ * 2. Gizlilik — yasal metin bağlantıları ve vücut ölçüsü açık rızası
+ *    (kutu boş gelir; işaretsiz "Devam" declined yazar, akış sürer)
+ * 3. Profil — boy/doğum tarihi/cinsiyet (Ayarlar'daki formun aynısı)
+ * 4. Program — haftalık gün sayısına göre hazır program önerisi
+ * 5. İpuçları — ✓ ile onaylama ve yedek alma
  *
  * Tek ekran, adım durumu içeride: adımlar seçilen programı paylaşıyor ve
  * ayrı ayrı derin bağlantıya ihtiyaçları yok.
@@ -53,6 +55,8 @@ import {
   type TrainingDaysChoice,
 } from '@/lib/onboarding';
 import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
+import { ConsentCard } from '@/components/ConsentCard';
+import { setHealthConsent } from '@/hooks/useHealthConsent';
 import {
   Card,
   Chip,
@@ -61,7 +65,7 @@ import {
 } from '@/components/ui';
 import { COLORS } from '@/theme';
 
-const STEP_COUNT = 4;
+const STEP_COUNT = 5;
 
 export default function OnboardingScreen() {
   const db = useDb();
@@ -80,7 +84,7 @@ export default function OnboardingScreen() {
   const next = () => setStep((s) => Math.min(s + 1, STEP_COUNT - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
 
-  // Android geri tuşu 2-4. adımlarda bir önceki adıma döner ("Geri" ile
+  // Android geri tuşu 2-5. adımlarda bir önceki adıma döner ("Geri" ile
   // aynı). 1. adımda dinleyici yok: varsayılan davranış (çıkış / Ayarlar'a
   // dönüş) kalır. Ekrandan çıkınca ya da adım değişince temizlenir.
   useEffect(() => {
@@ -140,6 +144,24 @@ export default function OnboardingScreen() {
     router.dismissTo('/');
   });
 
+  // v2.2: vücut ölçüsü rızası. Kutu boş gelir; geri dönülünce son seçim
+  // korunur. "Devam": işaretliyse granted, değilse declined; ikisinde de
+  // akış sürer (karşılamada ölçü soran adım yok, atlanan bir şey yok).
+  // Yazılamazsa durum "sorulmadı" kalır, ilk ölçü girişinde yine sorulur.
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [savingConsent, setSavingConsent] = useState(false);
+  const saveConsentAndNext = async () => {
+    setSavingConsent(true);
+    try {
+      await setHealthConsent(consentChecked ? 'granted' : 'declined');
+    } catch (err) {
+      console.error('[ONBOARDING] Rıza kaydedilemedi:', err);
+    } finally {
+      setSavingConsent(false);
+    }
+    next();
+  };
+
   const layout = { step, onSkip: finish, onBack: back, skipDisabled: finishing };
 
   if (step === 0) {
@@ -176,6 +198,23 @@ export default function OnboardingScreen() {
   }
 
   if (step === 1) {
+    return (
+      <StepLayout
+        {...layout}
+        footer={
+          <PrimaryButton
+            label="Devam"
+            loading={savingConsent}
+            onPress={() => void saveConsentAndNext()}
+          />
+        }
+      >
+        <PrivacyStep checked={consentChecked} onCheckedChange={setConsentChecked} />
+      </StepLayout>
+    );
+  }
+
+  if (step === 2) {
     // Form durumu kayıtlı ayarlardan kuruluyor; ayarlar gelmeden kurulmasın
     if (!updatedAt) {
       return (
@@ -196,7 +235,7 @@ export default function OnboardingScreen() {
     );
   }
 
-  if (step === 2) {
+  if (step === 3) {
     return (
       <StepLayout
         {...layout}
@@ -363,7 +402,49 @@ function WelcomeStep() {
 }
 
 // ============================================================================
-// 2) Profil
+// 2) Gizlilik ve vücut ölçüsü rızası
+// ============================================================================
+
+function PrivacyStep({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const router = useRouter();
+  const openDoc = (doc: 'privacy' | 'kvkk') =>
+    router.push({ pathname: '/legal/[doc]', params: { doc } });
+
+  return (
+    <>
+      <StepTitle
+        title="Gizlilik"
+        subtitle="Verilerin yalnızca bu telefonda durur. Hesap yok, sunucu yok."
+      />
+      <View className="flex-row flex-wrap gap-x-5 gap-y-2">
+        <Pressable onPress={() => openDoc('privacy')} hitSlop={6} className="active:opacity-60">
+          <Text className="text-accent text-sm font-semibold">Gizlilik Politikası →</Text>
+        </Pressable>
+        <Pressable onPress={() => openDoc('kvkk')} hitSlop={6} className="active:opacity-60">
+          <Text className="text-accent text-sm font-semibold">Aydınlatma Metni →</Text>
+        </Pressable>
+      </View>
+      <ConsentCard
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        showNoticeLink={false}
+      />
+      <Text className="text-muted text-xs leading-5">
+        Onaylamazsan da uygulamanın geri kalanını kullanabilirsin; kilo ve
+        vücut ölçüsü takibi kapalı kalır.
+      </Text>
+    </>
+  );
+}
+
+// ============================================================================
+// 3) Profil
 // ============================================================================
 
 function ProfileStep({
@@ -406,7 +487,7 @@ function ProfileStep({
 }
 
 // ============================================================================
-// 3) Program
+// 4) Program
 // ============================================================================
 
 function ProgramStep({
@@ -483,7 +564,7 @@ function ProgramStep({
 }
 
 // ============================================================================
-// 4) Bilmen gereken iki şey
+// 5) Bilmen gereken iki şey
 // ============================================================================
 
 function TipsStep() {

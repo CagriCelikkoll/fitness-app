@@ -9,6 +9,10 @@
  *
  * Bilinçli olarak yalnızca ölçüm ve hesap gösteriliyor; hedef kilo,
  * kalori açığı gibi yönlendirmeler yok.
+ *
+ * Vücut ölçüsü kartları açık rızaya bağlı (bkz. `consent.ts`); rıza yokken
+ * yerlerinde rıza kartı, antrenman kartları (hacim, kas haritası, rekorlar)
+ * her zaman görünür.
  */
 
 import { useCallback, useState } from 'react';
@@ -19,6 +23,8 @@ import { desc, eq } from 'drizzle-orm';
 import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useHealthConsent } from '@/hooks/useHealthConsent';
+import { ConsentCard } from '@/components/ConsentCard';
 import { appSettings, bodyMetrics, type BodyMetric } from '@/db/schema';
 import {
   bmiCategory,
@@ -73,6 +79,7 @@ interface Profile {
 
 export default function ProgressScreen() {
   const db = useDb();
+  const consent = useHealthConsent();
 
   const { data: settingsRows, updatedAt: settingsLoadedAt } = useLiveQuery(
     db.select().from(appSettings).where(eq(appSettings.id, 1)).limit(1)
@@ -105,25 +112,40 @@ export default function ProgressScreen() {
   return (
     <View className="flex-1 bg-bg">
       <ScrollView contentContainerClassName="px-5 pt-4 gap-3 pb-28">
-        <CurrentCard withWeight={withWeight} />
-        <ProfileHint profile={profile} />
-        <DerivedMetricsCard
-          profile={profile}
-          metrics={metrics}
-          withWeight={withWeight}
-        />
-        <WeightChartCard withWeight={withWeight} />
+        {/* v2.2: vücut ölçüleri (güncel kilo, VKİ / bel-boy / bazal
+            metabolizma, grafik, geçmiş) yalnızca açık rızayla. Rıza
+            yokken yerine tek rıza kartı; antrenman kartları her zaman. */}
+        {consent.granted ? (
+          <>
+            <CurrentCard withWeight={withWeight} />
+            <ProfileHint profile={profile} />
+            <DerivedMetricsCard
+              profile={profile}
+              metrics={metrics}
+              withWeight={withWeight}
+            />
+            <WeightChartCard withWeight={withWeight} />
+          </>
+        ) : (
+          consent.state != null && (
+            <ConsentCard
+              action={{ label: 'Onayla ve devam et', onConfirm: consent.grant }}
+            />
+          )
+        )}
         <WeeklyVolumeCard />
         <WeeklyMusclesCard />
         <RecordsCard />
-        <HistoryCard metrics={metrics} />
+        {consent.granted && <HistoryCard metrics={metrics} />}
       </ScrollView>
 
-      <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
-        <Pressable className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80">
-          <Plus color={COLORS.accentFg} size={26} strokeWidth={2.5} />
-        </Pressable>
-      </Link>
+      {consent.granted && (
+        <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
+          <Pressable className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80">
+            <Plus color={COLORS.accentFg} size={26} strokeWidth={2.5} />
+          </Pressable>
+        </Link>
+      )}
     </View>
   );
 }

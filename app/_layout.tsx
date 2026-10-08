@@ -184,6 +184,14 @@ export default function RootLayout() {
                 name="onboarding"
                 options={{ headerShown: false, gestureEnabled: false }}
               />
+              <Stack.Screen
+                name="legal/[doc]"
+                options={{ title: 'Metin' }}
+              />
+              <Stack.Screen
+                name="consent"
+                options={{ headerShown: false, gestureEnabled: false }}
+              />
             </Stack>
           </DatabaseInitializer>
         </SQLiteProvider>

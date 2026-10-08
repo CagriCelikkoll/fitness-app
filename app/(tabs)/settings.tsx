@@ -3,7 +3,7 @@
  *
  * Yukarıdan aşağıya: profil (boy/doğum tarihi/cinsiyet), antrenman
  * tercihleri, birimler, veri yönetimi (yedek al / geri yükle), yarım
- * kalan antrenmanlar (varsa), tehlikeli bölge (tüm verileri sıfırla),
+ * kalan antrenmanlar (varsa), gizlilik, tehlikeli bölge (tüm verileri sıfırla),
  * hakkında.
  *
  * Profil düzenleme İlerleme sekmesinden buraya taşındı; ölçüm
@@ -16,6 +16,9 @@
  * Dinlenme sesi ve titreşimi `app_settings`'te; dinlenme bildirimi
  * ayarı kv-store'da (bkz. `restNotification.ts`). İlerleme önerileri
  * ayarı da kv-store'da (bkz. `progression.ts`).
+ *
+ * Gizlilik bölümü: yasal metinler ve vücut ölçüsü rızası (`consent.ts`).
+ * Yedek almadan önce paylaşım uyarısı gösteriliyor.
  */
 
 import { useCallback, useState } from 'react';
@@ -32,6 +35,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import Storage from 'expo-sqlite/kv-store';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
 import {
@@ -79,6 +83,10 @@ import {
   openUnfinishedSession,
 } from '@/hooks/useSessionRecovery';
 import { formatDateTime } from '@/lib/format';
+import { promptConsentWithdraw, useHealthConsent } from '@/hooks/useHealthConsent';
+import { hideBackupWarning, isBackupWarningHidden } from '@/lib/consent';
+import { BACKUP_SHARE_WARNING } from '@/content/legal';
+import { ConsentCard } from '@/components/ConsentCard';
 import { COLORS } from '@/theme';
 import {
   DangerButton,
@@ -147,6 +155,7 @@ export default function SettingsScreen() {
       <UnitsSection settings={settings} />
       <DataSection onDataReplaced={() => setFormEpoch((n) => n + 1)} />
       <UnfinishedSessionsSection />
+      <PrivacySection />
       <DangerSection />
       <AboutSection />
     </ScrollView>
@@ -494,6 +503,36 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
     }
   };
 
+  /**
+   * v2.2: paylaşım ekranı açılmadan önce yedek uyarısı (METİN 4). Yedek
+   * akışı değişmedi; uyarı önüne eklendi. "Bir daha gösterme" kv-store'da.
+   * Bayrak okunamazsa uyarı gösterilir.
+   */
+  const warnThenExport = async () => {
+    let hidden = false;
+    try {
+      hidden = await isBackupWarningHidden(Storage);
+    } catch (err) {
+      console.warn('[BACKUP-EXPORT] Uyarı ayarı okunamadı:', err);
+    }
+    if (hidden) {
+      void handleExport();
+      return;
+    }
+    Alert.alert('Yedek paylaşımı', BACKUP_SHARE_WARNING, [
+      {
+        text: 'Bir daha gösterme',
+        onPress: () => {
+          hideBackupWarning(Storage).catch((err) =>
+            console.warn('[BACKUP-EXPORT] Uyarı ayarı kaydedilemedi:', err)
+          );
+          void handleExport();
+        },
+      },
+      { text: 'Tamam', onPress: () => void handleExport() },
+    ]);
+  };
+
   // Seç → doğrula → onay → geri yükle akışı karşılamayla ortak
   const { importing, startRestore } = useBackupRestore(() => {
     onDataReplaced();
@@ -509,7 +548,7 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
         label="Yedek Al"
         busy={exporting}
         busyLabel="Yedek hazırlanıyor..."
-        onPress={handleExport}
+        onPress={() => void warnThenExport()}
         variant="accent"
         icon={Upload}
       />
@@ -600,6 +639,75 @@ function UnfinishedSessionRow({
         <DangerButton label="Sil" onPress={onDelete} className="flex-1" />
       </View>
     </View>
+  );
+}
+
+// ============================================================================
+// Gizlilik
+// ============================================================================
+
+/**
+ * v2.2: yasal metinler ve vücut ölçüsü rızası.
+ * - Verildiyse dokununca "Vücut ölçüsü kayıtların ne olsun?" (geri alma)
+ * - Verilmediyse rıza kartı satırın altında açılıyor (Modal yok)
+ */
+function PrivacySection() {
+  const db = useDb();
+  const router = useRouter();
+  const consent = useHealthConsent();
+  const [cardOpen, setCardOpen] = useState(false);
+
+  const handleConsentPress = () => {
+    if (consent.state == null) return;
+    if (consent.granted) {
+      promptConsentWithdraw(db);
+    } else {
+      setCardOpen((open) => !open);
+    }
+  };
+
+  return (
+    <Section title="Gizlilik">
+      <ListRow
+        chevron
+        onPress={() =>
+          router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy' } })
+        }
+      >
+        <Text className="text-white text-base">Gizlilik Politikası</Text>
+      </ListRow>
+      <ListRow
+        chevron
+        divider
+        onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'kvkk' } })}
+      >
+        <Text className="text-white text-base">Aydınlatma Metni</Text>
+      </ListRow>
+      <ListRow
+        divider
+        chevron
+        onPress={handleConsentPress}
+        right={
+          consent.state != null && (
+            <Text className={`text-sm ${consent.granted ? 'text-accent' : 'text-muted'}`}>
+              {consent.granted ? 'Verildi' : 'Verilmedi'}
+            </Text>
+          )
+        }
+      >
+        <Text className="text-white text-base">Vücut ölçüsü izni</Text>
+      </ListRow>
+      {cardOpen && consent.state != null && !consent.granted && (
+        <ConsentCard
+          action={{
+            label: 'Onayla ve devam et',
+            onConfirm: async () => {
+              if (await consent.grant()) setCardOpen(false);
+            },
+          }}
+        />
+      )}
+    </Section>
   );
 }
 

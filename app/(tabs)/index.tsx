@@ -9,6 +9,7 @@ import { Play, Scale, Target } from 'lucide-react-native';
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { useSessionRecovery } from '@/hooks/useSessionRecovery';
+import { runConsentLaunchCheck, useHealthConsent } from '@/hooks/useHealthConsent';
 import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
@@ -101,8 +102,16 @@ export default function HomeScreen() {
 
 function HomeContent() {
   const db = useDb();
-  // Uygulama arka planda kapatıldıysa yarım antrenmanı geri getir
-  useSessionRecovery();
+  const router = useRouter();
+  const consent = useHealthConsent();
+  // Uygulama arka planda kapatıldıysa yarım antrenmanı geri getir. Ardından
+  // (yarım antrenman sorusu yanıtlandıktan sonra) güncellemeyle gelen
+  // kullanıcıya vücut ölçüsü rızası. Kullanıcı antrenmana döndüyse rıza
+  // sorusu onun üstüne açılmasın; bir sonraki açılışta sorulur.
+  useSessionRecovery(({ navigated }) => {
+    if (navigated) return;
+    void runConsentLaunchCheck(db, () => router.push('/consent'));
+  });
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
   const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
@@ -189,11 +198,24 @@ function HomeContent() {
           streak={streak}
           onPress={() => setGoalPickerOpen(true)}
         />
-        <WeightCard
-          loaded={latestWeight.updatedAt != null}
-          latest={latestWeight.data?.[0]}
-        />
+        {/* Kilo yalnızca vücut ölçüsü rızasıyla; rıza okunurken boş kart */}
+        {consent.state == null ? (
+          <WeightCard loaded={false} />
+        ) : consent.granted ? (
+          <WeightCard
+            loaded={latestWeight.updatedAt != null}
+            latest={latestWeight.data?.[0]}
+          />
+        ) : null}
       </View>
+      {consent.state != null && !consent.granted && (
+        <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
+          <Pressable className="flex-row items-center px-1 py-1 active:opacity-60">
+            <Scale color={COLORS.muted} size={16} />
+            <Text className="text-muted text-sm ml-2">Kilo takibi için izin ver →</Text>
+          </Pressable>
+        </Link>
+      )}
 
       <WorkoutCalendar sessions={sessions} totalCount={sessions.length} />
 
