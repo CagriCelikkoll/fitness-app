@@ -19,9 +19,13 @@
  *
  * Gizlilik bölümü: yasal metinler ve vücut ölçüsü rızası (`consent.ts`).
  * Yedek almadan önce paylaşım uyarısı gösteriliyor.
+ *
+ * Hesap ve salon (v3.0): en üstte, yalnızca "Salon özellikleri
+ * (deneysel)" bayrağı açıkken. Bayrak Hakkında'daki sürüm satırına
+ * 7 dokunuşla görünüyor; kapalıyken bölüm yok, Supabase'e istek yok.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -40,6 +44,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
 import {
   Download,
+  LogOut,
   RotateCcw,
   Upload,
   type LucideIcon,
@@ -82,11 +87,17 @@ import {
   confirmDiscardSession,
   openUnfinishedSession,
 } from '@/hooks/useSessionRecovery';
-import { formatDateTime } from '@/lib/format';
+import { formatDateKey, formatDateTime, toDateKey } from '@/lib/format';
 import { promptConsentWithdraw, useHealthConsent } from '@/hooks/useHealthConsent';
 import { hideBackupWarning, isBackupWarningHidden } from '@/lib/consent';
 import { BACKUP_SHARE_WARNING } from '@/content/legal';
 import { ConsentCard } from '@/components/ConsentCard';
+import { useGymFeatures } from '@/hooks/useGymFeatures';
+import { useSession } from '@/hooks/useSession';
+import { useGymMembership } from '@/hooks/useGymMembership';
+import { leaveGym, signOut, type GymMembership } from '@/lib/account';
+import { INITIAL_TAP_COUNTER, registerVersionTap, roleLabel } from '@/lib/auth';
+import { getSupabase } from '@/lib/supabase';
 import { COLORS } from '@/theme';
 import {
   DangerButton,
@@ -144,6 +155,7 @@ export default function SettingsScreen() {
     >
       {/* key: ayarlar satırı ilk kez oluştuğunda ya da geri yüklemeyle
           değiştiğinde formlar kayıtlı değerlerle yeniden kurulsun */}
+      <AccountSection />
       <ProfileSection
         key={`profile-${settings?.id ?? 'new'}-${formEpoch}`}
         settings={settings}
@@ -265,6 +277,158 @@ function ActionButton({
       icon={icon}
       label={busy ? (busyLabel ?? 'Çalışıyor...') : label}
     />
+  );
+}
+
+// ============================================================================
+// Hesap ve salon (v3.0, deneysel bayrak arkasında)
+// ============================================================================
+
+/**
+ * Giriş durumu, e-posta, salon kartı (ad, rol, üyelik bitişi), salona
+ * katılma, salondan ayrılma ve çıkış. Bayrak kapalıysa / env yoksa hiç
+ * render edilmiyor. Çıkış yapınca lokal antrenman verisi silinmez.
+ */
+function AccountSection() {
+  const router = useRouter();
+  const { available, ready, email } = useSession();
+  const { userId, memberships, loading, error, refresh } = useGymMembership();
+  const [signingOut, setSigningOut] = useState(false);
+
+  if (!available) return null;
+
+  if (!ready) {
+    return (
+      <Section title="Hesap ve salon">
+        <ActivityIndicator color={COLORS.accent} />
+      </Section>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <Section
+        title="Hesap ve salon"
+        description="Salonuna katılmak için giriş yap. Hesap isteğe bağlı; uygulama hesapsız da aynen çalışır."
+      >
+        <PrimaryButton label="Giriş yap" onPress={() => router.push('/account/sign-in')} />
+      </Section>
+    );
+  }
+
+  const confirmSignOut = () => {
+    Alert.alert('Çıkış yap', 'Antrenmanların ve ölçülerin bu telefonda kalır.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Çıkış yap',
+        style: 'destructive',
+        onPress: () => {
+          setSigningOut(true);
+          void signOut(getSupabase()).finally(() => setSigningOut(false));
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Section title="Hesap ve salon">
+      <ListRow
+        className="-mt-3"
+        right={
+          <Text className="text-white text-base" numberOfLines={1}>
+            {email ?? '—'}
+          </Text>
+        }
+      >
+        <Text className="text-muted text-base">E-posta</Text>
+      </ListRow>
+
+      {memberships.map((membership) => (
+        <MembershipCard
+          key={membership.gymId}
+          membership={membership}
+          userId={userId}
+          onLeft={() => void refresh()}
+        />
+      ))}
+
+      {loading && memberships.length === 0 && <ActivityIndicator color={COLORS.accent} />}
+
+      {error != null && (
+        <View className="gap-2">
+          <Text className="text-danger text-sm leading-5">{error.message}</Text>
+          <SecondaryButton label="Tekrar dene" onPress={() => void refresh()} />
+        </View>
+      )}
+
+      {!loading && error == null && memberships.length === 0 && (
+        <PrimaryButton label="Salona katıl" onPress={() => router.push('/account/join-gym')} />
+      )}
+
+      <SecondaryButton
+        label={signingOut ? 'Çıkış yapılıyor...' : 'Çıkış yap'}
+        icon={LogOut}
+        loading={signingOut}
+        onPress={confirmSignOut}
+      />
+    </Section>
+  );
+}
+
+function MembershipCard({
+  membership,
+  userId,
+  onLeft,
+}: {
+  membership: GymMembership;
+  userId: string;
+  onLeft: () => void;
+}) {
+  const [leaving, setLeaving] = useState(false);
+  const ended =
+    membership.membershipEndsOn != null && membership.membershipEndsOn < toDateKey(new Date());
+
+  const leave = async () => {
+    setLeaving(true);
+    const result = await leaveGym(getSupabase(), membership, userId);
+    setLeaving(false);
+    if (result.ok) onLeft();
+    else Alert.alert('Ayrılamadın', result.error.message);
+  };
+
+  const confirmLeave = () => {
+    Alert.alert(
+      'Salondan ayrıl',
+      `${membership.gymName} salonundan ayrılacaksın. Tekrar katılmak için salon kodu gerekir.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Ayrıl', style: 'destructive', onPress: () => void leave() },
+      ]
+    );
+  };
+
+  return (
+    <View className="bg-bg-elevated rounded-2xl p-4 gap-3">
+      <View>
+        <Text className="text-white text-lg font-semibold" numberOfLines={1}>
+          {membership.gymName}
+        </Text>
+        <Text className="text-accent text-sm font-semibold mt-0.5">
+          {roleLabel(membership.role)}
+        </Text>
+        {membership.membershipEndsOn != null && (
+          <Text className={`text-xs mt-1 tabular-nums ${ended ? 'text-danger' : 'text-muted'}`}>
+            Üyelik bitişi: {formatDateKey(membership.membershipEndsOn)}
+            {ended ? ' (bitti)' : ''}
+          </Text>
+        )}
+      </View>
+      <DangerButton
+        label={leaving ? 'Ayrılıyor...' : 'Salondan ayrıl'}
+        loading={leaving}
+        onPress={confirmLeave}
+      />
+    </View>
   );
 }
 
@@ -801,10 +965,23 @@ function AboutSection() {
     db.select({ count: sql<number>`count(*)` }).from(bodyMetrics)
   );
 
-  const rows: { label: string; value: string }[] = [
+  // v3.0 gizli bayrak: sürüm satırına art arda 7 dokunuş anahtarı
+  // gösterir (anahtar açıkken hep görünür, kapatılabilsin diye)
+  const gymFeatures = useGymFeatures();
+  const tapCounter = useRef(INITIAL_TAP_COUNTER);
+  const [flagRevealed, setFlagRevealed] = useState(false);
+  const handleVersionTap = () => {
+    const { counter, unlocked } = registerVersionTap(tapCounter.current, Date.now());
+    tapCounter.current = counter;
+    if (unlocked) setFlagRevealed(true);
+  };
+  const showFlag = flagRevealed || gymFeatures.enabled === true;
+
+  const rows: { label: string; value: string; onPress?: () => void }[] = [
     {
       label: 'Uygulama sürümü',
       value: Constants.expoConfig?.version ?? '—',
+      onPress: handleVersionTap,
     },
     { label: 'Çalışma zamanı', value: Updates.runtimeVersion || '—' },
     { label: 'Kanal', value: Updates.channel || '—' },
@@ -823,6 +1000,7 @@ function AboutSection() {
           <ListRow
             key={row.label}
             divider={idx > 0}
+            onPress={row.onPress}
             right={
               <Text className="text-white text-base font-semibold tabular-nums">
                 {row.value}
@@ -835,6 +1013,18 @@ function AboutSection() {
         <ListRow divider chevron onPress={() => router.push('/onboarding')}>
           <Text className="text-white text-base">Tanıtımı tekrar göster</Text>
         </ListRow>
+        {showFlag && gymFeatures.enabled != null && (
+          <ToggleRow
+            label="Salon özellikleri (deneysel)"
+            description={
+              gymFeatures.configured
+                ? 'Hesap, giriş ve salona katılma. Geliştirme aşamasında.'
+                : 'Bu sürümde sunucu ayarı yok; açılsa da hesap bölümü görünmez.'
+            }
+            value={gymFeatures.enabled}
+            onChange={(value) => void gymFeatures.setEnabled(value)}
+          />
+        )}
       </View>
     </Section>
   );

@@ -4,12 +4,14 @@ import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Play, Scale, Target } from 'lucide-react-native';
+import { Building2, Play, Scale, Target } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { useSessionRecovery } from '@/hooks/useSessionRecovery';
 import { runConsentLaunchCheck, useHealthConsent } from '@/hooks/useHealthConsent';
+import { useGymMembership } from '@/hooks/useGymMembership';
+import { roleLabel } from '@/lib/auth';
 import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
@@ -100,6 +102,26 @@ export default function HomeScreen() {
   return <HomeContent />;
 }
 
+/**
+ * v3.0: salon üyesiyse en üstte küçük salon satırı (ad + rol). Bayrak
+ * kapalıysa / giriş yoksa / üyelik yoksa hiçbir şey çizmez, istek atmaz.
+ */
+function GymRow() {
+  const { primary } = useGymMembership();
+  if (!primary) return null;
+  return (
+    <Link href="/(tabs)/settings" asChild>
+      <Pressable className="flex-row items-center self-start bg-bg-surface border border-border rounded-full px-3 py-1.5 -mb-1 active:opacity-70">
+        <Building2 color={COLORS.accent} size={14} />
+        <Text className="text-white text-xs font-semibold ml-2" numberOfLines={1}>
+          {primary.gymName}
+        </Text>
+        <Text className="text-muted text-xs ml-1.5">· {roleLabel(primary.role)}</Text>
+      </Pressable>
+    </Link>
+  );
+}
+
 function HomeContent() {
   const db = useDb();
   const router = useRouter();
@@ -161,6 +183,7 @@ function HomeContent() {
       className="flex-1 bg-bg"
       contentContainerClassName="px-5 pt-6 gap-3 pb-10"
     >
+      <GymRow />
       <View className="mb-3">
         <Text className="text-white text-4xl font-bold tracking-tight">
           Hoş geldin 💪

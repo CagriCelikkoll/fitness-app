@@ -192,6 +192,14 @@ export default function RootLayout() {
                 name="consent"
                 options={{ headerShown: false, gestureEnabled: false }}
               />
+              <Stack.Screen
+                name="account/sign-in"
+                options={{ title: 'Giriş yap' }}
+              />
+              <Stack.Screen
+                name="account/join-gym"
+                options={{ title: 'Salona katıl' }}
+              />
             </Stack>
           </DatabaseInitializer>
         </SQLiteProvider>
