@@ -251,6 +251,23 @@ export function isCodeMode(mode: AuthMode): boolean {
   return CODE_MODES.includes(mode);
 }
 
+/**
+ * Kod adımından "düzelt" / "E-postayı değiştir" ile dönülen, e-postanın
+ * yazıldığı adım. Kod adımı değilse olduğu yerde kalır.
+ */
+export function emailStepOf(mode: AuthMode): AuthMode {
+  switch (mode) {
+    case 'verifySignup':
+      return 'signUp';
+    case 'resetPassword':
+      return 'forgot';
+    case 'otpCode':
+      return 'otpEmail';
+    default:
+      return mode;
+  }
+}
+
 /** "Kodu tekrar gönder" bu kadar saniye sonra açılır */
 export const RESEND_COOLDOWN_SECONDS = 60;
 

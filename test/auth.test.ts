@@ -17,6 +17,7 @@ import {
   canResend,
   canSubmit,
   classifyAccountError,
+  emailStepOf,
   isValidEmail,
   isValidJoinCode,
   isValidNewPassword,
@@ -325,6 +326,20 @@ describe('giriş ekranı durumu', () => {
     expect(resendSecondsLeft(s, 10_000 + 59_500)).toBe(1);
     expect(canResend(s, 10_000 + 60_000)).toBe(true);
     expect(canResend(INITIAL_AUTH_FORM, 1_000_000)).toBe(false);
+  });
+
+  it('"düzelt": kod adımından e-postanın yazıldığı adıma, e-posta korunur', () => {
+    expect(emailStepOf('verifySignup')).toBe('signUp');
+    expect(emailStepOf('resetPassword')).toBe('forgot');
+    expect(emailStepOf('otpCode')).toBe('otpEmail');
+    expect(emailStepOf('signIn')).toBe('signIn');
+    const s = run([
+      set('email', 'ali@ornk.com'),
+      { type: 'codeSent', mode: 'otpCode', now: 1 },
+      { type: 'switchMode', mode: emailStepOf('otpCode') },
+    ]);
+    expect(s.mode).toBe('otpEmail');
+    expect(s.email).toBe('ali@ornk.com');
   });
 });
 

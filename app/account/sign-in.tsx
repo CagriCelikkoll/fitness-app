@@ -15,7 +15,7 @@
  * Bayrak kapalıysa / env yoksa ekran açıklama gösterip istek atmaz.
  */
 
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -38,6 +38,7 @@ import {
   authFormReducer,
   canResend,
   canSubmit,
+  emailStepOf,
   isCodeMode,
   normalizeEmail,
   passwordError,
@@ -84,13 +85,6 @@ const SUBMIT_LABELS: Record<AuthMode, string> = {
   otpCode: 'Giriş yap',
 };
 
-/** Kod adımından "E-postayı değiştir" ile dönülen adım */
-const EMAIL_STEP: Partial<Record<AuthMode, AuthMode>> = {
-  verifySignup: 'signUp',
-  resetPassword: 'forgot',
-  otpCode: 'otpEmail',
-};
-
 export default function SignInScreen() {
   const router = useRouter();
   const { available } = useSession();
@@ -101,6 +95,20 @@ export default function SignInScreen() {
   const setField = (field: AuthFormField) => (value: string) =>
     dispatch({ type: 'fieldChanged', field, value });
   const switchMode = (mode: AuthMode) => dispatch({ type: 'switchMode', mode });
+
+  // "düzelt": e-posta adımına dön ve alanı odakla. Alan kod adımında
+  // düzenlenemez durumda; odak, adım değişip alan açıldıktan sonra.
+  const emailRef = useRef<TextInput>(null);
+  const focusEmailNext = useRef(false);
+  useEffect(() => {
+    if (codeMode || !focusEmailNext.current) return;
+    focusEmailNext.current = false;
+    emailRef.current?.focus();
+  }, [codeMode]);
+  const editEmail = () => {
+    focusEmailNext.current = true;
+    switchMode(emailStepOf(state.mode));
+  };
 
   const done = () => {
     if (router.canGoBack()) router.back();
@@ -238,6 +246,7 @@ export default function SignInScreen() {
 
           <Field label="E-posta">
             <TextInput
+              ref={emailRef}
               value={state.email}
               onChangeText={setField('email')}
               editable={emailEditable}
@@ -265,11 +274,20 @@ export default function SignInScreen() {
             </Field>
           )}
 
-          {codeMode && (
+          {showCodeField && (
             <Text className="text-muted text-sm leading-5">
               {state.info != null && `${state.info} `}
-              {normalizeEmail(state.email)} adresine {OTP_LENGTH} haneli bir kod gönderdik.
-              Gelmediyse gereksiz klasörüne bak.
+              {OTP_LENGTH} haneli kodu{' '}
+              <Text className="text-white font-semibold">{normalizeEmail(state.email)}</Text>{' '}
+              adresine gönderdik. Adres yanlışsa{' '}
+              <Text
+                onPress={state.busy ? undefined : editEmail}
+                accessibilityRole="link"
+                className="text-accent font-semibold"
+              >
+                düzelt
+              </Text>
+              . Gelmediyse gereksiz klasörüne bak.
             </Text>
           )}
 
@@ -347,7 +365,7 @@ export default function SignInScreen() {
               <SecondaryButton
                 label="E-postayı değiştir"
                 disabled={state.busy}
-                onPress={() => switchMode(EMAIL_STEP[state.mode] ?? 'signIn')}
+                onPress={editEmail}
                 className="flex-1"
               />
             </View>
