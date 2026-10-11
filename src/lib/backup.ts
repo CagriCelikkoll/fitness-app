@@ -39,6 +39,7 @@ import {
   workoutSessions,
 } from '@/db/schema';
 import { toDateKey } from '@/lib/format';
+import { resetAfterLocalReplace, withSyncSuppressed } from '@/lib/syncState';
 
 export const BACKUP_FORMAT_VERSION = 1;
 
@@ -238,16 +239,23 @@ export function validateBackup(raw: string): ValidationResult {
  *
  * Tamamı tek transaction: yarıda kalırsa kullanıcı hem eski hem yeni
  * veriden olurdu.
+ *
+ * Eşitleme: silme ve yazma susturulmuş trigger'larla yapılıyor, giden
+ * kutusu boşaltılıyor. Eski bir yedek buluttaki yeni antrenmanları
+ * silemez; yedek ile bulut birleşir (bkz. `resetAfterLocalReplace`).
  */
 export async function restoreBackup(db: Db, data: BackupFile): Promise<void> {
   await db.transaction(async (tx) => {
-    await deleteAllTables(tx);
+    await withSyncSuppressed(tx, async () => {
+      await deleteAllTables(tx);
 
-    // Ebeveynden çocuğa
-    for (const { key, table } of BACKUP_TABLES) {
-      const rows = data.tables[key] ?? [];
-      if (rows.length > 0) await insertBatched(tx, table, rows);
-    }
+      // Ebeveynden çocuğa
+      for (const { key, table } of BACKUP_TABLES) {
+        const rows = data.tables[key] ?? [];
+        if (rows.length > 0) await insertBatched(tx, table, rows);
+      }
+    });
+    await resetAfterLocalReplace(tx, { releaseOwner: false });
   });
 }
 
@@ -255,13 +263,19 @@ export async function restoreBackup(db: Db, data: BackupFile): Promise<void> {
  * Kullanıcı verisini siler; egzersiz kütüphanesine ve ayarlara dokunmaz.
  * Kütüphane silinirse yeniden indirmek gerekir, ayarlar da (boy, doğum
  * tarihi, tercihler) kullanıcının "verisi" değil kurulumu.
+ *
+ * Eşitleme: yalnızca bu telefonu temizler. Trigger'lar susturulu, giden
+ * kutusu boşaltılıyor; buluttaki geçmiş silinmez.
  */
 export async function wipeUserData(db: Db): Promise<void> {
   await db.transaction(async (tx) => {
-    // Çocuktan ebeveyne
-    for (const { table } of [...USER_DATA_TABLES].reverse()) {
-      await tx.delete(table);
-    }
+    await withSyncSuppressed(tx, async () => {
+      // Çocuktan ebeveyne
+      for (const { table } of [...USER_DATA_TABLES].reverse()) {
+        await tx.delete(table);
+      }
+    });
+    await resetAfterLocalReplace(tx, { releaseOwner: true });
   });
 }
 

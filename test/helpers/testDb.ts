@@ -2,19 +2,23 @@
  * Test veritabanı kurulumu.
  *
  * Gerçek SQLite'a karşı çalışıyoruz (mock yok): her test kendi bellek içi
- * veritabanını kuruyor, şema `drizzle/0000_initial.sql`'den uygulanıyor —
- * şemanın tek kaynağı migration dosyası kalsın diye.
+ * veritabanını kuruyor, şema `drizzle/` migration'larından uygulamadaki
+ * gibi Drizzle migrator'ıyla kuruluyor — şemanın tek kaynağı migration
+ * dosyaları kalsın, `--> statement-breakpoint` bölmesi de sınansın
+ * (better-sqlite3 tek parçada birden fazla ifadeyi reddediyor).
  *
  * `PRAGMA foreign_keys = ON` uygulamadaki gibi açılıyor; kapalı olsaydı
  * cascade/restrict testleri sessizce "geçerdi".
  */
 
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { sql } from 'drizzle-orm';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 
@@ -34,7 +38,42 @@ const PROJECT_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../..'
 );
-const MIGRATION_PATH = path.join(PROJECT_ROOT, 'drizzle', '0000_initial.sql');
+export const MIGRATIONS_FOLDER = path.join(PROJECT_ROOT, 'drizzle');
+
+interface JournalEntry {
+  idx: number;
+  tag: string;
+}
+
+const readJournal = (): { entries: JournalEntry[] } =>
+  JSON.parse(readFileSync(path.join(MIGRATIONS_FOLDER, 'meta', '_journal.json'), 'utf8'));
+
+const foldersUpTo = new Map<string, string>();
+
+/**
+ * Yalnızca `tag`'e kadarki migration'ları içeren geçici klasör: eski
+ * sürümün veritabanını kurup yeni migration'ı üstüne uygulamak için
+ * (uygulamada OTA sonrası olan tam olarak bu).
+ */
+function migrationsFolderUpTo(tag: string): string {
+  const cached = foldersUpTo.get(tag);
+  if (cached) return cached;
+  const all = readJournal();
+  const end = all.entries.findIndex((e) => e.tag === tag);
+  if (end < 0) throw new Error(`Bilinmeyen migration: ${tag}`);
+  const entries = all.entries.slice(0, end + 1);
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'dinc-migrations-'));
+  mkdirSync(path.join(dir, 'meta'));
+  writeFileSync(path.join(dir, 'meta', '_journal.json'), JSON.stringify({ ...all, entries }));
+  for (const e of entries) {
+    writeFileSync(path.join(dir, `${e.tag}.sql`), readFileSync(path.join(MIGRATIONS_FOLDER, `${e.tag}.sql`)));
+  }
+  foldersUpTo.set(tag, dir);
+  return dir;
+}
+
+/** Migration etiketleri, sırayla (`0000_initial`, `0001_sync`, …) */
+export const MIGRATION_TAGS = readJournal().entries.map((e) => e.tag);
 
 export interface TestDb {
   /**
@@ -48,16 +87,20 @@ export interface TestDb {
   close(): void;
 }
 
-/** Bellek içi DB kurar, migration uygular, FK açar, drizzle döndürür */
-export function createTestDb(): TestDb {
+/**
+ * Bellek içi DB kurar, migration uygular, FK açar, drizzle döndürür.
+ *
+ * `upTo`: yalnızca bu migration'a kadar uygula (eski sürümün şeması).
+ * Kalanı sonradan `applyMigrations(testDb)` ile uygulanır.
+ */
+export function createTestDb(options: { upTo?: string } = {}): TestDb {
   const sqlite = new Database(':memory:');
   sqlite.pragma('foreign_keys = ON');
 
-  // `--> statement-breakpoint` yalnızca bir yorum; exec çoklu ifadeyi
-  // zaten birlikte çalıştırıyor, ayrıştırmaya gerek yok.
-  sqlite.exec(readFileSync(MIGRATION_PATH, 'utf8'));
-
   const drizzleDb = drizzle(sqlite, { schema });
+  migrate(drizzleDb, {
+    migrationsFolder: options.upTo ? migrationsFolderUpTo(options.upTo) : MIGRATIONS_FOLDER,
+  });
   patchAsyncTransaction(drizzleDb, sqlite);
 
   return {
@@ -65,6 +108,11 @@ export function createTestDb(): TestDb {
     sqlite,
     close: () => sqlite.close(),
   };
+}
+
+/** Bekleyen bütün migration'ları uygular (uygulamanın açılışta yaptığı) */
+export function applyMigrations(testDb: TestDb): void {
+  migrate(drizzle(testDb.sqlite, { schema }), { migrationsFolder: MIGRATIONS_FOLDER });
 }
 
 /**

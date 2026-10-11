@@ -34,6 +34,8 @@ yarn-error.*
 .env
 .env*.local
 *.local.sql
+# gerçek kullanıcı yedekleri (test/syncMigration.test.ts), kişisel veri
+test/fixtures/*.local.json
 
 # typescript
 *.tsbuildinfo

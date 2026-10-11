@@ -19,6 +19,7 @@ import {
   real,
   index,
   uniqueIndex,
+  primaryKey,
 } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
 
@@ -301,6 +302,48 @@ export const appSettings = sqliteTable('app_settings', {
 });
 
 // ============================================================================
+// 10. sync_state — eşitleme durumu (tek satır, id = 1). docs/sync-tasarim.md
+// ============================================================================
+// `tracking = 0` iken (varsayılan) trigger'lar hiçbir şey yazmaz; eşitleme
+// hiç açılmamış telefonda giden kutusu hep boş kalır. `suppress = 1`
+// sıfırlama, geri yükleme ve sunucudan gelen verinin uygulanması
+// sırasında trigger'ları susturur (toplu silme buluta gitmesin, yankı
+// olmasın). Trigger'lar `drizzle/0001_sync.sql`'de; yedeğe girmez.
+export const syncState = sqliteTable('sync_state', {
+  id: integer('id').primaryKey(), // her zaman 1
+  tracking: integer('tracking', { mode: 'boolean' }).notNull().default(false),
+  suppress: integer('suppress', { mode: 'boolean' }).notNull().default(false),
+  ownerUserId: text('owner_user_id'),
+  initialUploadDone: integer('initial_upload_done', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  pullCursor: text('pull_cursor'),
+  lastSyncAt: text('last_sync_at'),
+  lastError: text('last_error'),
+});
+
+// ============================================================================
+// 11. sync_outbox — gönderilmeyi bekleyen değişiklikler (giden kutusu)
+// ============================================================================
+// Yalnızca kimlik tutuluyor: gönderimde satır yerelde varsa upsert,
+// yoksa silme. `session_id` antrenman ağacındaki satırlar için: yarım
+// antrenmanın kayıtları antrenman bitene kadar bekler, antrenman
+// bitmeden silinirse hepsi atılır.
+export const syncOutbox = sqliteTable(
+  'sync_outbox',
+  {
+    tableName: text('table_name').notNull(),
+    rowId: text('row_id').notNull(),
+    sessionId: text('session_id'),
+    changedAt: text('changed_at').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.tableName, t.rowId] }),
+    sessionIdx: index('idx_sync_outbox_session').on(t.sessionId),
+  })
+);
+
+// ============================================================================
 // İlişkiler (Drizzle relational queries için)
 // ============================================================================
 
@@ -402,3 +445,6 @@ export type BodyMetric = typeof bodyMetrics.$inferSelect;
 export type NewBodyMetric = typeof bodyMetrics.$inferInsert;
 
 export type AppSettings = typeof appSettings.$inferSelect;
+
+export type SyncState = typeof syncState.$inferSelect;
+export type SyncOutboxEntry = typeof syncOutbox.$inferSelect;
