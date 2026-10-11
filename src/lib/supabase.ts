@@ -17,7 +17,11 @@ import { AppState } from 'react-native';
 import Storage from 'expo-sqlite/kv-store';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { readSupabaseConfig } from '@/lib/supabaseConfig';
+import {
+  readSupabaseConfig,
+  sessionStorageKey,
+  supabaseAuthOptions,
+} from '@/lib/supabaseConfig';
 
 // process.env.EXPO_PUBLIC_* derleme sırasında yerine yazılıyor; tam bu
 // biçimde (nokta erişimi) kalmalı.
@@ -34,18 +38,18 @@ export function isSupabaseConfigured(): boolean {
   return config != null;
 }
 
+/** Depodaki oturumun anahtarı; env yoksa null */
+export function getSessionStorageKey(): string | null {
+  return config ? sessionStorageKey(config.url) : null;
+}
+
 /** İstemci; env yoksa null. İlk çağrıda kurulur. */
 export function getSupabase(): SupabaseClient | null {
   if (!config) return null;
   if (client) return client;
 
   client = createClient(config.url, config.anonKey, {
-    auth: {
-      storage: Storage,
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: false,
-    },
+    auth: supabaseAuthOptions(Storage),
   });
 
   AppState.addEventListener('change', (state) => {

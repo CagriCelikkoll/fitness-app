@@ -1,6 +1,9 @@
 /**
  * Hesap ve salon (v3.0) — Supabase çağrıları.
  *
+ * Giriş: e-posta + şifre (kayıtta ve şifre sıfırlamada e-postaya 6
+ * haneli kod) ya da şifresiz "kodla giriş".
+ *
  * Her fonksiyon istemciyi parametre alıyor; istemci `null` ise (env yok)
  * ağa hiç çıkmadan `not_configured` döner. Hiçbiri fırlatmaz: hata
  * `{ ok: false, error }` olarak döner, ekran Türkçe mesajı gösterir.
@@ -49,7 +52,86 @@ async function run<T>(
 }
 
 // ============================================================================
-// Giriş: e-posta + 6 haneli kod
+// Şifreyle giriş, kayıt ve şifre sıfırlama
+// ============================================================================
+
+export function signInWithPassword(client: SupabaseClient | null, email: string, password: string) {
+  return run(client, async (c) => {
+    const { error } = await c.auth.signInWithPassword({ email: normalizeEmail(email), password });
+    return error ? fail<null>(toAccountError(error)) : ok(null);
+  });
+}
+
+/**
+ * Kayıt. "Confirm email" açıkken oturum dönmez; Confirm signup şablonuyla
+ * 6 haneli kod gider → `verifySignupCode`. Kapalıysa doğrudan giriş.
+ *
+ * E-posta zaten kayıtlıysa Supabase (doğrulama açıkken) hata vermiyor,
+ * adresin varlığını gizlemek için sahte bir kullanıcı dönüyor; bunun
+ * işareti boş `identities`. O durumda `email_taken`.
+ */
+export function signUpWithPassword(client: SupabaseClient | null, email: string, password: string) {
+  return run(client, async (c) => {
+    const { data, error } = await c.auth.signUp({ email: normalizeEmail(email), password });
+    if (error) return fail<{ needsVerification: boolean }>(toAccountError(error));
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      return fail<{ needsVerification: boolean }>(accountError('email_taken'));
+    }
+    return ok({ needsVerification: data.session == null });
+  });
+}
+
+export function verifySignupCode(client: SupabaseClient | null, email: string, code: string) {
+  return run(client, async (c) => {
+    const { error } = await c.auth.verifyOtp({
+      email: normalizeEmail(email),
+      token: code,
+      type: 'signup',
+    });
+    return error ? fail<null>(toAccountError(error)) : ok(null);
+  });
+}
+
+export function resendSignupCode(client: SupabaseClient | null, email: string) {
+  return run(client, async (c) => {
+    const { error } = await c.auth.resend({ type: 'signup', email: normalizeEmail(email) });
+    return error ? fail<null>(toAccountError(error)) : ok(null);
+  });
+}
+
+/**
+ * Şifremi unuttum: Reset Password şablonuyla 6 haneli kod. Adres kayıtlı
+ * değilse de Supabase başarılı döner (adres varlığı gizli).
+ */
+export function sendPasswordResetCode(client: SupabaseClient | null, email: string) {
+  return run(client, async (c) => {
+    const { error } = await c.auth.resetPasswordForEmail(normalizeEmail(email));
+    return error ? fail<null>(toAccountError(error)) : ok(null);
+  });
+}
+
+/** Kurtarma kodunu doğrular; başarılıysa oturum açılır */
+export function verifyRecoveryCode(client: SupabaseClient | null, email: string, code: string) {
+  return run(client, async (c) => {
+    const { error } = await c.auth.verifyOtp({
+      email: normalizeEmail(email),
+      token: code,
+      type: 'recovery',
+    });
+    return error ? fail<null>(toAccountError(error)) : ok(null);
+  });
+}
+
+/** Açık oturumun şifresini değiştirir (kurtarma kodundan sonra) */
+export function updatePassword(client: SupabaseClient | null, password: string) {
+  return run(client, async (c) => {
+    const { error } = await c.auth.updateUser({ password });
+    return error ? fail<null>(toAccountError(error)) : ok(null);
+  });
+}
+
+// ============================================================================
+// Kodla giriş: e-posta + 6 haneli kod (şifresiz)
 // ============================================================================
 
 export function sendSignInCode(client: SupabaseClient | null, email: string) {

@@ -1,24 +1,47 @@
 import { useEffect } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 
-import { getSupabase } from '@/lib/supabase';
+import { classifyAccountError } from '@/lib/auth';
+import { getSessionStorageKey, getSupabase } from '@/lib/supabase';
+import { parseStoredUser, type StoredUser } from '@/lib/supabaseConfig';
 import { useGymFeatures } from '@/hooks/useGymFeatures';
 
 /**
  * Supabase oturumu (v3.0). Bayrak kapalıysa ya da env yoksa hiçbir şey
  * yapmaz: `available: false`, istemciye dokunulmaz.
  *
- * Oturum kv-store'dan okunuyor; `onAuthStateChange` ile güncel kalıyor
- * (giriş, çıkış, token yenileme). Dinleyici uygulama ömrü boyunca bir
- * kez kuruluyor.
+ * Kalıcılık: oturum kv-store'da (persistSession), erişim token'ı
+ * kendiliğinden yenileniyor (autoRefreshToken). Açılışta:
+ * 1. Kullanıcı depodan hemen okunuyor; ağ beklenmiyor.
+ * 2. `getSession()` oturumu doğruluyor, gerekirse token'ı yeniliyor.
+ *    İnternet yoksa yenileme ~25 sn denenip boş dönüyor; bu çıkış
+ *    sayılmıyor (token depoda duruyor, internet gelince yenileniyor ve
+ *    `onAuthStateChange` haber veriyor).
+ * 3. Yalnızca SIGNED_OUT (çıkış ya da sunucunun reddettiği token) ve
+ *    ağ dışı bir hatayla boş dönen `getSession` oturumu kapatıyor.
  */
-const useSessionStore = create<{ session: Session | null; ready: boolean }>(() => ({
-  session: null,
+const useSessionStore = create<{ user: StoredUser | null; ready: boolean }>(() => ({
+  user: null,
   ready: false,
 }));
 
 let subscribed = false;
+
+function setUser(user: StoredUser | null): void {
+  useSessionStore.setState({ user, ready: true });
+}
+
+async function readStoredUser(): Promise<StoredUser | null> {
+  const key = getSessionStorageKey();
+  if (!key) return null;
+  try {
+    return parseStoredUser(await Storage.getItem(key));
+  } catch (err) {
+    console.error('[ACCOUNT] Kayıtlı oturum okunamadı:', err);
+    return null;
+  }
+}
 
 function ensureSubscribed(): void {
   if (subscribed) return;
@@ -26,15 +49,35 @@ function ensureSubscribed(): void {
   if (!client) return;
   subscribed = true;
 
-  client.auth.onAuthStateChange((_event, session) => {
-    useSessionStore.setState({ session, ready: true });
+  client.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      setUser({ userId: session.user.id, email: session.user.email ?? null });
+    } else if (event === 'SIGNED_OUT') {
+      setUser(null);
+    }
+    // INITIAL_SESSION boşsa karar getSession'ın sonucunda
   });
+
+  void readStoredUser().then((stored) => {
+    // getSession daha önce bittiyse onun sonucu geçerli
+    if (!useSessionStore.getState().ready) setUser(stored);
+  });
+
   client.auth
     .getSession()
-    .then(({ data }) => useSessionStore.setState({ session: data.session, ready: true }))
+    .then(({ data, error }) => {
+      if (data.session) {
+        setUser({ userId: data.session.user.id, email: data.session.user.email ?? null });
+      } else if (error && classifyAccountError(error) === 'network') {
+        // Çevrimdışı: depodaki kullanıcı kalsın
+        if (!useSessionStore.getState().ready) void readStoredUser().then(setUser);
+      } else {
+        setUser(null);
+      }
+    })
     .catch((err) => {
       console.error('[ACCOUNT] Oturum okunamadı:', err);
-      useSessionStore.setState({ session: null, ready: true });
+      if (!useSessionStore.getState().ready) setUser(null);
     });
 }
 
@@ -43,12 +86,11 @@ export function useSession(): {
   available: boolean;
   /** Oturum okundu mu */
   ready: boolean;
-  session: Session | null;
   userId: string | null;
   email: string | null;
 } {
   const { available } = useGymFeatures();
-  const session = useSessionStore((s) => s.session);
+  const user = useSessionStore((s) => s.user);
   const ready = useSessionStore((s) => s.ready);
 
   useEffect(() => {
@@ -56,13 +98,7 @@ export function useSession(): {
   }, [available]);
 
   if (!available) {
-    return { available: false, ready: false, session: null, userId: null, email: null };
+    return { available: false, ready: false, userId: null, email: null };
   }
-  return {
-    available,
-    ready,
-    session,
-    userId: session?.user.id ?? null,
-    email: session?.user.email ?? null,
-  };
+  return { available, ready, userId: user?.userId ?? null, email: user?.email ?? null };
 }

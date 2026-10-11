@@ -29,6 +29,63 @@ export function readSupabaseConfig(env: {
   return { url, anonKey };
 }
 
+/** Oturumun tutulduğu anahtar-değer deposu (uygulamada expo-sqlite kv-store) */
+export interface SessionStorage {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+}
+
+/**
+ * İstemcinin auth ayarları. Uygulama (`supabase.ts`) ve oturum testi
+ * (test/sessionPersistence.test.ts) aynı ayarı kullanıyor.
+ *
+ * - persistSession: oturum depoya yazılıyor, uygulama kapanıp açılınca
+ *   oradan okunuyor
+ * - autoRefreshToken: erişim token'ı (1 saat) süresi dolmadan yenileniyor;
+ *   uygulama açılırken süresi dolmuşsa yenileme token'ıyla yenileniyor
+ * - detectSessionInUrl: false — React Native'de URL'den oturum yok
+ */
+export function supabaseAuthOptions(storage: SessionStorage) {
+  return {
+    storage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  } as const;
+}
+
+/**
+ * supabase-js'in oturumu yazdığı anahtar (varsayılan). Testte gerçek
+ * istemcinin bu anahtarı kullandığı doğrulanıyor.
+ */
+export function sessionStorageKey(url: string): string {
+  return `sb-${new URL(url).hostname.split('.')[0]}-auth-token`;
+}
+
+export interface StoredUser {
+  userId: string;
+  email: string | null;
+}
+
+/**
+ * Depodaki oturumdan kullanıcı. Açılışta ağ beklemeden "giriş yapılmış"
+ * gösterebilmek için: erişim token'ının süresi dolmuşsa ve internet
+ * yoksa supabase-js yenilemeyi ~25 sn deneyip oturumsuz dönüyor, ama
+ * token depoda kalıyor ve internet gelince yenileniyor.
+ */
+export function parseStoredUser(raw: string | null): StoredUser | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { user?: { id?: unknown; email?: unknown } } | null;
+    const user = parsed?.user;
+    if (!user || typeof user.id !== 'string' || user.id.length === 0) return null;
+    return { userId: user.id, email: typeof user.email === 'string' ? user.email : null };
+  } catch {
+    return null;
+  }
+}
+
 /** Yeni biçim `sb_secret_…` ya da JWT'de `role: service_role` */
 export function isServiceRoleKey(key: string): boolean {
   if (key.startsWith('sb_secret_')) return true;
