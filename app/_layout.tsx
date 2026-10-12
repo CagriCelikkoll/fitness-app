@@ -14,6 +14,7 @@ import migrations from '../drizzle/migrations';
 import { DATABASE_NAME } from '@/db/client';
 import { seedIfEmpty } from '@/db/seed';
 import { useDb } from '@/hooks/useDb';
+import { useSyncTriggers } from '@/hooks/useSyncTriggers';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -117,6 +118,15 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Eşitleme tetikleyicileri (v3.1b). Bayrak kapalıyken ya da giriş
+ * yapılmamışken hiçbir şey yapmaz. Veritabanı hazır olduktan sonra.
+ */
+function SyncTriggers() {
+  useSyncTriggers();
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -127,6 +137,7 @@ export default function RootLayout() {
           onInit={initDatabase}
         >
           <DatabaseInitializer>
+            <SyncTriggers />
             <StatusBar style="light" />
             <Stack
               screenOptions={{

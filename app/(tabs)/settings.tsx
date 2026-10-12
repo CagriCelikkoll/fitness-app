@@ -45,6 +45,7 @@ import { eq, sql } from 'drizzle-orm';
 import {
   Download,
   LogOut,
+  RefreshCw,
   RotateCcw,
   Upload,
   type LucideIcon,
@@ -98,6 +99,8 @@ import { useGymMembership } from '@/hooks/useGymMembership';
 import { leaveGym, signOut, type GymMembership } from '@/lib/account';
 import { INITIAL_TAP_COUNTER, registerVersionTap, roleLabel } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
+import { requestSync, useSyncStatus } from '@/hooks/useSyncTriggers';
+import { syncStatusText } from '@/lib/sync/runner';
 import { COLORS } from '@/theme';
 import {
   DangerButton,
@@ -365,6 +368,8 @@ function AccountSection() {
         <PrimaryButton label="Salona katıl" onPress={() => router.push('/account/join-gym')} />
       )}
 
+      <SyncRow />
+
       <SecondaryButton
         label={signingOut ? 'Çıkış yapılıyor...' : 'Çıkış yap'}
         icon={LogOut}
@@ -372,6 +377,28 @@ function AccountSection() {
         onPress={confirmSignOut}
       />
     </Section>
+  );
+}
+
+/**
+ * Antrenman eşitleme (v3.1b) — geçici, sade satır. Asıl tasarım,
+ * onay ve hesap uyuşmazlığı seçenekleri tur c'de.
+ */
+function SyncRow() {
+  const { status, running } = useSyncStatus();
+  return (
+    <View className="gap-2">
+      <SecondaryButton
+        label={running ? 'Eşitleniyor...' : 'Şimdi eşitle'}
+        icon={RefreshCw}
+        loading={running}
+        onPress={() => void requestSync()}
+      />
+      <Text className="text-muted text-xs leading-5">{syncStatusText(status)}</Text>
+      {status?.issue != null && (
+        <Text className="text-danger text-sm leading-5">{status.issue.message}</Text>
+      )}
+    </View>
   );
 }
 

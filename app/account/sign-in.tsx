@@ -230,8 +230,9 @@ export default function SignInScreen() {
       >
         <Card className="gap-3">
           <Text className="text-white text-base leading-6">
-            Hesap oluşturursan e-posta adresin ve salon üyeliğin Dinç'in sunucusunda
-            saklanır. Antrenmanların şimdilik yalnızca telefonunda kalır.
+            Hesap oluşturursan e-posta adresin, salon üyeliğin ve antrenmanların (rutinler,
+            setler, notlar) Dinç'in sunucusunda saklanır; telefon değişince geri gelir.
+            Vücut ölçülerin yalnızca telefonunda kalır.
           </Text>
           <TextLink
             label="Gizlilik Politikası →"
