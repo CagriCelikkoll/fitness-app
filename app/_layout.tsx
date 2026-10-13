@@ -16,6 +16,7 @@ import { seedIfEmpty } from '@/db/seed';
 import { useDb } from '@/hooks/useDb';
 import { useSyncTriggers } from '@/hooks/useSyncTriggers';
 import { useAnnouncementTriggers } from '@/hooks/useAnnouncements';
+import { useClassScheduleTriggers } from '@/hooks/useClassSchedule';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -120,13 +121,14 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Eşitleme (v3.1b) ve duyuru (v3.2b) tetikleyicileri. Bayrak kapalıyken
+ * Eşitleme (v3.1b), duyuru (v3.2b) ve ders programı (v3.2c) tetikleyicileri. Bayrak kapalıyken
  * ya da giriş yapılmamışken hiçbir şey yapmaz. Veritabanı hazır olduktan
  * sonra.
  */
 function SyncTriggers() {
   useSyncTriggers();
   useAnnouncementTriggers();
+  useClassScheduleTriggers();
   return null;
 }
 
@@ -225,6 +227,18 @@ export default function RootLayout() {
               <Stack.Screen
                 name="announcements/edit"
                 options={{ title: 'Duyuru' }}
+              />
+              <Stack.Screen
+                name="classes/index"
+                options={{ title: 'Ders programı' }}
+              />
+              <Stack.Screen
+                name="classes/templates"
+                options={{ title: 'Programı düzenle' }}
+              />
+              <Stack.Screen
+                name="classes/template"
+                options={{ title: 'Ders' }}
               />
             </Stack>
           </DatabaseInitializer>

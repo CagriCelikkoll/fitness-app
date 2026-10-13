@@ -49,7 +49,9 @@ const INPUT_CLASS = 'bg-bg-elevated text-white text-base px-4 rounded-xl';
 export default function EditAnnouncementScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  // Ders programından (v3.2c): yeni duyuru önceden doldurulmuş gelebilir
+  const params = useLocalSearchParams<{ id?: string; gymId?: string; title?: string; body?: string }>();
+  const { id } = params;
   const { userId, memberships } = useGymMembership();
   const { items, refresh } = useAnnouncements();
 
@@ -59,8 +61,11 @@ export default function EditAnnouncementScreen() {
     ? { title: existing.title, body: existing.body, pinned: existing.pinned }
     : null;
 
-  const [gymId, setGymId] = useState<string | null>(existing?.gymId ?? gyms[0]?.gymId ?? null);
-  const [draft, setDraft] = useState<AnnouncementDraft>(original ?? { title: '', body: '', pinned: false });
+  const presetGym = gyms.find((g) => g.gymId === params.gymId)?.gymId;
+  const [gymId, setGymId] = useState<string | null>(existing?.gymId ?? presetGym ?? gyms[0]?.gymId ?? null);
+  const [draft, setDraft] = useState<AnnouncementDraft>(
+    original ?? { title: params.title ?? '', body: params.body ?? '', pinned: false }
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Kaydet / sil sonrası çıkışta soru sorulmasın */
@@ -68,8 +73,8 @@ export default function EditAnnouncementScreen() {
 
   // Üyelikler geç gelirse varsayılan salon
   useEffect(() => {
-    if (gymId == null && gyms[0]) setGymId(gyms[0].gymId);
-  }, [gymId, gyms]);
+    if (gymId == null && gyms[0]) setGymId(gyms.find((g) => g.gymId === params.gymId)?.gymId ?? gyms[0].gymId);
+  }, [gymId, gyms, params.gymId]);
 
   const dirty = isDraftDirty(draft, original);
 

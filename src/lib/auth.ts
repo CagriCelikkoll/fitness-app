@@ -115,6 +115,7 @@ export type AccountErrorKind =
   | 'forbidden'
   | 'pin_admin_only'
   | 'invalid_input'
+  | 'already_exists'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -141,6 +142,7 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   forbidden: 'Bu işlem için yetkin yok.',
   pin_admin_only: 'Duyuruyu yalnızca salon yöneticisi sabitleyebilir.',
   invalid_input: 'Girilen bilgi kabul edilmedi. Uzunluğu kontrol edip tekrar dene.',
+  already_exists: 'Bu kayıt az önce değişti. Listeyi yenileyip tekrar dene.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -207,9 +209,11 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('not_authenticated')) return 'not_signed_in';
   if (message.includes('sole_admin')) return 'sole_admin';
   if (message.includes('only_admin_can_pin')) return 'pin_admin_only';
-  // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular, v3.2b)
+  // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular v3.2b, ders programı v3.2c)
   if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
   if (code === '23514') return 'invalid_input';
+  // Tekil kısıt (ders istisnası: aynı ders + tarih, v3.2c)
+  if (code === '23505') return 'already_exists';
 
   // Sunucuya hiç ulaşılamadı
   if (isPostgrestFetchFailure(err as object)) return 'network';

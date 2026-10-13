@@ -4,7 +4,7 @@ import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Building2, Megaphone, Pin, Play, Scale, Target } from 'lucide-react-native';
+import { Building2, CalendarDays, Megaphone, Pin, Play, Scale, Target } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
@@ -13,6 +13,15 @@ import { runConsentLaunchCheck, useHealthConsent } from '@/hooks/useHealthConsen
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { featuredAnnouncement, unreadCount } from '@/lib/announcements';
+import { useClassSchedule } from '@/hooks/useClassSchedule';
+import {
+  canEditSchedule,
+  changeSummary,
+  isPast,
+  scheduleForGym,
+  todaySummary,
+  type ClassOccurrence,
+} from '@/lib/classes';
 import { roleLabel } from '@/lib/auth';
 import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -158,6 +167,74 @@ function AnnouncementCard() {
   );
 }
 
+/**
+ * Bugünün dersleri (v3.2c): saat sırasıyla saat, ders, hoca; iptal üstü
+ * çizili, değişiklik notlu. Bugün ders yoksa yarının ilk dersi. Dokununca
+ * program ekranı. Salonun programı yoksa görünmez (yöneticiye
+ * "Programı oluştur").
+ */
+function TodayClassesCard() {
+  const { primary, memberships } = useGymMembership();
+  const { templates, exceptions } = useClassSchedule();
+  if (!primary) return null;
+  const schedule = scheduleForGym({ templates, exceptions }, primary.gymId);
+  if (schedule.templates.length === 0) {
+    if (!canEditSchedule(primary.gymId, memberships)) return null;
+    return (
+      <Link href="/classes" asChild>
+        <Card className="flex-row items-center gap-2">
+          <CalendarDays color={COLORS.accent} size={14} />
+          <Text className="text-muted text-sm flex-1">Ders programı yok · Programı oluştur →</Text>
+        </Card>
+      </Link>
+    );
+  }
+  const nowMs = Date.now();
+  const summary = todaySummary(schedule, nowMs);
+  return (
+    <Link href="/classes" asChild>
+      <Card className="gap-2">
+        <View className="flex-row items-center gap-2">
+          <CalendarDays color={COLORS.accent} size={14} />
+          <Text className="text-white text-base font-semibold flex-1">Bugün</Text>
+          <Text className="text-muted text-xs">Program →</Text>
+        </View>
+        {summary.kind === 'today' ? (
+          summary.items.map((o) => <TodayClassRow key={o.key} occurrence={o} past={isPast(o, nowMs)} />)
+        ) : summary.kind === 'tomorrow' ? (
+          <Text className="text-muted text-sm">
+            Bugün ders yok · Yarın {summary.first.startTime} {summary.first.name}
+          </Text>
+        ) : (
+          <Text className="text-muted text-sm">Bugün ve yarın ders yok</Text>
+        )}
+      </Card>
+    </Link>
+  );
+}
+
+function TodayClassRow({ occurrence: o, past }: { occurrence: ClassOccurrence; past: boolean }) {
+  const cancelled = o.status === 'cancelled';
+  const change = changeSummary(o);
+  return (
+    <View className={past || cancelled ? 'opacity-50' : ''}>
+      <View className="flex-row items-center gap-3">
+        <Text className={`text-white text-sm font-semibold tabular-nums w-12 ${cancelled ? 'line-through' : ''}`}>
+          {o.startTime}
+        </Text>
+        <Text className={`text-white text-sm flex-shrink ${cancelled ? 'line-through' : ''}`} numberOfLines={1}>
+          {o.name}
+        </Text>
+        <Text className="text-muted text-sm flex-1" numberOfLines={1}>
+          {o.instructorName}
+        </Text>
+        {cancelled && <Text className="text-danger text-xs font-semibold">İptal</Text>}
+      </View>
+      {change != null && <Text className="text-accent text-xs ml-[60px] mt-0.5">{change}</Text>}
+    </View>
+  );
+}
+
 function HomeContent() {
   const db = useDb();
   const router = useRouter();
@@ -221,6 +298,7 @@ function HomeContent() {
     >
       <GymRow />
       <AnnouncementCard />
+      <TodayClassesCard />
       <View className="mb-3">
         <Text className="text-white text-4xl font-bold tracking-tight">
           Hoş geldin 💪
