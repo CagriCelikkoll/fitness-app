@@ -151,11 +151,16 @@ describe('Salon: kim neyi görür', () => {
     }
   });
 
-  it('uygulamadan salon açılamaz, salon değiştirilemez, üyelik doğrudan eklenemez', async () => {
+  it('uygulamadan salon açılamaz, kodu değiştirilemez, üye / hoca salonu değiştiremez, üyelik doğrudan eklenemez', async () => {
     const insertGym = await c.adminA.client.from('gyms').insert({ name: 'INT sahte', join_code: 'SAHTE123' });
     expect(insertGym.error).not.toBeNull();
-    const rename = await c.adminA.client.from('gyms').update({ name: 'değişti' }).eq('id', gymA.id).select('id');
-    expect(rename.error != null || (rename.data ?? []).length === 0).toBe(true);
+    // Ad / renk yalnızca yönetici (v3.2d, gymAdmin.int.ts); üye ve hoca değiştiremez, kod hiç kimse
+    for (const who of [c.memberA, c.trainerA]) {
+      const rename = await who.client.from('gyms').update({ name: 'değişti' }).eq('id', gymA.id).select('id');
+      expect(rename.error != null || (rename.data ?? []).length === 0).toBe(true);
+    }
+    const code = await c.adminA.client.from('gyms').update({ join_code: 'SAHTE9' }).eq('id', gymA.id).select('id');
+    expect(code.error).not.toBeNull();
     const join = await c.outsider.client.from('gym_members').insert({ gym_id: gymB.id, user_id: u.outsider.id });
     expect(join.error).not.toBeNull();
     expect(await roleOf(gymB, u.outsider)).toBeNull();

@@ -47,7 +47,9 @@ import {
   LogOut,
   RefreshCw,
   RotateCcw,
+  Settings2,
   Upload,
+  Users,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -644,6 +646,7 @@ function MembershipCard({
   userId: string;
   onLeft: () => void;
 }) {
+  const router = useRouter();
   const [leaving, setLeaving] = useState(false);
   const ended =
     membership.membershipEndsOn != null && membership.membershipEndsOn < toDateKey(new Date());
@@ -683,6 +686,24 @@ function MembershipCard({
           </Text>
         )}
       </View>
+      {(membership.role === 'admin' || membership.role === 'trainer') && (
+        <View className="flex-row gap-2">
+          <SecondaryButton
+            label="Üyeler"
+            icon={Users}
+            className="flex-1"
+            onPress={() => router.push({ pathname: '/gym/members', params: { gymId: membership.gymId } })}
+          />
+          {membership.role === 'admin' && (
+            <SecondaryButton
+              label="Salon ayarları"
+              icon={Settings2}
+              className="flex-1"
+              onPress={() => router.push({ pathname: '/gym/settings', params: { gymId: membership.gymId } })}
+            />
+          )}
+        </View>
+      )}
       <DangerButton
         label={leaving ? 'Ayrılıyor...' : 'Salondan ayrıl'}
         loading={leaving}

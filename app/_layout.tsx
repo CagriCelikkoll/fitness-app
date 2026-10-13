@@ -228,6 +228,18 @@ export default function RootLayout() {
                 options={{ title: 'Hesabı sil' }}
               />
               <Stack.Screen
+                name="gym/members"
+                options={{ title: 'Üyeler' }}
+              />
+              <Stack.Screen
+                name="gym/member"
+                options={{ title: 'Üye' }}
+              />
+              <Stack.Screen
+                name="gym/settings"
+                options={{ title: 'Salon ayarları' }}
+              />
+              <Stack.Screen
                 name="announcements/index"
                 options={{ title: 'Duyurular' }}
               />

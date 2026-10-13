@@ -15,6 +15,7 @@ import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { featuredAnnouncement, unreadCount } from '@/lib/announcements';
 import { useClassSchedule } from '@/hooks/useClassSchedule';
 import { useProfile } from '@/hooks/useProfile';
+import { isGymColor, membershipWarning } from '@/lib/gymAdmin';
 import { markNamePrompted, shouldPromptForName, wasNamePrompted } from '@/lib/profile';
 import {
   canEditSchedule,
@@ -123,16 +124,28 @@ export default function HomeScreen() {
 function GymRow() {
   const { primary } = useGymMembership();
   if (!primary) return null;
+  // Salon rengi (v3.2d): yönetici seçer; yoksa uygulama vurgusu
+  const color = isGymColor(primary.primaryColor) ? primary.primaryColor : COLORS.accent;
+  const warning = membershipWarning(primary.membershipEndsOn, Date.now());
   return (
-    <Link href="/(tabs)/settings" asChild>
-      <Pressable className="flex-row items-center self-start bg-bg-surface border border-border rounded-full px-3 py-1.5 -mb-1 active:opacity-70">
-        <Building2 color={COLORS.accent} size={14} />
-        <Text className="text-white text-xs font-semibold ml-2" numberOfLines={1}>
-          {primary.gymName}
-        </Text>
-        <Text className="text-muted text-xs ml-1.5">· {roleLabel(primary.role)}</Text>
-      </Pressable>
-    </Link>
+    <View className="gap-2 -mb-1">
+      <Link href="/(tabs)/settings" asChild>
+        <Pressable
+          className="flex-row items-center self-start bg-bg-surface border rounded-full px-3 py-1.5 active:opacity-70"
+          style={{ borderColor: color }}
+        >
+          <Building2 color={color} size={14} />
+          <Text className="text-white text-xs font-semibold ml-2" numberOfLines={1}>
+            {primary.gymName}
+          </Text>
+          <Text className="text-muted text-xs ml-1.5">· {roleLabel(primary.role)}</Text>
+        </Pressable>
+      </Link>
+      {/* Üyelik bitişi 7 gün ya da daha yakınsa / bittiyse; kapatılamaz */}
+      {warning != null && (
+        <Text className={`text-xs px-1 ${warning.ended ? 'text-danger' : 'text-warm'}`}>{warning.text}</Text>
+      )}
+    </View>
   );
 }
 

@@ -33,6 +33,8 @@ export interface GymMembership {
   /** YYYY-MM-DD ya da null */
   membershipEndsOn: string | null;
   joinedAt: string | null;
+  /** Salon rengi (#RRGGBB, yönetici seçer; v3.2d) ya da null */
+  primaryColor?: string | null;
 }
 
 const ok = <T>(value: T): AccountResult<T> => ({ ok: true, value });
@@ -219,6 +221,7 @@ export function parseMembershipRows(data: unknown): GymMembership[] {
       role: r.role,
       membershipEndsOn: typeof r.membership_ends_on === 'string' ? r.membership_ends_on : null,
       joinedAt: typeof r.joined_at === 'string' ? r.joined_at : null,
+      primaryColor: typeof gym.primary_color === 'string' ? gym.primary_color : null,
     });
   }
   // En son katılınan önce
@@ -229,7 +232,7 @@ export function fetchMemberships(client: SupabaseClient | null, userId: string) 
   return run(client, async (c) => {
     const { data, error } = await c
       .from('gym_members')
-      .select('gym_id, role, membership_ends_on, joined_at, gyms(name)')
+      .select('gym_id, role, membership_ends_on, joined_at, gyms(name, primary_color)')
       .eq('user_id', userId);
     return error ? fail<GymMembership[]>(toAccountError(error)) : ok(parseMembershipRows(data));
   });
