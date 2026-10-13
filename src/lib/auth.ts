@@ -331,6 +331,8 @@ export interface AuthFormState {
   password: string;
   passwordRepeat: string;
   code: string;
+  /** signUp: isteğe bağlı ad (profiles.display_name; doğrulama src/lib/profile.ts) */
+  displayName: string;
   /** Son kod gönderiminin zamanı (ms) */
   sentAt: number | null;
   /**
@@ -345,7 +347,7 @@ export interface AuthFormState {
   info: string | null;
 }
 
-export type AuthFormField = 'email' | 'password' | 'passwordRepeat' | 'code';
+export type AuthFormField = 'email' | 'password' | 'passwordRepeat' | 'code' | 'displayName';
 
 export type AuthFormAction =
   | { type: 'fieldChanged'; field: AuthFormField; value: string }
@@ -361,6 +363,7 @@ export const INITIAL_AUTH_FORM: AuthFormState = {
   password: '',
   passwordRepeat: '',
   code: '',
+  displayName: '',
   sentAt: null,
   recoveryVerified: false,
   busy: false,

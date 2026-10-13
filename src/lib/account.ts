@@ -69,10 +69,21 @@ export function signInWithPassword(client: SupabaseClient | null, email: string,
  * E-posta zaten kayıtlıysa Supabase (doğrulama açıkken) hata vermiyor,
  * adresin varlığını gizlemek için sahte bir kullanıcı dönüyor; bunun
  * işareti boş `identities`. O durumda `email_taken`.
+ *
+ * Ad verilirse kullanıcı verisinde gider; sunucu (0007) profile yazar.
  */
-export function signUpWithPassword(client: SupabaseClient | null, email: string, password: string) {
+export function signUpWithPassword(
+  client: SupabaseClient | null,
+  email: string,
+  password: string,
+  displayName: string | null = null
+) {
   return run(client, async (c) => {
-    const { data, error } = await c.auth.signUp({ email: normalizeEmail(email), password });
+    const { data, error } = await c.auth.signUp({
+      email: normalizeEmail(email),
+      password,
+      ...(displayName ? { options: { data: { display_name: displayName } } } : {}),
+    });
     if (error) return fail<{ needsVerification: boolean }>(toAccountError(error));
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
       return fail<{ needsVerification: boolean }>(accountError('email_taken'));

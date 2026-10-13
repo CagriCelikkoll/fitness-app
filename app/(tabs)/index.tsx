@@ -4,7 +4,7 @@ import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Building2, CalendarDays, Check, Megaphone, Pin, Play, Scale, Target } from 'lucide-react-native';
+import { Building2, CalendarDays, Check, Megaphone, Pin, Play, Scale, Target, UserRound } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
@@ -14,6 +14,8 @@ import { useGymMembership } from '@/hooks/useGymMembership';
 import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { featuredAnnouncement, unreadCount } from '@/lib/announcements';
 import { useClassSchedule } from '@/hooks/useClassSchedule';
+import { useProfile } from '@/hooks/useProfile';
+import { markNamePrompted, shouldPromptForName, wasNamePrompted } from '@/lib/profile';
 import {
   canEditSchedule,
   changeSummary,
@@ -40,6 +42,7 @@ import { COLORS } from '@/theme';
 import {
   Card,
   ListRow,
+  PrimaryButton,
   SecondaryButton,
   SectionHeader,
 } from '@/components/ui';
@@ -133,6 +136,73 @@ function GymRow() {
   );
 }
 
+/** Bu açılışta "Adını ekle" kartı gösterilen kullanıcı (sekme değişince kart kalsın) */
+let namePromptShownFor: string | null = null;
+
+/**
+ * Salondaysa ve adı yoksa, kullanıcı başına bir kez "Adını ekle" kartı.
+ * Gösterildiği an "soruldu" yazılır: sonraki açılışlarda çıkmaz. "Geç"
+ * ile hemen kapanır; ad sonra Ayarlar → Hesap ve salon → Adın'dan girilir.
+ */
+function NamePromptCard() {
+  const router = useRouter();
+  const { primary, userId } = useGymMembership();
+  const { displayName, loaded } = useProfile();
+  const [prompted, setPrompted] = useState<boolean | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    if (namePromptShownFor === userId) {
+      setPrompted(false);
+      return;
+    }
+    let active = true;
+    void wasNamePrompted(Storage, userId).then((v) => {
+      if (active) setPrompted(v);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  const show =
+    !dismissed &&
+    userId != null &&
+    prompted != null &&
+    shouldPromptForName({ inGym: primary != null, displayName, loaded, prompted });
+
+  useEffect(() => {
+    if (!show || !userId || namePromptShownFor === userId) return;
+    namePromptShownFor = userId;
+    markNamePrompted(Storage, userId).catch((err) => console.warn('[PROFILE] Soru kaydedilemedi:', err));
+  }, [show, userId]);
+
+  if (!show) return null;
+  return (
+    <Card className="gap-3">
+      <View className="flex-row items-center gap-2">
+        <UserRound color={COLORS.accent} size={16} />
+        <Text className="text-white text-base font-semibold flex-1">Adını ekle</Text>
+      </View>
+      <Text className="text-muted text-sm leading-5">
+        Hocaların seni tanısın diye adını yaz. Yalnızca salonunun hocaları ve yöneticisi görür.
+      </Text>
+      <View className="flex-row gap-2">
+        <SecondaryButton label="Geç" className="flex-1" onPress={() => setDismissed(true)} />
+        <PrimaryButton
+          label="Adını yaz"
+          className="flex-1"
+          onPress={() => {
+            setDismissed(true);
+            router.push('/account/name');
+          }}
+        />
+      </View>
+    </Card>
+  );
+}
+
 /**
  * Salon duyurusu (v3.2b): sabitlenmiş varsa o, yoksa en yenisi. Okunmamış
  * duyuru varsa nokta. Dokununca duyurular ekranı. Salon üyeliği yoksa,
@@ -161,7 +231,9 @@ function AnnouncementCard() {
         <Text className="text-muted text-sm leading-5" numberOfLines={2}>
           {featured.body}
         </Text>
-        <Text className="text-muted text-xs">{formatAgo(featured.createdAt, Date.now())}</Text>
+        <Text className="text-muted text-xs">
+          {[featured.authorName, formatAgo(featured.createdAt, Date.now())].filter(Boolean).join(' · ')}
+        </Text>
       </Card>
     </Link>
   );
@@ -313,6 +385,7 @@ function HomeContent() {
       contentContainerClassName="px-5 pt-6 gap-3 pb-10"
     >
       <GymRow />
+      <NamePromptCard />
       <AnnouncementCard />
       <TodayClassesCard />
       <View className="mb-3">

@@ -96,6 +96,7 @@ import { ConsentCard } from '@/components/ConsentCard';
 import { useGymFeatures } from '@/hooks/useGymFeatures';
 import { useSession } from '@/hooks/useSession';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useProfile } from '@/hooks/useProfile';
 import { leaveGym, signOut, type GymMembership } from '@/lib/account';
 import { INITIAL_TAP_COUNTER, registerVersionTap, roleLabel } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
@@ -311,6 +312,7 @@ function AccountSection() {
   const router = useRouter();
   const { available, ready, email } = useSession();
   const { userId, memberships, loading, error, refresh } = useGymMembership();
+  const profile = useProfile();
   const [signingOut, setSigningOut] = useState(false);
 
   if (!available) return null;
@@ -359,6 +361,21 @@ function AccountSection() {
         }
       >
         <Text className="text-muted text-base">E-posta</Text>
+      </ListRow>
+      <ListRow
+        divider
+        chevron
+        onPress={() => router.push('/account/name')}
+        right={
+          <Text
+            className={`text-base ${profile.displayName ? 'text-white' : 'text-accent'}`}
+            numberOfLines={1}
+          >
+            {profile.displayName ?? (profile.loaded ? 'Ekle' : '…')}
+          </Text>
+        }
+      >
+        <Text className="text-muted text-base">Adın</Text>
       </ListRow>
 
       {memberships.map((membership) => (

@@ -3,6 +3,8 @@
  * → "Katıl" (join_gym) → Ayarlar'a dönüş, salon kartı orada.
  *
  * Kod normalleştirme `normalizeJoinCode` (" eu-7k2 " → "EU7K2").
+ * Adı boşsa "Katıl"dan önce ad sorulur ve kaydedilir; ad girilmeden
+ * katılım tamamlanmaz (hocalar katılanı tanısın).
  * Kaba kuvvet sınırı sunucuda (saatte 10 hatalı deneme).
  */
 
@@ -21,6 +23,8 @@ import { JOIN_CODE_MAX, isValidJoinCode, normalizeJoinCode, roleLabel } from '@/
 import { joinGym, previewGym } from '@/lib/account';
 import { getSupabase } from '@/lib/supabase';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useProfile } from '@/hooks/useProfile';
+import { DISPLAY_NAME_MAX, displayNameError } from '@/lib/profile';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { COLORS } from '@/theme';
 
@@ -31,10 +35,16 @@ export default function JoinGymScreen() {
   const [preview, setPreview] = useState<{ code: string; gymName: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const profile = useProfile();
+  const [name, setName] = useState('');
+  // Ad yoksa katılmadan önce sorulur
+  const needsName = profile.loaded && profile.displayName == null;
+  const nameError = needsName ? displayNameError(name, { required: true }) : null;
 
   const normalized = normalizeJoinCode(code);
 
   const findGym = async () => {
+    if (!profile.loaded) void profile.refresh();
     setBusy(true);
     setError(null);
     const result = await previewGym(getSupabase(), normalized);
@@ -44,9 +54,17 @@ export default function JoinGymScreen() {
   };
 
   const join = async () => {
-    if (!preview) return;
+    if (!preview || !profile.loaded || nameError != null) return;
     setBusy(true);
     setError(null);
+    if (needsName) {
+      const failure = await profile.save(name);
+      if (failure) {
+        setBusy(false);
+        setError(failure.message);
+        return;
+      }
+    }
     const result = await joinGym(getSupabase(), preview.code);
     if (!result.ok) {
       setBusy(false);
@@ -120,9 +138,39 @@ export default function JoinGymScreen() {
                   {roleLabel('member')} olarak katılacaksın.
                 </Text>
               </View>
+              {needsName && (
+                <View>
+                  <Text className="text-white text-sm leading-5 mb-2">
+                    Hocaların seni tanısın diye adını yaz.
+                  </Text>
+                  <TextInput
+                    value={name}
+                    onChangeText={(t) => {
+                      setName(t);
+                      setError(null);
+                    }}
+                    editable={!busy}
+                    placeholder="Adın"
+                    placeholderTextColor={COLORS.muted}
+                    autoCapitalize="words"
+                    autoComplete="name"
+                    textContentType="name"
+                    maxLength={DISPLAY_NAME_MAX + 10}
+                    className="bg-bg-elevated text-white text-base px-4 h-12 rounded-xl"
+                  />
+                  <Text className="text-muted text-xs mt-1.5 leading-5">
+                    {name.trim().length > 0 && nameError
+                      ? nameError
+                      : 'Yalnızca salonun hocaları ve yöneticisi görür.'}
+                  </Text>
+                </View>
+              )}
+              {profile.error != null && !profile.loaded && (
+                <Text className="text-danger text-sm leading-5">{profile.error.message}</Text>
+              )}
               <PrimaryButton
                 label="Katıl"
-                disabled={busy}
+                disabled={busy || !profile.loaded || nameError != null}
                 loading={busy}
                 onPress={() => void join()}
               />

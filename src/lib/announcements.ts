@@ -26,6 +26,8 @@ export interface Announcement {
   id: string;
   gymId: string;
   authorId: string | null;
+  /** Yazarın adı (0007 announcement_author_names); yoksa null */
+  authorName: string | null;
   title: string;
   body: string;
   pinned: boolean;
@@ -56,6 +58,7 @@ export function parseAnnouncementRows(data: unknown): Announcement[] {
       id: r.id,
       gymId: r.gym_id,
       authorId: typeof r.author_id === 'string' ? r.author_id : null,
+      authorName: typeof r.author_name === 'string' && r.author_name.trim() ? r.author_name : null,
       title: r.title,
       body: r.body,
       pinned: r.pinned === true,
@@ -176,6 +179,7 @@ export async function readCache(store: KeyValueStore, userId: string): Promise<A
         id: a?.id,
         gym_id: a?.gymId,
         author_id: a?.authorId,
+        author_name: a?.authorName,
         title: a?.title,
         body: a?.body,
         pinned: a?.pinned,
@@ -280,7 +284,21 @@ export function fetchAnnouncements(client: SupabaseClient | null) {
       .order('created_at', { ascending: false })
       .limit(200);
     if (error) return { ok: false, error: toAccountError(error) } as AccountResult<Announcement[]>;
-    return ok(sortAnnouncements(parseAnnouncementRows(data)));
+    // Yazar adları ayrı (üye profilleri göremez; RPC yalnızca yazarları verir).
+    // Alınamazsa duyurular adsız gösterilir.
+    const names = await c.rpc('announcement_author_names');
+    if (names.error) console.warn('[ANNOUNCEMENTS] Yazar adları alınamadı:', names.error.message);
+    const byId = new Map<string, string>();
+    for (const r of (names.data ?? []) as { announcement_id?: unknown; author_name?: unknown }[]) {
+      if (typeof r.announcement_id === 'string' && typeof r.author_name === 'string') {
+        byId.set(r.announcement_id, r.author_name);
+      }
+    }
+    const rows = (Array.isArray(data) ? data : []).map((row) => ({
+      ...(row as Record<string, unknown>),
+      author_name: byId.get((row as { id?: string }).id ?? '') ?? null,
+    }));
+    return ok(sortAnnouncements(parseAnnouncementRows(rows)));
   });
 }
 

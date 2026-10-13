@@ -220,6 +220,10 @@ export default function RootLayout() {
                 options={{ title: 'Salona katıl' }}
               />
               <Stack.Screen
+                name="account/name"
+                options={{ title: 'Adın' }}
+              />
+              <Stack.Screen
                 name="account/delete"
                 options={{ title: 'Hesabı sil' }}
               />

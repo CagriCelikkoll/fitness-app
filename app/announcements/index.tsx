@@ -140,7 +140,9 @@ function AnnouncementItem({
       </Text>
       <View className="flex-row items-center justify-between">
         <Text className="text-muted text-xs">
-          {[gymName, formatAgo(item.createdAt, nowMs), edited ? 'düzenlendi' : null].filter(Boolean).join(' · ')}
+          {[item.authorName, gymName, formatAgo(item.createdAt, nowMs), edited ? 'düzenlendi' : null]
+            .filter(Boolean)
+            .join(' · ')}
         </Text>
         {onEdit && (
           <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button" className="active:opacity-60">
