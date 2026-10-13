@@ -4,13 +4,15 @@ import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Building2, Play, Scale, Target } from 'lucide-react-native';
+import { Building2, Megaphone, Pin, Play, Scale, Target } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { useSessionRecovery } from '@/hooks/useSessionRecovery';
 import { runConsentLaunchCheck, useHealthConsent } from '@/hooks/useHealthConsent';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useAnnouncements } from '@/hooks/useAnnouncements';
+import { featuredAnnouncement, unreadCount } from '@/lib/announcements';
 import { roleLabel } from '@/lib/auth';
 import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -19,7 +21,7 @@ import {
   markOnboardingDone,
   shouldShowOnboarding,
 } from '@/lib/onboarding';
-import { formatDaysAgo, formatDecimal } from '@/lib/format';
+import { formatAgo, formatDaysAgo, formatDecimal } from '@/lib/format';
 import {
   goalStreak,
   workoutDayKeys,
@@ -122,6 +124,40 @@ function GymRow() {
   );
 }
 
+/**
+ * Salon duyurusu (v3.2b): sabitlenmiş varsa o, yoksa en yenisi. Okunmamış
+ * duyuru varsa nokta. Dokununca duyurular ekranı. Salon üyeliği yoksa,
+ * duyuru yoksa ya da bayrak kapalıysa hiç görünmez.
+ */
+function AnnouncementCard() {
+  const { primary } = useGymMembership();
+  const { items, lastSeenAt } = useAnnouncements();
+  const featured = featuredAnnouncement(items);
+  if (!primary || !featured) return null;
+  const unread = unreadCount(items, lastSeenAt) > 0;
+  return (
+    <Link href="/announcements" asChild>
+      <Card className="gap-1.5">
+        <View className="flex-row items-center gap-2">
+          {featured.pinned ? (
+            <Pin color={COLORS.accent} size={14} />
+          ) : (
+            <Megaphone color={COLORS.accent} size={14} />
+          )}
+          <Text className="text-white text-base font-semibold flex-1" numberOfLines={1}>
+            {featured.title}
+          </Text>
+          {unread && <View className="w-2 h-2 rounded-full bg-accent" accessibilityLabel="Okunmamış duyuru var" />}
+        </View>
+        <Text className="text-muted text-sm leading-5" numberOfLines={2}>
+          {featured.body}
+        </Text>
+        <Text className="text-muted text-xs">{formatAgo(featured.createdAt, Date.now())}</Text>
+      </Card>
+    </Link>
+  );
+}
+
 function HomeContent() {
   const db = useDb();
   const router = useRouter();
@@ -184,6 +220,7 @@ function HomeContent() {
       contentContainerClassName="px-5 pt-6 gap-3 pb-10"
     >
       <GymRow />
+      <AnnouncementCard />
       <View className="mb-3">
         <Text className="text-white text-4xl font-bold tracking-tight">
           Hoş geldin 💪

@@ -5,6 +5,9 @@
  */
 
 import { normalizeEmail } from '@/lib/auth';
+import { formatAgo } from '@/lib/format';
+
+export { formatAgo };
 
 import { describeRoots, type SyncIssue, type SyncStatus } from './engine';
 
@@ -12,16 +15,6 @@ import { describeRoots, type SyncIssue, type SyncStatus } from './engine';
 // Kart durumu
 // ============================================================================
 
-/** "az önce", "2 dk önce", "3 saat önce", "5 gün önce" */
-export function formatAgo(iso: string, nowMs: number): string {
-  const diff = Math.max(0, nowMs - Date.parse(iso));
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return 'az önce';
-  if (minutes < 60) return `${minutes} dk önce`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} saat önce`;
-  return `${Math.floor(hours / 24)} gün önce`;
-}
 
 export type SyncTone = 'ok' | 'muted' | 'danger';
 

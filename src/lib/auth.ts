@@ -112,6 +112,9 @@ export type AccountErrorKind =
   | 'not_signed_in'
   | 'last_admin'
   | 'sole_admin'
+  | 'forbidden'
+  | 'pin_admin_only'
+  | 'invalid_input'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -135,6 +138,9 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
     'Salonun tek yöneticisi sensin. Ayrılmadan önce başka birini yönetici yapmalısın.',
   sole_admin:
     'Salonunun tek yöneticisi sensin. Hesabını silmeden önce başka birini yönetici yap; salon yöneticisiz kalmasın.',
+  forbidden: 'Bu işlem için yetkin yok.',
+  pin_admin_only: 'Duyuruyu yalnızca salon yöneticisi sabitleyebilir.',
+  invalid_input: 'Girilen bilgi kabul edilmedi. Uzunluğu kontrol edip tekrar dene.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -200,6 +206,10 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('invalid_code')) return 'invalid_code';
   if (message.includes('not_authenticated')) return 'not_signed_in';
   if (message.includes('sole_admin')) return 'sole_admin';
+  if (message.includes('only_admin_can_pin')) return 'pin_admin_only';
+  // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular, v3.2b)
+  if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
+  if (code === '23514') return 'invalid_input';
 
   // Sunucuya hiç ulaşılamadı
   if (isPostgrestFetchFailure(err as object)) return 'network';

@@ -15,6 +15,7 @@ import { DATABASE_NAME } from '@/db/client';
 import { seedIfEmpty } from '@/db/seed';
 import { useDb } from '@/hooks/useDb';
 import { useSyncTriggers } from '@/hooks/useSyncTriggers';
+import { useAnnouncementTriggers } from '@/hooks/useAnnouncements';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -119,11 +120,13 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Eşitleme tetikleyicileri (v3.1b). Bayrak kapalıyken ya da giriş
- * yapılmamışken hiçbir şey yapmaz. Veritabanı hazır olduktan sonra.
+ * Eşitleme (v3.1b) ve duyuru (v3.2b) tetikleyicileri. Bayrak kapalıyken
+ * ya da giriş yapılmamışken hiçbir şey yapmaz. Veritabanı hazır olduktan
+ * sonra.
  */
 function SyncTriggers() {
   useSyncTriggers();
+  useAnnouncementTriggers();
   return null;
 }
 
@@ -214,6 +217,14 @@ export default function RootLayout() {
               <Stack.Screen
                 name="account/delete"
                 options={{ title: 'Hesabı sil' }}
+              />
+              <Stack.Screen
+                name="announcements/index"
+                options={{ title: 'Duyurular' }}
+              />
+              <Stack.Screen
+                name="announcements/edit"
+                options={{ title: 'Duyuru' }}
               />
             </Stack>
           </DatabaseInitializer>
