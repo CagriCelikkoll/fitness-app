@@ -12,7 +12,9 @@
     "db:studio": "drizzle-kit studio",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:db:reset": "node scripts/test-db-reset.mjs",
+    "test:integration": "vitest run --config vitest.integration.config.mts --reporter=verbose"
   },
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.4.7",
@@ -57,10 +59,12 @@
     "@babel/core": "^7.25.0",
     "@electric-sql/pglite": "^0.5.8",
     "@types/better-sqlite3": "^9.6.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "~19.2.4",
     "babel-plugin-inline-import": "^3.0.0",
     "better-sqlite3": "^12.11.1",
     "drizzle-kit": "^0.31.4",
+    "pg": "^8.23.1",
     "prettier-plugin-tailwindcss": "^0.6.11",
     "typescript": "~5.9.2",
     "vite": "^8.3.0",
