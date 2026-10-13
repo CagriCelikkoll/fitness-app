@@ -9,17 +9,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { and, asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Db } from '@/db/client';
 import {
   bodyMetrics,
   exercises,
   routineExercises,
   routines,
   sessionExercises,
-  sets,
   syncOutbox,
   syncState,
   workoutSessions,
@@ -28,139 +26,34 @@ import { buildBackup, restoreBackup, validateBackup, wipeUserData, type BackupFi
 import { finishSessionRecord } from '@/lib/finishSession';
 import { newId } from '@/lib/id';
 import { saveSessionNote } from '@/lib/notes';
-import { createSessionFromRoutine } from '@/lib/startSession';
 import {
   DELETE_CONFIRM_LIMIT,
   OWNER_MISMATCH_MESSAGE,
   UNKNOWN_EXERCISE_NAME,
   getSyncStatus,
   pullChanges,
-  runSync,
 } from '@/lib/sync/engine';
 import { FOREGROUND_MIN_INTERVAL_MS, createTriggerClock, shouldRun, syncIfEnabled } from '@/lib/sync/runner';
 import { readSyncState } from '@/lib/syncState';
 
 import { FakeSyncServer } from './helpers/fakeSyncServer';
 import { buildSyntheticYearBackup } from './helpers/syntheticBackup';
-import { createTestDb, type TestDb } from './helpers/testDb';
+import {
+  A,
+  B,
+  closePhones,
+  expectOk,
+  newRoutine,
+  outboxCount,
+  phone,
+  shiftOutboxClock,
+  sync,
+  synced,
+  withoutSessions,
+  workout,
+} from './helpers/syncPhones';
 
-const A = 'user-a';
-const B = 'user-b';
-const EX = ['Barbell_Squat', 'Barbell_Bench_Press_-_Medium_Grip'];
-
-const opened: TestDb[] = [];
-afterEach(() => {
-  while (opened.length > 0) opened.pop()!.close();
-});
-
-async function phone(): Promise<TestDb> {
-  const t = createTestDb();
-  opened.push(t);
-  await t.db
-    .insert(exercises)
-    .values(EX.map((id) => ({ id, name: id, primaryMuscles: '[]', category: 'strength' })));
-  return t;
-}
-
-const sync = (t: TestDb, server: FakeSyncServer, userId = A, confirmDeletes = false) =>
-  runSync({ db: t.db, transport: server.transport(userId), userId, confirmDeletes });
-
-async function expectOk(p: ReturnType<typeof sync>) {
-  const r = await p;
-  expect(r).toMatchObject({ status: 'ok' });
-  return r;
-}
-
-async function newRoutine(db: Db, name = 'İtme', exerciseCount = 2): Promise<string> {
-  const id = newId();
-  await db.insert(routines).values({ id, name });
-  await db.insert(routineExercises).values(
-    Array.from({ length: exerciseCount }, (_, i) => ({
-      id: newId(),
-      routineId: id,
-      exerciseId: EX[i % EX.length],
-      orderIndex: i,
-      targetSets: 2,
-    }))
-  );
-  return id;
-}
-
-/** Başlat, ilk seti tamamla, bitir (boş setler silinir) */
-async function workout(db: Db, routineId: string, finish = true): Promise<string> {
-  const sessionId = (await createSessionFromRoutine(db, { id: routineId, name: 'Antrenman' }))!;
-  const ses = await db
-    .select()
-    .from(sessionExercises)
-    .where(eq(sessionExercises.sessionId, sessionId))
-    .orderBy(asc(sessionExercises.orderIndex));
-  const first = await db
-    .select()
-    .from(sets)
-    .where(eq(sets.sessionExerciseId, ses[0].id))
-    .orderBy(asc(sets.setNumber));
-  await db
-    .update(sets)
-    .set({ weightKg: 60, reps: 8, isCompleted: true, completedAt: new Date().toISOString() })
-    .where(eq(sets.id, first[0].id));
-  if (finish) {
-    await finishSessionRecord(db, {
-      sessionId,
-      sessionExerciseIds: ses.map((s) => s.id),
-      pendingFilledIds: [],
-      mode: 'delete',
-    });
-  }
-  return sessionId;
-}
-
-/** Bitmemiş antrenmanların ağacı çıkarılmış hali (onlar gönderilmiyor) */
-type Row = Record<string, unknown>;
-
-function withoutSessions(data: Awaited<ReturnType<typeof synced>>, sessionIds: Set<string>) {
-  const rows = (list: unknown[]) => list as Row[];
-  const inOpen = (r: Row, key: string) => sessionIds.has(r[key] as string);
-  const seIds = new Set(
-    rows(data.sessionExercises)
-      .filter((s) => inOpen(s, 'sessionId'))
-      .map((s) => s.id as string)
-  );
-  return {
-    ...data,
-    workoutSessions: rows(data.workoutSessions).filter((s) => !inOpen(s, 'id')),
-    sessionExercises: rows(data.sessionExercises).filter((s) => !inOpen(s, 'sessionId')),
-    sets: rows(data.sets).filter((s) => !seIds.has(s.sessionExerciseId as string)),
-    cardioSegments: rows(data.cardioSegments).filter((s) => !inOpen(s, 'sessionId')),
-  };
-}
-
-/** Eşitlenen tabloların içeriği, karşılaştırma için */
-async function synced(db: Db) {
-  const { tables } = await buildBackup(db);
-  const sortById = (rows: unknown[]) =>
-    [...(rows as { id: string }[])].sort((a, b) => a.id.localeCompare(b.id));
-  return {
-    routines: sortById(tables.routines),
-    routineExercises: sortById(tables.routineExercises),
-    workoutSessions: sortById(tables.workoutSessions),
-    sessionExercises: sortById(tables.sessionExercises),
-    sets: sortById(tables.sets),
-    cardioSegments: sortById(tables.cardioSegments),
-  };
-}
-
-const outboxCount = async (db: Db) => (await db.select().from(syncOutbox)).length;
-
-/** Telefon saatini kaydır: giden kutusundaki kayıtların zamanı */
-async function shiftOutboxClock(db: Db, ms: number) {
-  const rows = await db.select().from(syncOutbox);
-  for (const r of rows) {
-    await db
-      .update(syncOutbox)
-      .set({ changedAt: new Date(Date.parse(r.changedAt) + ms).toISOString() })
-      .where(and(eq(syncOutbox.tableName, r.tableName), eq(syncOutbox.rowId, r.rowId)));
-  }
-}
+afterEach(closePhones);
 
 // ============================================================================
 
@@ -598,18 +491,6 @@ describe('durum', () => {
     await expectOk(sync(a, server));
     expect((await getSyncStatus(a.db)).pending).toBe(0);
     expect(await a.db.select().from(syncState)).toHaveLength(1);
-  });
-});
-
-describe('durum metni', () => {
-  it('Ayarlar satırı', async () => {
-    const { syncStatusText } = await import('@/lib/sync/runner');
-    expect(syncStatusText(null)).toBe('Henüz eşitlenmedi.');
-    const base = { tracking: true, ownerUserId: A, initialUploadDone: true, issue: null };
-    expect(syncStatusText({ ...base, lastSyncAt: null, pending: 0 })).toBe('Henüz eşitlenmedi');
-    expect(syncStatusText({ ...base, lastSyncAt: '2026-10-11T11:32:00.000Z', pending: 3 })).toMatch(
-      /^Son eşitleme: .+ · Bekleyen: 3$/
-    );
   });
 });
 

@@ -75,12 +75,6 @@ export function syncTable(name: string): SyncTableInfo | undefined {
   return SYNC_TABLES.find((t) => t.name === name);
 }
 
-/**
- * Silme koruması bu tablolarda sayıyor: bir antrenmanı silmek cascade
- * ile onlarca set silme kaydı üretir, bunlar tek silme sayılır.
- */
-export const ROOT_TABLES: readonly SyncTableName[] = ['routines', 'workout_sessions'];
-
 /** Drizzle satırı → sunucu satırı (snake_case; id dahil) */
 export function toServerRow(t: SyncTableInfo, local: Record<string, unknown>): ServerRow {
   const row: ServerRow = {};

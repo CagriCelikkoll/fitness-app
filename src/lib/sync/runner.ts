@@ -8,9 +8,8 @@
  */
 
 import type { Db } from '@/db/client';
-import { formatDateTime } from '@/lib/format';
 
-import { runSync, type SyncOutcome, type SyncStatus } from './engine';
+import { runSync, type SyncOutcome } from './engine';
 import type { SyncTransport } from './types';
 
 export type SyncTrigger = 'login' | 'foreground' | 'workout_finished' | 'manual';
@@ -64,9 +63,3 @@ export function createTriggerClock() {
   };
 }
 
-/** Ayarlar'daki geçici durum satırı: "Son eşitleme: … · Bekleyen: 3" */
-export function syncStatusText(status: SyncStatus | null): string {
-  if (!status || !status.tracking) return 'Henüz eşitlenmedi.';
-  const last = status.lastSyncAt ? `Son eşitleme: ${formatDateTime(status.lastSyncAt)}` : 'Henüz eşitlenmedi';
-  return status.pending > 0 ? `${last} · Bekleyen: ${status.pending}` : last;
-}

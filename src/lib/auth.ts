@@ -111,6 +111,7 @@ export type AccountErrorKind =
   | 'too_many_attempts'
   | 'not_signed_in'
   | 'last_admin'
+  | 'sole_admin'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -118,7 +119,7 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   network: 'İnternet bağlantısı yok gibi görünüyor. Bağlantını kontrol edip tekrar dene.',
   server: 'Sunucuda bir sorun oluştu. Biraz sonra tekrar dene.',
   email_send_failed: 'E-posta gönderilemedi. Biraz sonra tekrar dene.',
-  rate_limited: 'Çok fazla istek gönderildi. Biraz bekleyip tekrar dene.',
+  rate_limited: 'Çok fazla deneme yapıldı. Biraz sonra tekrar dene.',
   invalid_credentials: 'E-posta ya da şifre yanlış.',
   email_not_confirmed: 'E-posta adresin henüz doğrulanmamış.',
   email_taken: 'Bu e-posta zaten kayıtlı. Giriş yap ya da şifreni sıfırla.',
@@ -132,6 +133,8 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   not_signed_in: 'Oturumun kapanmış. Tekrar giriş yap.',
   last_admin:
     'Salonun tek yöneticisi sensin. Ayrılmadan önce başka birini yönetici yapmalısın.',
+  sole_admin:
+    'Salonunun tek yöneticisi sensin. Hesabını silmeden önce başka birini yönetici yap; salon yöneticisiz kalmasın.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -144,10 +147,34 @@ export function accountError(kind: AccountErrorKind): AccountError {
   return { kind, message: ACCOUNT_ERROR_MESSAGES[kind] };
 }
 
-/** Supabase Auth'un e-posta (SMTP) hatası mesajları: "Error sending confirmation email" vb. */
-const EMAIL_SEND_MESSAGE = /error sending|sending .*e-?mail|smtp/i;
-/** fetch'in kendisi başarısız oldu: sunucuya hiç ulaşılamadı */
-const NETWORK_MESSAGE = /network request failed|failed to fetch|load failed|network ?error/i;
+/**
+ * Supabase Auth'un e-posta (SMTP) hatası mesajları: "Error sending
+ * confirmation email", "Error sending recovery email", özel SMTP'de
+ * "gomail: could not send email…", "535 Authentication failed" vb.
+ */
+const EMAIL_SEND_MESSAGE =
+  /error sending|sending .*e-?mail|smtp|gomail|mailer|could not send|e-?mail.*(send|deliver)|(421|450|451|452|535|550|551|552|553|554)/i;
+/**
+ * fetch'in kendisi başarısız oldu: sunucuya hiç ulaşılamadı. Android'de
+ * uçak modunda bağlantı zaman aşımına düşebiliyor ("Network request timed
+ * out"); DNS / bağlantı hataları da aynı sınıf.
+ */
+const NETWORK_MESSAGE =
+  /network request (failed|timed out)|failed to fetch|load failed|network ?error|timed? ?out|unable to resolve host|failed to connect|connection (refused|reset|abort|closed|lost)|internet connection|not connected|offline|ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up/i;
+/**
+ * PostgREST (RPC) fetch başarısızlığını yanıt yerine nesneye çeviriyor:
+ * { message: "TypeError: …", details: <yığın>, hint, code: '' }. Sunucudan
+ * gelen hatalarda code dolu (PGRST…, P0001). Mesaj ne olursa olsun bu
+ * biçim "sunucuya ulaşılamadı" demek.
+ */
+function isPostgrestFetchFailure(e: { message?: unknown; code?: unknown; details?: unknown }): boolean {
+  return (
+    e.code === '' &&
+    typeof e.details === 'string' &&
+    typeof e.message === 'string' &&
+    /^(TypeError|FetchError|AbortError|TimeoutError|Error)/.test(e.message)
+  );
+}
 
 /**
  * Supabase / fetch hatasını sınıflandırır.
@@ -172,8 +199,10 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('too_many_attempts')) return 'too_many_attempts';
   if (message.includes('invalid_code')) return 'invalid_code';
   if (message.includes('not_authenticated')) return 'not_signed_in';
+  if (message.includes('sole_admin')) return 'sole_admin';
 
   // Sunucuya hiç ulaşılamadı
+  if (isPostgrestFetchFailure(err as object)) return 'network';
   if (name === 'AuthRetryableFetchError' && (status === 0 || status == null)) return 'network';
   if ((status == null || status === 0) && NETWORK_MESSAGE.test(message)) return 'network';
 

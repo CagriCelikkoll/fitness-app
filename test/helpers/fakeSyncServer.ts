@@ -20,15 +20,28 @@ import type {
 interface StoredRow {
   row: ServerRow;
   clientAt: number;
-  /** Sunucu saati, ms; sıra için `seq` ile */
-  serverAt: number;
-  seq: number;
+  /** Sunucu saati, mikro saniye (Postgres gibi); kesin artan */
+  serverMicros: number;
   deleted: boolean;
 }
 
 export type FailMode = 'before' | 'after';
 
 const FUTURE_LIMIT_MS = 5 * 60_000;
+
+/** PostgREST'in timestamptz biçimi: `2026-10-12T10:00:00.123456+00:00` */
+function encodeMicros(micros: number): string {
+  const ms = Math.floor(micros / 1000);
+  const iso = new Date(ms).toISOString(); // …ss.mmmZ
+  return `${iso.slice(0, -1)}${String(micros % 1000).padStart(3, '0')}+00:00`;
+}
+
+function decodeMicros(s: string): number {
+  const ms = Date.parse(s);
+  const frac = /\.(\d+)/.exec(s)?.[1] ?? '';
+  const extra = frac.length > 3 ? Number(frac.slice(3, 6).padEnd(3, '0')) : 0;
+  return ms * 1000 + extra;
+}
 
 export class FakeSyncServer {
   /**
@@ -37,7 +50,7 @@ export class FakeSyncServer {
    * sunucu saati, 5 dk sınırıyla bütün düzenlemeleri aynı ana kırpardı.
    */
   nowMs = Date.now();
-  private seq = 0;
+  private lastMicros = 0;
   private readonly data = new Map<string, Map<SyncTableName, Map<string, StoredRow>>>();
   /** Yapılan istekler: kullanıcı → işlem adı */
   readonly calls: { userId: string; op: 'serverTime' | 'push' | 'pull' }[] = [];
@@ -81,9 +94,14 @@ export class FakeSyncServer {
     return this.table(userId, t).get(id);
   }
 
-  private tick(): { serverAt: number; seq: number } {
-    this.seq += 1;
-    return { serverAt: this.nowMs, seq: this.seq };
+  /** clock_timestamp(): kesin artan mikro saniye */
+  private tick(): number {
+    this.lastMicros = Math.max(this.nowMs * 1000, this.lastMicros + 1);
+    return this.lastMicros;
+  }
+
+  serverTimeText(): string {
+    return encodeMicros(this.tick());
   }
 
   push(userId: string, changes: SyncChange[]): number {
@@ -104,52 +122,36 @@ export class FakeSyncServer {
       if (c.row && typeof c.row === 'object') {
         if (existing && at < existing.clientAt) continue;
         const { user_id: _ignored, ...row } = c.row;
-        rows.set(c.id, { row: { ...row, id: c.id }, clientAt: at, deleted: false, ...this.tick() });
+        rows.set(c.id, { row: { ...row, id: c.id }, clientAt: at, deleted: false, serverMicros: this.tick() });
         written += 1;
       } else {
         if (!existing || existing.deleted || at < existing.clientAt) continue;
-        rows.set(c.id, { ...existing, clientAt: at, deleted: true, ...this.tick() });
+        rows.set(c.id, { ...existing, clientAt: at, deleted: true, serverMicros: this.tick() });
         written += 1;
       }
     }
     return written;
   }
 
+  /** sync_pull: (server_updated_at, id) > (afterAt, afterId) ve <= until */
   pull(userId: string, req: PullRequest): PulledRow[] {
-    const after = req.afterAt == null ? -Infinity : Date.parse(req.afterAt.split('#')[0]);
-    const afterSeq = req.afterAt == null ? -Infinity : this.decodeSeq(req.afterAt);
-    const until = Date.parse(req.until);
+    const after = req.afterAt == null ? -Infinity : decodeMicros(req.afterAt);
+    const until = decodeMicros(req.until);
     return [...this.table(userId, req.table).entries()]
       .map(([id, r]) => ({ id, r }))
       .filter(({ id, r }) => {
-        if (r.serverAt > until) return false;
-        if (r.serverAt !== after) return r.serverAt > after;
-        // Aynı milisaniye: sunucuda mikro saniye var; burada sıra numarası
-        if (Number.isFinite(afterSeq)) return r.seq > afterSeq;
+        if (r.serverMicros > until) return false;
+        if (r.serverMicros !== after) return r.serverMicros > after;
         return id > req.afterId;
       })
-      .sort((a, b) => a.r.serverAt - b.r.serverAt || a.r.seq - b.r.seq)
+      .sort((a, b) => a.r.serverMicros - b.r.serverMicros || (a.id < b.id ? -1 : 1))
       .slice(0, Math.min(Math.max(req.limit, 1), 1000))
       .map(({ id, r }) => ({
         id,
-        serverUpdatedAt: this.encode(r.serverAt, r.seq),
+        serverUpdatedAt: encodeMicros(r.serverMicros),
         deleted: r.deleted,
         row: JSON.parse(JSON.stringify(r.row)) as ServerRow,
       }));
-  }
-
-  /**
-   * Gerçek sunucunun mikro saniyeli zaman damgasını taklit: ISO metne
-   * sıra numarası ekleniyor (`…Z#12`). Motor bunu yalnızca geri veriyor
-   * ya da Date.parse ile örtüşme hesaplıyor; ikisi de çalışıyor.
-   */
-  private encode(ms: number, seq: number): string {
-    return `${new Date(ms).toISOString()}#${seq}`;
-  }
-
-  private decodeSeq(s: string): number {
-    const i = s.indexOf('#');
-    return i < 0 ? -Infinity : Number(s.slice(i + 1));
   }
 
   transport(userId: string): SyncTransport & { readonly userId: string } {
@@ -157,7 +159,7 @@ export class FakeSyncServer {
       userId,
       serverTime: async () => {
         this.calls.push({ userId, op: 'serverTime' });
-        return new Date(this.nowMs).toISOString();
+        return this.serverTimeText();
       },
       push: async (changes) => {
         this.calls.push({ userId, op: 'push' });

@@ -1,8 +1,8 @@
 /**
- * Eşitleme motoru (v3.1b). React bilmez, ağ katmanı dışarıdan verilir
- * (`SyncTransport`); testte sahte sunucuyla, uygulamada
+ * Eşitleme motoru (v3.1b, v3.1c). React bilmez, ağ katmanı dışarıdan
+ * verilir (`SyncTransport`); testte sahte sunucuyla, uygulamada
  * `supabaseTransport.ts` ile çalışır. Tasarım: docs/sync-tasarim.md
- * (madde 6, 7 ve Ek A).
+ * (madde 6, 7, Ek A, Ek B, Ek C).
  *
  * Bir eşitleme:
  * 1. Sahip kontrolü: telefondaki veri başka hesabınsa hiçbir istek yok.
@@ -10,10 +10,13 @@
  * 3. Silme koruması (gönderme): 50'den fazla antrenman/rutin silinecekse
  *    dur, onay bekle.
  * 4. İlk gönderim: tablolar taranarak (giden kutusundan değil).
- * 5. Giden kutusu: 500'lük partiler; yarım antrenmanın kayıtları bekler.
- * 6. Çekme: imleçten sonrası, sunucu saatiyle. Silme koruması (çekme).
- *    Susturma açıkken tek transaction'da yazılır; gönderilmemiş yerel
- *    değişikliği olan satıra dokunulmaz.
+ * 5. Giden kutusu: 500'lük partiler, ebeveyn tablolar önce; yarım
+ *    antrenmanın kayıtları bekler.
+ * 6. Çekme: imleçten sonrası, sunucu saatiyle; bütün sayfalar toplanıp
+ *    ebeveynden çocuğa uygulanır. Silme koruması (çekme). Susturma
+ *    açıkken tek transaction'da yazılır; gönderilmemiş yerel değişikliği
+ *    olan satıra dokunulmaz. Ebeveyni henüz gelmemiş satır bekletilir:
+ *    imleç onun önüne geçmez, sonraki çekmede yeniden iner.
  *
  * Her adım tekrarlanabilir: sunucu upsert'i idempotent, giden kutusu
  * kaydı yalnızca başarılı gönderimden sonra siliniyor, imleç yalnızca
@@ -24,8 +27,11 @@ import { and, asc, count, eq, gt, inArray, isNotNull, isNull, notExists, or, sql
 
 import type { Db } from '@/db/client';
 import {
+  cardioSegments,
   exercises,
+  routineExercises,
   sessionExercises,
+  sets,
   syncOutbox,
   syncState,
   workoutSessions,
@@ -35,7 +41,6 @@ import { ACCOUNT_ERROR_MESSAGES, classifyAccountError, type AccountErrorKind } f
 import { readSyncState, startTracking, withSyncSuppressed } from '@/lib/syncState';
 
 import {
-  ROOT_TABLES,
   SYNC_TABLES,
   fromServerRow,
   syncTable,
@@ -50,6 +55,11 @@ export const PULL_PAGE_SIZE = 1000;
 export const DELETE_CONFIRM_LIMIT = 50;
 /** Aynı anda commit olan sunucu işlemleri için imlecin geri örtüşmesi */
 export const PULL_OVERLAP_MS = 2 * 60_000;
+/**
+ * Ebeveyni gelmeyen satır en fazla bu kadar bekletilir (sunucu saatiyle).
+ * Sonra atlanır ve sayılır: imleç sonsuza kadar geride kalmasın.
+ */
+export const ORPHAN_WAIT_MS = 7 * 24 * 3600_000;
 /** Giden kutusu boşaltmada en fazla parti (sürekli değişen satıra karşı) */
 const MAX_PUSH_ROUNDS = 200;
 
@@ -67,28 +77,58 @@ export const UNKNOWN_EXERCISE_NAME = 'Bilinmeyen egzersiz';
 // Durum
 // ============================================================================
 
+/** Silme korumasının saydığı kök kayıtlar */
+export interface RootCounts {
+  sessions: number;
+  routines: number;
+}
+
 export type SyncIssue =
   | { kind: 'owner_mismatch'; message: string }
   | {
       kind: 'needs_confirmation';
       direction: 'push' | 'pull';
       deletes: number;
+      sessions: number;
+      routines: number;
+      /** Çekme yönünde: silinmesi istenen ve bu telefonda duran kök kayıtlar */
+      ids?: { sessions: string[]; routines: string[] };
       message: string;
     }
-  | { kind: 'error'; errorKind: AccountErrorKind; message: string };
+  /** detail: tanınmayan hatanın ham metni (cihazda teşhis için) */
+  | { kind: 'error'; errorKind: AccountErrorKind; message: string; detail?: string }
+  /** Eşitleme bitti ama bazı satırların ebeveyni gelmedi */
+  | { kind: 'waiting_rows'; waiting: number; dropped: number; message: string };
 
 export type SyncOutcome =
-  | { status: 'ok'; pushed: number; pulled: number }
+  | { status: 'ok'; pushed: number; pulled: number; waiting: number; dropped: number }
   | { status: 'blocked'; issue: SyncIssue }
   | { status: 'error'; issue: SyncIssue };
 
 export const OWNER_MISMATCH_MESSAGE =
   'Bu telefondaki antrenmanlar başka bir hesaba ait. Eşitleme durduruldu.';
 
-export function confirmationMessage(direction: 'push' | 'pull', deletes: number): string {
+/** "3 antrenman ve 1 rutin", "52 antrenman" */
+export function describeRoots(counts: RootCounts): string {
+  const parts = [
+    counts.sessions > 0 ? `${counts.sessions} antrenman` : null,
+    counts.routines > 0 ? `${counts.routines} rutin` : null,
+  ].filter((p): p is string => p != null);
+  return parts.length > 0 ? parts.join(' ve ') : '0 kayıt';
+}
+
+export function confirmationMessage(direction: 'push' | 'pull', counts: RootCounts): string {
+  const what = describeRoots(counts);
   return direction === 'push'
-    ? `Bu telefonda ${deletes} antrenman ya da rutin silinmiş görünüyor. Buluttan da silinmeden önce onayın gerekiyor.`
-    : `Buluttan ${deletes} antrenman ya da rutinin silinmesi geliyor. Bu telefona uygulanmadan önce onayın gerekiyor.`;
+    ? `Bu telefonda ${what} silinmiş. Eşitleme durdu, buluttaki kopyalar duruyor.`
+    : `Bulutta ${what} silinmiş (başka bir telefonda silinmiş olabilir). Eşitleme durdu, bu telefondakiler duruyor.`;
+}
+
+export function waitingMessage(waiting: number, dropped: number): string {
+  const parts: string[] = [];
+  if (waiting > 0) parts.push(`${waiting} kayıt, bağlı olduğu antrenman ya da rutin gelince eklenecek.`);
+  if (dropped > 0) parts.push(`${dropped} kayıt, bağlı olduğu kayıt bulunamadığı için eklenemedi.`);
+  return parts.join(' ');
 }
 
 /** `sync_state.last_error` JSON olarak SyncIssue tutuyor */
@@ -110,21 +150,35 @@ export interface SyncStatus {
   ownerUserId: string | null;
   initialUploadDone: boolean;
   lastSyncAt: string | null;
-  /** Giden kutusundaki kayıt sayısı (yarım antrenmanınkiler dahil) */
+  /** Gönderilmeyi bekleyen kayıt (yarım antrenmanınkiler hariç) */
   pending: number;
+  /** Yarım antrenman bitince gidecek kayıtlar */
+  held: number;
+  /** Ebeveyni gelmediği için bekletilen / atlanan satırlar */
+  waiting: number;
+  dropped: number;
   issue: SyncIssue | null;
 }
 
 export async function getSyncStatus(db: Db): Promise<SyncStatus> {
   const state = await readSyncState(db);
-  const [{ n }] = await db.select({ n: count() }).from(syncOutbox);
+  const [{ total }] = await db.select({ total: count() }).from(syncOutbox);
+  const [{ sendable }] = await db
+    .select({ sendable: count() })
+    .from(syncOutbox)
+    .leftJoin(workoutSessions, eq(workoutSessions.id, syncOutbox.sessionId))
+    .where(sendableCondition());
+  const issue = parseSyncIssue(state?.lastError);
   return {
     tracking: state?.tracking ?? false,
     ownerUserId: state?.ownerUserId ?? null,
     initialUploadDone: state?.initialUploadDone ?? false,
     lastSyncAt: state?.lastSyncAt ?? null,
-    pending: n,
-    issue: parseSyncIssue(state?.lastError),
+    pending: sendable,
+    held: total - sendable,
+    waiting: issue?.kind === 'waiting_rows' ? issue.waiting : 0,
+    dropped: issue?.kind === 'waiting_rows' ? issue.dropped : 0,
+    issue,
   };
 }
 
@@ -144,10 +198,12 @@ export interface SyncDeps {
   transport: SyncTransport;
   /** Giriş yapmış hesap */
   userId: string;
-  /** Silme korumasını bir kez geç (kullanıcı onayladı; arayüzü tur c) */
+  /** Silme korumasını bir kez geç (kullanıcı onayladı) */
   confirmDeletes?: boolean;
   /** Test için saat */
   now?: () => Date;
+  /** Test için çekme sayfa büyüklüğü */
+  pullPageSize?: number;
 }
 
 let running: Promise<SyncOutcome> | null = null;
@@ -189,13 +245,15 @@ async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
 
     // Gönderme yönünde silme koruması: hiçbir şey göndermeden önce
     if (!deps.confirmDeletes) {
-      const deletes = await countPendingRootDeletes(db);
+      const counts = await countPendingRootDeletes(db);
+      const deletes = counts.sessions + counts.routines;
       if (deletes > DELETE_CONFIRM_LIMIT) {
         const issue: SyncIssue = {
           kind: 'needs_confirmation',
           direction: 'push',
           deletes,
-          message: confirmationMessage('push', deletes),
+          ...counts,
+          message: confirmationMessage('push', counts),
         };
         await saveIssue(db, issue);
         return { status: 'blocked', issue };
@@ -213,12 +271,13 @@ async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
       cursor: state.pullCursor,
       confirmDeletes: deps.confirmDeletes ?? false,
       now,
+      pageSize: deps.pullPageSize,
     });
     if (pull.status === 'blocked') {
       await saveIssue(db, pull.issue);
       return pull;
     }
-    return { status: 'ok', pushed, pulled: pull.pulled };
+    return { status: 'ok', pushed, ...pull.result };
   } catch (err) {
     console.warn('[SYNC] Eşitlenemedi:', err);
     const errorKind = classifyAccountError(err);
@@ -226,6 +285,7 @@ async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
       kind: 'error',
       errorKind,
       message: ACCOUNT_ERROR_MESSAGES[errorKind],
+      ...(errorKind === 'unknown' ? { detail: errorText(err) } : {}),
     };
     try {
       await saveIssue(db, issue);
@@ -236,14 +296,21 @@ async function syncOnce(deps: SyncDeps): Promise<SyncOutcome> {
   }
 }
 
+/** Hatanın kısa metni: "mesaj (kod)" */
+export function errorText(err: unknown): string {
+  const e = (err ?? {}) as { message?: unknown; code?: unknown; name?: unknown };
+  const message = typeof e.message === 'string' ? e.message : String(err);
+  const code = typeof e.code === 'string' && e.code !== '' ? ` (${e.code})` : '';
+  return `${message}${code}`.slice(0, 200);
+}
+
 // ============================================================================
 // Gönderme
 // ============================================================================
 
 /** Giden kutusunda, satırı yerelde artık olmayan antrenman/rutin kayıtları */
-export async function countPendingRootDeletes(db: Db): Promise<number> {
-  let total = 0;
-  for (const name of ROOT_TABLES) {
+export async function countPendingRootDeletes(db: Db): Promise<RootCounts> {
+  const countFor = async (name: SyncTableName) => {
     const t = syncTable(name)!;
     const [{ n }] = await db
       .select({ n: count() })
@@ -254,10 +321,24 @@ export async function countPendingRootDeletes(db: Db): Promise<number> {
           notExists(db.select({ one: sql`1` }).from(t.table).where(eq(t.idColumn, syncOutbox.rowId)))
         )
       );
-    total += n;
-  }
-  return total;
+    return n;
+  };
+  return { sessions: await countFor('workout_sessions'), routines: await countFor('routines') };
 }
+
+/** Yarım antrenmana ait olmayan kayıtlar (leftJoin workout_sessions ile) */
+function sendableCondition() {
+  return or(
+    isNull(syncOutbox.sessionId),
+    isNull(workoutSessions.id), // antrenman silinmiş: silme kaydı gider
+    isNotNull(workoutSessions.endedAt)
+  );
+}
+
+/** Ebeveyn tablolar önce: yarıda kesilen gönderim bulutta ebeveynsiz çocuk bırakmasın */
+const TABLE_RANK = sql.raw(
+  `case table_name ${SYNC_TABLES.map((t, i) => `when '${t.name}' then ${i}`).join(' ')} else 99 end`
+);
 
 /** Giden kutusundan bekletilmeyen ilk `limit` kayıt (yarım antrenmanınkiler bekler) */
 export async function readSendableOutbox(db: Db, limit: number): Promise<SyncOutboxEntry[]> {
@@ -265,14 +346,8 @@ export async function readSendableOutbox(db: Db, limit: number): Promise<SyncOut
     .select({ entry: syncOutbox })
     .from(syncOutbox)
     .leftJoin(workoutSessions, eq(workoutSessions.id, syncOutbox.sessionId))
-    .where(
-      or(
-        isNull(syncOutbox.sessionId),
-        isNull(workoutSessions.id), // antrenman silinmiş: silme kaydı gider
-        isNotNull(workoutSessions.endedAt)
-      )
-    )
-    .orderBy(asc(syncOutbox.changedAt), asc(syncOutbox.tableName), asc(syncOutbox.rowId))
+    .where(sendableCondition())
+    .orderBy(TABLE_RANK, asc(syncOutbox.changedAt), asc(syncOutbox.rowId))
     .limit(limit);
   return rows.map((r) => r.entry);
 }
@@ -424,18 +499,27 @@ async function scanPage(
 // Çekme
 // ============================================================================
 
-type PullResult = { status: 'ok'; pulled: number } | { status: 'blocked'; issue: SyncIssue };
+interface PullSummary {
+  pulled: number;
+  waiting: number;
+  dropped: number;
+}
+
+type PullResult = { status: 'ok'; result: PullSummary } | { status: 'blocked'; issue: SyncIssue };
 
 /**
- * İmleçten sonraki değişiklikleri indirir ve uygular. Önce hepsi
- * indiriliyor (silme koruması sayabilsin, yazma tek transaction olsun);
- * bir yıllık geçmiş ~6.500 satır, bellekte sorun değil.
+ * İmleçten sonraki değişiklikleri indirir ve uygular. Önce bütün
+ * tabloların bütün sayfaları indiriliyor, sonra ebeveynden çocuğa tek
+ * transaction'da yazılıyor: aynı çekmede çocuğun ebeveyninden önceki
+ * sayfada gelmesi sorun değil. Bir yıllık geçmiş ~6.500 satır, bellekte
+ * sorun değil.
  */
 export async function pullChanges(
   db: Db,
   transport: SyncTransport,
-  options: { cursor: string | null; confirmDeletes: boolean; now: () => Date }
+  options: { cursor: string | null; confirmDeletes: boolean; now: () => Date; pageSize?: number }
 ): Promise<PullResult> {
+  const pageSize = options.pageSize ?? PULL_PAGE_SIZE;
   const until = await transport.serverTime();
   const startAt =
     options.cursor != null
@@ -448,15 +532,9 @@ export async function pullChanges(
     let afterAt = startAt;
     let afterId = '';
     for (;;) {
-      const page = await transport.pull({
-        table: t.name,
-        afterAt,
-        afterId,
-        until,
-        limit: PULL_PAGE_SIZE,
-      });
+      const page = await transport.pull({ table: t.name, afterAt, afterId, until, limit: pageSize });
       all.push(...page);
-      if (page.length < PULL_PAGE_SIZE) break;
+      if (page.length < pageSize) break;
       afterAt = page[page.length - 1].serverUpdatedAt;
       afterId = page[page.length - 1].id;
     }
@@ -464,31 +542,57 @@ export async function pullChanges(
   }
 
   if (!options.confirmDeletes) {
-    const deletes = await countIncomingRootDeletes(db, byTable);
+    const incoming = await incomingRootDeletes(db, byTable);
+    const deletes = incoming.sessions.length + incoming.routines.length;
     if (deletes > DELETE_CONFIRM_LIMIT) {
+      const counts = { sessions: incoming.sessions.length, routines: incoming.routines.length };
       return {
         status: 'blocked',
         issue: {
           kind: 'needs_confirmation',
           direction: 'pull',
           deletes,
-          message: confirmationMessage('pull', deletes),
+          ...counts,
+          ids: incoming,
+          message: confirmationMessage('pull', counts),
         },
       };
     }
   }
 
-  let applied = 0;
+  const untilMs = Date.parse(until);
+  let summary: PullSummary = { pulled: 0, waiting: 0, dropped: 0 };
   await db.transaction(async (tx) => {
+    let applied: Applied = { count: 0, waiting: [], dropped: 0 };
     await withSyncSuppressed(tx, async () => {
-      applied = await applyPulled(tx as unknown as Db, byTable);
+      applied = await applyPulled(tx as unknown as Db, byTable, untilMs);
     });
+    // Bekletilen satır varsa imleç en eskisinin önüne geçmesin: sonraki
+    // çekme (örtüşmeyle) onu yeniden indirir.
+    const earliestWaiting = applied.waiting.reduce<string | null>(
+      (min, r) => (min == null || Date.parse(r.serverUpdatedAt) < Date.parse(min) ? r.serverUpdatedAt : min),
+      null
+    );
+    const issue: SyncIssue | null =
+      applied.waiting.length > 0 || applied.dropped > 0
+        ? {
+            kind: 'waiting_rows',
+            waiting: applied.waiting.length,
+            dropped: applied.dropped,
+            message: waitingMessage(applied.waiting.length, applied.dropped),
+          }
+        : null;
     await tx
       .update(syncState)
-      .set({ pullCursor: until, lastSyncAt: options.now().toISOString(), lastError: null })
+      .set({
+        pullCursor: earliestWaiting ?? until,
+        lastSyncAt: options.now().toISOString(),
+        lastError: issue ? JSON.stringify(issue) : null,
+      })
       .where(eq(syncState.id, 1));
+    summary = { pulled: applied.count, waiting: applied.waiting.length, dropped: applied.dropped };
   });
-  return { status: 'ok', pulled: applied };
+  return { status: 'ok', result: summary };
 }
 
 async function pendingKeys(db: Db): Promise<Set<string>> {
@@ -502,27 +606,41 @@ async function existingIds(db: Db, t: SyncTableInfo, ids: string[]): Promise<Set
   return new Set((await localRows(db, t, [...new Set(ids)])).keys());
 }
 
-async function countIncomingRootDeletes(
+/** Buluttan gelen ve bu telefonda duran antrenman/rutin silmeleri */
+async function incomingRootDeletes(
   db: Db,
   byTable: Map<SyncTableName, PulledRow[]>
-): Promise<number> {
+): Promise<{ sessions: string[]; routines: string[] }> {
   const pending = await pendingKeys(db);
-  let total = 0;
-  for (const name of ROOT_TABLES) {
-    const t = syncTable(name)!;
+  const idsFor = async (name: SyncTableName) => {
     const ids = (byTable.get(name) ?? [])
       .filter((r) => r.deleted && !pending.has(`${name}:${r.id}`))
       .map((r) => r.id);
-    total += (await existingIds(db, t, ids)).size;
-  }
-  return total;
+    return [...(await existingIds(db, syncTable(name)!, ids))].sort();
+  };
+  return { sessions: await idsFor('workout_sessions'), routines: await idsFor('routines') };
 }
 
-/** Susturma açıkken, transaction içinde çağrılır. @returns yazılan/silinen satır */
-async function applyPulled(db: Db, byTable: Map<SyncTableName, PulledRow[]>): Promise<number> {
+interface Applied {
+  count: number;
+  waiting: PulledRow[];
+  dropped: number;
+}
+
+/** Susturma açıkken, transaction içinde çağrılır */
+async function applyPulled(
+  db: Db,
+  byTable: Map<SyncTableName, PulledRow[]>,
+  untilMs: number
+): Promise<Applied> {
   const pending = await pendingKeys(db);
   const isPending = (t: SyncTableName, id: string) => pending.has(`${t}:${id}`);
-  let applied = 0;
+  const tombstoned = new Set(
+    [...byTable.entries()].flatMap(([t, rows]) => rows.filter((r) => r.deleted).map((r) => `${t}:${r.id}`))
+  );
+  /** 7 günden uzun bekleyip atılanlar; çocukları da atılıp sayılır */
+  const expired = new Set<string>();
+  const result: Applied = { count: 0, waiting: [], dropped: 0 };
 
   // Yazma: ebeveynden çocuğa
   for (const t of SYNC_TABLES) {
@@ -531,26 +649,51 @@ async function applyPulled(db: Db, byTable: Map<SyncTableName, PulledRow[]>): Pr
     // Sayfalar örtüşebilir (imleç geri örtüşmesi): her id bir kez, en yeni
     const latest = new Map<string, PulledRow>();
     for (const r of incoming) latest.set(r.id, r);
-    let rows = [...latest.values()].map((r) => fromServerRow(t, r.row, r.id));
+    let rows = [...latest.values()].map((r) => ({ pulled: r, local: fromServerRow(t, r.row, r.id) }));
 
     // Ebeveyni bu telefonda olmayan satır FK'yi bozar, bütün eşitleme
-    // düşerdi: zorunlu bağda atla, isteğe bağlıda (rutin) boşalt.
+    // düşerdi. İsteğe bağlı bağ (rutin) boşaltılır. Zorunlu bağda:
+    // - ebeveyn silinmişse (bulutta mezar taşı ya da burada silinip
+    //   gönderilmeyi bekliyor) satır atılır;
+    // - değilse ebeveyn henüz gelmemiştir (öbür telefonun gönderimi yarıda
+    //   kalmış olabilir): satır bekletilir, imleç onun önüne geçmez;
+    // - 7 günden uzun bekleyen atılır ve sayılır.
     for (const parent of t.parents) {
       const parentTable = syncTable(parent.table)!;
-      const refs = rows.map((r) => r[parent.column]).filter((v): v is string => typeof v === 'string');
+      const refs = rows
+        .map((r) => r.local[parent.column])
+        .filter((v): v is string => typeof v === 'string');
       const present = await existingIds(db, parentTable, refs);
       rows = rows.flatMap((r) => {
-        const ref = r[parent.column];
+        const ref = r.local[parent.column];
         if (ref == null || (typeof ref === 'string' && present.has(ref))) return [r];
-        if (parent.nullable) return [{ ...r, [parent.column]: null }];
-        console.warn(`[SYNC] ${t.name} ${String(r.id)}: ebeveyni yok, atlandı`);
+        if (parent.nullable) return [{ ...r, local: { ...r.local, [parent.column]: null } }];
+        const key = `${parent.table}:${String(ref)}`;
+        const self = `${t.name}:${r.pulled.id}`;
+        if (tombstoned.has(key) || isPending(parent.table, String(ref))) {
+          // Ebeveyn silinmiş: satır da gitmeli; çocukları (setler) da
+          tombstoned.add(self);
+        } else if (
+          expired.has(key) ||
+          untilMs - Date.parse(r.pulled.serverUpdatedAt) > ORPHAN_WAIT_MS
+        ) {
+          console.warn(`[SYNC] ${self}: ebeveyni 7 gündür gelmedi, atlandı`);
+          expired.add(self);
+          result.dropped += 1;
+        } else {
+          result.waiting.push(r.pulled);
+        }
         return [];
       });
     }
-    if (t.exerciseColumn) await ensureExercises(db, rows.map((r) => r[t.exerciseColumn!]));
+    if (t.exerciseColumn) await ensureExercises(db, rows.map((r) => r.local[t.exerciseColumn!]));
 
-    await upsertRows(db, t, rows);
-    applied += rows.length;
+    await upsertRows(
+      db,
+      t,
+      rows.map((r) => r.local)
+    );
+    result.count += rows.length;
   }
 
   // Silme: çocuktan ebeveyne; yerel cascade kalanını temizler
@@ -563,10 +706,10 @@ async function applyPulled(db: Db, byTable: Map<SyncTableName, PulledRow[]>): Pr
         .delete(t.table)
         .where(inArray(t.idColumn, ids.slice(i, i + 500)))
         .returning({ id: t.idColumn });
-      applied += deleted.length;
+      result.count += deleted.length;
     }
   }
-  return applied;
+  return result;
 }
 
 async function ensureExercises(db: Db, refs: unknown[]): Promise<void> {
@@ -617,4 +760,93 @@ async function upsertRows(db: Db, t: SyncTableInfo, rows: Record<string, unknown
       .values(rows.slice(i, i + size) as never)
       .onConflictDoUpdate({ target: t.idColumn, set: set as never });
   }
+}
+
+// ============================================================================
+// Onay bekleyen silmeler (v3.1c, 3.2): veriyi koruyan seçenekler
+// ============================================================================
+
+/**
+ * Gönderme yönü, "Buluttan geri getir": bu telefonda silinmiş ve henüz
+ * gönderilmemiş bütün silme kayıtları atılır, imleç sıfırlanır. Sonraki
+ * eşitleme buluttaki her şeyi indirir; silinenler geri gelir.
+ */
+export async function restoreDeletedFromCloud(db: Db): Promise<void> {
+  await db.transaction(async (tx) => {
+    for (const t of SYNC_TABLES) {
+      await tx
+        .delete(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tableName, t.name),
+            notExists(tx.select({ one: sql`1` }).from(t.table).where(eq(t.idColumn, syncOutbox.rowId)))
+          )
+        );
+    }
+    await tx.update(syncState).set({ pullCursor: null, lastError: null }).where(eq(syncState.id, 1));
+  });
+}
+
+/**
+ * Çekme yönü, "Bu telefondakileri koru": buluttan silinmesi istenen
+ * antrenman ve rutinler, bütün alt satırlarıyla şimdiki zamanla giden
+ * kutusuna konur. Sonraki eşitleme onları buluta yeniden gönderir (son
+ * yazan kazanır: mezar taşından yeni), ardından gelen çekmede silme yoktur.
+ */
+export async function keepLocalCopies(
+  db: Db,
+  ids: { sessions: string[]; routines: string[] },
+  now: () => Date = () => new Date()
+): Promise<number> {
+  const at = now().toISOString();
+  const entries: (typeof syncOutbox.$inferInsert)[] = [];
+  const add = (tableName: SyncTableName, rowId: string, sessionId: string | null) =>
+    entries.push({ tableName, rowId, sessionId, changedAt: at });
+
+  const chunks = <T>(list: T[]) =>
+    Array.from({ length: Math.ceil(list.length / 500) }, (_, i) => list.slice(i * 500, i * 500 + 500));
+
+  for (const chunk of chunks(ids.routines)) {
+    chunk.forEach((id) => add('routines', id, null));
+    const res = await db
+      .select({ id: routineExercises.id })
+      .from(routineExercises)
+      .where(inArray(routineExercises.routineId, chunk));
+    res.forEach((r) => add('routine_exercises', r.id, null));
+  }
+  for (const chunk of chunks(ids.sessions)) {
+    chunk.forEach((id) => add('workout_sessions', id, id));
+    const ses = await db
+      .select({ id: sessionExercises.id, sessionId: sessionExercises.sessionId })
+      .from(sessionExercises)
+      .where(inArray(sessionExercises.sessionId, chunk));
+    ses.forEach((s) => add('session_exercises', s.id, s.sessionId));
+    const sessionOf = new Map(ses.map((s) => [s.id, s.sessionId]));
+    for (const seChunk of chunks(ses.map((s) => s.id))) {
+      const setRows = await db
+        .select({ id: sets.id, se: sets.sessionExerciseId })
+        .from(sets)
+        .where(inArray(sets.sessionExerciseId, seChunk));
+      setRows.forEach((s) => add('sets', s.id, sessionOf.get(s.se) ?? null));
+    }
+    const cardio = await db
+      .select({ id: cardioSegments.id, sessionId: cardioSegments.sessionId })
+      .from(cardioSegments)
+      .where(inArray(cardioSegments.sessionId, chunk));
+    cardio.forEach((c) => add('cardio_segments', c.id, c.sessionId));
+  }
+
+  await db.transaction(async (tx) => {
+    for (const batch of chunks(entries)) {
+      await tx
+        .insert(syncOutbox)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [syncOutbox.tableName, syncOutbox.rowId],
+          set: { changedAt: at },
+        });
+    }
+    await tx.update(syncState).set({ lastError: null }).where(eq(syncState.id, 1));
+  });
+  return entries.length;
 }

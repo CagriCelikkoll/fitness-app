@@ -6,7 +6,13 @@ import type { Db } from '@/db/client';
 import { useDb } from '@/hooks/useDb';
 import { useSession } from '@/hooks/useSession';
 import { getSupabase } from '@/lib/supabase';
-import { getSyncStatus, type SyncStatus } from '@/lib/sync/engine';
+import {
+  getSyncStatus,
+  keepLocalCopies,
+  restoreDeletedFromCloud,
+  type SyncIssue,
+  type SyncStatus,
+} from '@/lib/sync/engine';
 import { createTriggerClock, syncIfEnabled, type SyncTrigger } from '@/lib/sync/runner';
 import { supabaseTransport } from '@/lib/sync/supabaseTransport';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -22,7 +28,8 @@ import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
  * - uygulama öne gelince, en fazla 5 dakikada bir
  * - Ayarlar'daki "Şimdi eşitle" (`requestSync`)
  *
- * Sahip uyuşmazlığı ve silme korumaları motorda (src/lib/sync/engine.ts).
+ * Sahip uyuşmazlığı ve silme korumaları motorda (src/lib/sync/engine.ts);
+ * kullanıcının cevabı `resolveDeleteConfirmation` ile (v3.1c).
  */
 
 interface SyncUiState {
@@ -43,7 +50,7 @@ async function refreshStatus(db: Db): Promise<void> {
   }
 }
 
-async function trigger(kind: SyncTrigger): Promise<void> {
+async function trigger(kind: SyncTrigger, options: { confirmDeletes?: boolean } = {}): Promise<void> {
   const ctx = context;
   if (!ctx) return;
   if (!clock.take(kind, Date.now())) return;
@@ -53,6 +60,7 @@ async function trigger(kind: SyncTrigger): Promise<void> {
       enabled: true,
       userId: ctx.userId,
       db: ctx.db,
+      confirmDeletes: options.confirmDeletes,
       makeTransport: () => {
         const client = getSupabase();
         return client ? supabaseTransport(client) : null;
@@ -64,8 +72,30 @@ async function trigger(kind: SyncTrigger): Promise<void> {
   }
 }
 
-/** "Şimdi eşitle" */
+/** "Şimdi eşitle" / "Tekrar dene" */
 export function requestSync(): Promise<void> {
+  return trigger('manual');
+}
+
+/**
+ * 50+ silme sorusunun cevabı (v3.1c, 3.2).
+ * - keep (öne çıkan, veriyi koruyan):
+ *   gönderme yönü → silinenler buluttan geri getirilir;
+ *   çekme yönü → bu telefondakiler buluta yeniden gönderilir.
+ * - drop: silme bir kez onaylanarak uygulanır.
+ */
+export async function resolveDeleteConfirmation(
+  issue: Extract<SyncIssue, { kind: 'needs_confirmation' }>,
+  choice: 'keep' | 'drop'
+): Promise<void> {
+  const ctx = context;
+  if (!ctx) return;
+  if (choice === 'drop') return trigger('manual', { confirmDeletes: true });
+  if (issue.direction === 'push') {
+    await restoreDeletedFromCloud(ctx.db);
+  } else {
+    await keepLocalCopies(ctx.db, issue.ids ?? { sessions: [], routines: [] });
+  }
   return trigger('manual');
 }
 
@@ -97,12 +127,22 @@ export function useSyncTriggers(): void {
   }, [available, ready, userId, db]);
 }
 
-/** Ayarlar'daki geçici durum satırı için */
-export function useSyncStatus(): SyncUiState & { refresh: () => void } {
+/** Ayarlar'daki eşitleme kartı için */
+export function useSyncStatus(): SyncUiState & { refresh: () => Promise<void> } {
   const db = useDb();
   const state = useSyncStore();
   useEffect(() => {
     void refreshStatus(db);
   }, [db]);
-  return { ...state, refresh: () => void refreshStatus(db) };
+  return { ...state, refresh: () => refreshStatus(db) };
+}
+
+/**
+ * Eşitleme açık mı (3.3 uyarıları için): bayrak açık, giriş yapılmış ve
+ * bu telefonda takip başlamış.
+ */
+export function useSyncActive(): boolean {
+  const { available, userId } = useSession();
+  const { status } = useSyncStatus();
+  return available && userId != null && status?.tracking === true;
 }

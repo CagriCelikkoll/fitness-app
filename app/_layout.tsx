@@ -211,6 +211,10 @@ export default function RootLayout() {
                 name="account/join-gym"
                 options={{ title: 'Salona katıl' }}
               />
+              <Stack.Screen
+                name="account/delete"
+                options={{ title: 'Hesabı sil' }}
+              />
             </Stack>
           </DatabaseInitializer>
         </SQLiteProvider>

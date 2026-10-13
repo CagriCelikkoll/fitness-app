@@ -168,6 +168,23 @@ export function signOut(client: SupabaseClient | null) {
   });
 }
 
+/**
+ * Hesabı ve buluttaki bütün verileri kalıcı olarak siler (v3.1c,
+ * supabase/migrations/0003_delete_account.sql). Kimlik sunucuda
+ * auth.uid(); başkasının hesabı silinemez. Salonun tek yöneticisiyse
+ * 'sole_admin'. Başarılıysa yerel oturum kapatılır (sunucuda zaten yok).
+ * Telefondaki antrenmanlara dokunmaz.
+ */
+export function deleteMyAccount(client: SupabaseClient | null) {
+  return run(client, async (c) => {
+    const { error } = await c.rpc('delete_my_account');
+    if (error) return fail<null>(toAccountError(error));
+    const { error: signOutError } = await c.auth.signOut({ scope: 'local' });
+    if (signOutError) console.error('[ACCOUNT] Silme sonrası çıkış hatası:', signOutError);
+    return ok(null);
+  });
+}
+
 // ============================================================================
 // Salon
 // ============================================================================

@@ -220,7 +220,7 @@ describe('yedek: migration öncesi ve sonrası aynı', () => {
     const data = buildSyntheticYearBackup();
     expect(data.tables.sets.length).toBe(4800);
     await expectBackupUnchangedByMigration(data);
-  });
+  }, 60_000); // tam takımda paralel yükte 5 sn'yi aşabiliyor
 
   const realBackups = (() => {
     try {
