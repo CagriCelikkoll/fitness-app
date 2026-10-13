@@ -4,7 +4,7 @@ import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Building2, CalendarDays, Megaphone, Pin, Play, Scale, Target } from 'lucide-react-native';
+import { Building2, CalendarDays, Check, Megaphone, Pin, Play, Scale, Target } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
@@ -169,13 +169,13 @@ function AnnouncementCard() {
 
 /**
  * Bugünün dersleri (v3.2c): saat sırasıyla saat, ders, hoca; iptal üstü
- * çizili, değişiklik notlu. Bugün ders yoksa yarının ilk dersi. Dokununca
+ * çizili, değişiklik notlu; katıldığı derste ✓. Bugün ders yoksa yarının ilk dersi. Dokununca
  * program ekranı. Salonun programı yoksa görünmez (yöneticiye
  * "Programı oluştur").
  */
 function TodayClassesCard() {
   const { primary, memberships } = useGymMembership();
-  const { templates, exceptions } = useClassSchedule();
+  const { templates, exceptions, attendance } = useClassSchedule();
   if (!primary) return null;
   const schedule = scheduleForGym({ templates, exceptions }, primary.gymId);
   if (schedule.templates.length === 0) {
@@ -200,7 +200,14 @@ function TodayClassesCard() {
           <Text className="text-muted text-xs">Program →</Text>
         </View>
         {summary.kind === 'today' ? (
-          summary.items.map((o) => <TodayClassRow key={o.key} occurrence={o} past={isPast(o, nowMs)} />)
+          summary.items.map((o) => (
+            <TodayClassRow
+              key={o.key}
+              occurrence={o}
+              past={isPast(o, nowMs)}
+              joined={attendance.mine.includes(o.key)}
+            />
+          ))
         ) : summary.kind === 'tomorrow' ? (
           <Text className="text-muted text-sm">
             Bugün ders yok · Yarın {summary.first.startTime} {summary.first.name}
@@ -213,7 +220,15 @@ function TodayClassesCard() {
   );
 }
 
-function TodayClassRow({ occurrence: o, past }: { occurrence: ClassOccurrence; past: boolean }) {
+function TodayClassRow({
+  occurrence: o,
+  past,
+  joined,
+}: {
+  occurrence: ClassOccurrence;
+  past: boolean;
+  joined: boolean;
+}) {
   const cancelled = o.status === 'cancelled';
   const change = changeSummary(o);
   return (
@@ -229,6 +244,7 @@ function TodayClassRow({ occurrence: o, past }: { occurrence: ClassOccurrence; p
           {o.instructorName}
         </Text>
         {cancelled && <Text className="text-danger text-xs font-semibold">İptal</Text>}
+        {joined && !cancelled && <Check color={COLORS.accent} size={14} accessibilityLabel="Katılıyorsun" />}
       </View>
       {change != null && <Text className="text-accent text-xs ml-[60px] mt-0.5">{change}</Text>}
     </View>

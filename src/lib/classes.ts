@@ -31,6 +31,8 @@ export const NOTE_MAX = 120;
 export const DURATION_MIN = 5;
 export const DURATION_MAX = 480;
 export const DEFAULT_DURATION = 60;
+/** Kapasite yumuşak sınır (yalnızca bilgi, 0006_class_rsvps.sql) */
+export const CAPACITY_MAX = 500;
 
 /** Salonun saat dilimi: Europe/Istanbul = sabit UTC+3 */
 export const GYM_UTC_OFFSET_MIN = 180;
@@ -49,6 +51,8 @@ export interface ClassTemplate {
   instructorName: string;
   tagline: string | null;
   active: boolean;
+  /** Yumuşak sınır; null = sınırsız */
+  capacity: number | null;
 }
 
 export type ExceptionKind = 'cancelled' | 'changed';
@@ -84,6 +88,7 @@ export interface ClassOccurrence {
   name: string;
   instructorName: string;
   tagline: string | null;
+  capacity: number | null;
   status: 'normal' | ExceptionKind;
   /** Şablondaki saat (değiştiyse farklı) */
   originalStartTime: string;
@@ -239,6 +244,7 @@ export function occurrencesForDate(schedule: ClassSchedule, date: string): Class
       name: t.name,
       instructorName: changed?.instructorName ?? t.instructorName,
       tagline: t.tagline,
+      capacity: t.capacity,
       status: ex?.kind ?? 'normal',
       originalStartTime: t.startTime,
       originalInstructorName: t.instructorName,
@@ -333,6 +339,8 @@ export interface TemplateDraft {
   instructorName: string;
   tagline: string;
   active: boolean;
+  /** Boş = sınırsız */
+  capacity: string;
 }
 
 export function emptyTemplateDraft(weekday: Weekday = 1): TemplateDraft {
@@ -344,6 +352,7 @@ export function emptyTemplateDraft(weekday: Weekday = 1): TemplateDraft {
     instructorName: '',
     tagline: '',
     active: true,
+    capacity: '',
   };
 }
 
@@ -356,6 +365,7 @@ export function templateToDraft(t: ClassTemplate): TemplateDraft {
     instructorName: t.instructorName,
     tagline: t.tagline ?? '',
     active: t.active,
+    capacity: t.capacity == null ? '' : String(t.capacity),
   };
 }
 
@@ -370,6 +380,12 @@ export function templateDraftError(d: TemplateDraft): string | null {
   if (d.instructorName.trim().length === 0) return 'Hoca adı boş olamaz.';
   if (chars(d.instructorName.trim()) > INSTRUCTOR_MAX) return `Hoca adı en fazla ${INSTRUCTOR_MAX} karakter olabilir.`;
   if (chars(d.tagline.trim()) > TAGLINE_MAX) return `Slogan en fazla ${TAGLINE_MAX} karakter olabilir.`;
+  if (d.capacity.trim() !== '') {
+    const capacity = Number(d.capacity);
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > CAPACITY_MAX) {
+      return `Kapasite 1–${CAPACITY_MAX} arası olmalı ya da boş kalmalı.`;
+    }
+  }
   return null;
 }
 
@@ -381,7 +397,8 @@ export function isTemplateDraftDirty(d: TemplateDraft, original: TemplateDraft):
     d.name.trim() !== original.name.trim() ||
     d.instructorName.trim() !== original.instructorName.trim() ||
     d.tagline.trim() !== original.tagline.trim() ||
-    d.active !== original.active
+    d.active !== original.active ||
+    d.capacity.trim() !== original.capacity.trim()
   );
 }
 
@@ -395,6 +412,7 @@ export function templateRow(d: TemplateDraft) {
     instructor_name: d.instructorName.trim(),
     tagline: d.tagline.trim() || null,
     active: d.active,
+    capacity: d.capacity.trim() === '' ? null : Number(d.capacity),
   };
 }
 
@@ -494,6 +512,7 @@ export function parseTemplateRows(data: unknown): ClassTemplate[] {
       instructorName: r.instructor_name,
       tagline: isStr(r.tagline) && r.tagline.trim() ? r.tagline : null,
       active: r.active !== false,
+      capacity: Number.isInteger(r.capacity) && (r.capacity as number) > 0 ? (r.capacity as number) : null,
     });
   }
   return out;
@@ -558,6 +577,7 @@ export async function readScheduleCache(store: KeyValueStore, userId: string): P
         instructor_name: t?.instructorName,
         tagline: t?.tagline,
         active: t?.active,
+        capacity: t?.capacity,
       }))
     );
     const exceptions = parseExceptionRows(
@@ -606,7 +626,7 @@ async function run<T>(
   }
 }
 
-const TEMPLATE_COLUMNS = 'id, gym_id, weekday, start_time, duration_min, name, instructor_name, tagline, active';
+const TEMPLATE_COLUMNS = 'id, gym_id, weekday, start_time, duration_min, name, instructor_name, tagline, active, capacity';
 const EXCEPTION_COLUMNS = 'id, template_id, gym_id, date, kind, start_time, instructor_name, note';
 
 /** Geçmiş istisnalar bu kadar gün geriye kadar çekilir (önceki hafta okları) */

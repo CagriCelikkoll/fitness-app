@@ -116,6 +116,9 @@ export type AccountErrorKind =
   | 'pin_admin_only'
   | 'invalid_input'
   | 'already_exists'
+  | 'class_cancelled'
+  | 'class_started'
+  | 'class_not_scheduled'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -143,6 +146,9 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   pin_admin_only: 'Duyuruyu yalnızca salon yöneticisi sabitleyebilir.',
   invalid_input: 'Girilen bilgi kabul edilmedi. Uzunluğu kontrol edip tekrar dene.',
   already_exists: 'Bu kayıt az önce değişti. Listeyi yenileyip tekrar dene.',
+  class_cancelled: 'Bu ders iptal edildi.',
+  class_started: 'Ders başladı; katılım artık değiştirilemiyor.',
+  class_not_scheduled: 'Bu ders programda yok. Programı yenileyip tekrar dene.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -209,6 +215,10 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('not_authenticated')) return 'not_signed_in';
   if (message.includes('sole_admin')) return 'sole_admin';
   if (message.includes('only_admin_can_pin')) return 'pin_admin_only';
+  // Derse katılım (v3.2c, 0006_class_rsvps.sql)
+  if (message.includes('class_cancelled')) return 'class_cancelled';
+  if (message.includes('class_started')) return 'class_started';
+  if (message.includes('class_not_scheduled')) return 'class_not_scheduled';
   // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular v3.2b, ders programı v3.2c)
   if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
   if (code === '23514') return 'invalid_input';

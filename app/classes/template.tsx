@@ -1,6 +1,6 @@
 /**
  * Ders ekle / düzenle (v3.2c, yalnızca yönetici): gün, başlangıç saati,
- * süre, ders adı, hoca adı, slogan, etkin. Düzenlemede "Dersi sil".
+ * süre, ders adı, hoca adı, slogan, kapasite (yumuşak, isteğe bağlı), etkin. Düzenlemede "Dersi sil".
  * Kaydetmeden çıkarken "Vazgeçilsin mi?". Yetkiyi sunucu belirler.
  */
 
@@ -213,6 +213,21 @@ export default function ClassTemplateScreen() {
               editable={!busy}
               className={INPUT_CLASS}
             />
+          </Field>
+
+          <Field label="Kapasite (isteğe bağlı)">
+            <TextInput
+              value={draft.capacity}
+              onChangeText={(t) => set({ capacity: digitsOnly(t).slice(0, 3) })}
+              keyboardType="number-pad"
+              placeholder="Sınırsız"
+              placeholderTextColor={COLORS.muted}
+              editable={!busy}
+              className={INPUT_CLASS}
+            />
+            <Text className="text-muted text-xs mt-1.5 leading-5">
+              Yalnızca bilgi: dolunca "Katılıyorum" kapanır ama gelen herkes derse girebilir.
+            </Text>
           </Field>
 
           <View className="flex-row items-center justify-between">

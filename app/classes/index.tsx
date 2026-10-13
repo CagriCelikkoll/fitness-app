@@ -7,6 +7,10 @@
  * Yönetici: "Programı düzenle" ve bir derse uzun basınca yalnızca o tarih
  * için iptal / değiştir / istisnayı kaldır. Ardından "Duyuru da
  * paylaşılsın mı?". Rol görünüm içindir; yetkiyi sunucu belirler.
+ *
+ * Katılım (BÖLÜM 5): "Katılıyorum" zorunlu değil; kişi sayısı herkese,
+ * adlar yalnızca hoca / yöneticiye. Hatırlatma bildirimine dokununca bu
+ * ekran o günle ve o ders vurgulu açılır (date / focus parametreleri).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -22,7 +26,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarDays, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react-native';
 
 import { useClassSchedule } from '@/hooks/useClassSchedule';
@@ -56,6 +60,7 @@ import {
   type ClassOccurrence,
   type ClassSchedule,
 } from '@/lib/classes';
+import { attendanceView, attendeeNames, canSeeAttendees, type Attendance } from '@/lib/classRsvps';
 import { getSupabase } from '@/lib/supabase';
 import { Chip, DangerButton, EmptyState, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { COLORS } from '@/theme';
@@ -65,13 +70,25 @@ const INPUT_CLASS = 'bg-bg-elevated text-white text-base px-4 rounded-xl h-12';
 export default function ClassesScreen() {
   const router = useRouter();
   const { available, userId, memberships, primary, refresh: refreshMemberships } = useGymMembership();
-  const { templates, exceptions, loaded, loading, offline, error, refresh } = useClassSchedule();
+  const { templates, exceptions, attendance, pending, loaded, loading, offline, error, refresh, setRsvp } =
+    useClassSchedule();
+  // Hatırlatma bildiriminden: o gün, o ders
+  const params = useLocalSearchParams<{ date?: string; focus?: string; gymId?: string }>();
 
-  const [gymId, setGymId] = useState<string | null>(primary?.gymId ?? null);
+  const [gymId, setGymId] = useState<string | null>(params.gymId ?? primary?.gymId ?? null);
   const today = gymNow(Date.now()).date;
-  const [weekStart, setWeekStart] = useState(() => weekStartOf(today));
-  const [selected, setSelected] = useState(today);
+  const target = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
+  const [weekStart, setWeekStart] = useState(() => weekStartOf(target ?? today));
+  const [selected, setSelected] = useState(target ?? today);
   const [action, setAction] = useState<ClassOccurrence | null>(null);
+
+  // Ekran açıkken başka bir hatırlatmaya dokunulursa
+  useEffect(() => {
+    if (!target) return;
+    setWeekStart(weekStartOf(target));
+    setSelected(target);
+    if (params.gymId) setGymId(params.gymId);
+  }, [target, params.focus, params.gymId]);
 
   // Üyelikler geç gelirse / salondan ayrıldıysa
   useEffect(() => {
@@ -98,6 +115,7 @@ export default function ClassesScreen() {
 
   const schedule = gymId ? scheduleForGym({ templates, exceptions }, gymId) : { templates: [], exceptions: [] };
   const isAdmin = canEditSchedule(gymId, memberships);
+  const isStaff = gymId != null && canSeeAttendees(gymId, memberships);
   const nowMs = Date.now();
   const days = weekDays(weekStart);
   const items = occurrencesForDate(schedule, selected);
@@ -126,6 +144,11 @@ export default function ClassesScreen() {
           }),
       },
     ]);
+  };
+
+  const toggle = async (o: ClassOccurrence, join: boolean) => {
+    const failure = await setRsvp(o, join);
+    if (failure) Alert.alert(join ? 'Katılım kaydedilemedi' : 'Vazgeçilemedi', failure.message);
   };
 
   /** Yeni istisnayla programın yerel hali (duyuru metni için) */
@@ -234,6 +257,12 @@ export default function ClassesScreen() {
               key={o.key}
               occurrence={o}
               past={isPast(o, nowMs)}
+              focused={params.focus === o.key}
+              nowMs={nowMs}
+              attendance={attendance}
+              pending={pending.includes(o.key)}
+              showNames={isStaff}
+              onToggle={(join) => void toggle(o, join)}
               onLongPress={isAdmin && canChangeOccurrence(o, nowMs) ? () => setAction(o) : undefined}
             />
           ))
@@ -269,46 +298,105 @@ export default function ClassesScreen() {
 function OccurrenceCard({
   occurrence: o,
   past,
+  focused,
+  nowMs,
+  attendance,
+  pending,
+  showNames,
+  onToggle,
   onLongPress,
 }: {
   occurrence: ClassOccurrence;
   past: boolean;
+  focused: boolean;
+  nowMs: number;
+  attendance: Attendance;
+  pending: boolean;
+  showNames: boolean;
+  onToggle: (join: boolean) => void;
   onLongPress?: () => void;
 }) {
   const cancelled = o.status === 'cancelled';
   const change = changeSummary(o);
+  const view = attendanceView(o, attendance, nowMs);
+  const who = showNames ? (attendance.attendees[o.key] ?? []) : [];
   return (
-    <Pressable
-      onLongPress={onLongPress}
-      disabled={!onLongPress}
-      delayLongPress={400}
-      className={`rounded-3xl p-5 bg-bg-surface border border-border flex-row gap-4 active:opacity-80 ${
+    <View
+      className={`rounded-3xl bg-bg-surface ${focused ? 'border-2 border-accent' : 'border border-border'} ${
         past || cancelled ? 'opacity-50' : ''
       }`}
     >
-      <View className="w-14">
-        <Text className={`text-white text-base font-semibold tabular-nums ${cancelled ? 'line-through' : ''}`}>
-          {o.startTime}
-        </Text>
-        <Text className="text-muted text-xs tabular-nums mt-0.5">{o.endTime}</Text>
-      </View>
-      <View className="flex-1 gap-0.5">
-        <View className="flex-row items-center gap-2">
-          <Text className={`text-white text-base font-semibold flex-shrink ${cancelled ? 'line-through' : ''}`}>
-            {o.name}
+      <Pressable
+        onLongPress={onLongPress}
+        disabled={!onLongPress}
+        delayLongPress={400}
+        className="p-5 pb-3 flex-row gap-4 active:opacity-80"
+      >
+        <View className="w-14">
+          <Text className={`text-white text-base font-semibold tabular-nums ${cancelled ? 'line-through' : ''}`}>
+            {o.startTime}
           </Text>
-          {cancelled && (
-            <View className="px-2 py-0.5 rounded-full bg-danger/20">
-              <Text className="text-danger text-xs font-semibold">İptal</Text>
-            </View>
+          <Text className="text-muted text-xs tabular-nums mt-0.5">{o.endTime}</Text>
+        </View>
+        <View className="flex-1 gap-0.5">
+          <View className="flex-row items-center gap-2">
+            <Text className={`text-white text-base font-semibold flex-shrink ${cancelled ? 'line-through' : ''}`}>
+              {o.name}
+            </Text>
+            {cancelled && (
+              <View className="px-2 py-0.5 rounded-full bg-danger/20">
+                <Text className="text-danger text-xs font-semibold">İptal</Text>
+              </View>
+            )}
+          </View>
+          <Text className="text-muted text-sm">{o.instructorName}</Text>
+          {o.tagline != null && <Text className="text-muted text-xs italic">{o.tagline}</Text>}
+          {change != null && <Text className="text-accent text-xs mt-1">{change}</Text>}
+          {cancelled && o.note != null && <Text className="text-muted text-xs mt-1">{o.note}</Text>}
+        </View>
+      </Pressable>
+
+      {!cancelled && (
+        <View className="px-5 pb-4 gap-2">
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="text-muted text-xs tabular-nums flex-1">{view.countText}</Text>
+            {view.showButton &&
+              (view.joined ? (
+                <Pressable
+                  onPress={() => onToggle(false)}
+                  disabled={pending}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  className={`flex-row items-center active:opacity-60 ${pending ? 'opacity-50' : ''}`}
+                >
+                  <Text className="text-accent text-sm font-semibold">Katılıyorsun ✓</Text>
+                  <Text className="text-muted text-sm"> · Vazgeç</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => onToggle(true)}
+                  disabled={pending || view.full}
+                  accessibilityRole="button"
+                  className={`rounded-full px-4 h-9 justify-center active:opacity-80 ${
+                    view.full || pending ? 'bg-bg-elevated' : 'bg-accent'
+                  }`}
+                >
+                  <Text className={`text-sm font-semibold ${view.full || pending ? 'text-muted' : 'text-accent-fg'}`}>
+                    Katılıyorum
+                  </Text>
+                </Pressable>
+              ))}
+          </View>
+          {view.fullMessage != null && <Text className="text-muted text-xs leading-5">{view.fullMessage}</Text>}
+          {who.length > 0 && (
+            <Text className="text-muted text-xs leading-5">
+              <Text className="text-white">Katılacaklar: </Text>
+              {attendeeNames(who, attendance.names)}
+            </Text>
           )}
         </View>
-        <Text className="text-muted text-sm">{o.instructorName}</Text>
-        {o.tagline != null && <Text className="text-muted text-xs italic">{o.tagline}</Text>}
-        {change != null && <Text className="text-accent text-xs mt-1">{change}</Text>}
-        {cancelled && o.note != null && <Text className="text-muted text-xs mt-1">{o.note}</Text>}
-      </View>
-    </Pressable>
+      )}
+    </View>
   );
 }
 

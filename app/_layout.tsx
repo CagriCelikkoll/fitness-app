@@ -17,6 +17,7 @@ import { useDb } from '@/hooks/useDb';
 import { useSyncTriggers } from '@/hooks/useSyncTriggers';
 import { useAnnouncementTriggers } from '@/hooks/useAnnouncements';
 import { useClassScheduleTriggers } from '@/hooks/useClassSchedule';
+import { useClassReminderResponses } from '@/lib/classReminderNative';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -129,6 +130,8 @@ function SyncTriggers() {
   useSyncTriggers();
   useAnnouncementTriggers();
   useClassScheduleTriggers();
+  // Ders hatırlatmasına dokununca program ekranı (v3.2c)
+  useClassReminderResponses();
   return null;
 }
 

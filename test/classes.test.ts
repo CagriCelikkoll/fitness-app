@@ -53,6 +53,7 @@ const tpl = (over: Partial<ClassTemplate> & Pick<ClassTemplate, 'id' | 'weekday'
   instructorName: 'Hoca',
   tagline: null,
   active: true,
+  capacity: null,
   ...over,
 });
 
@@ -386,6 +387,7 @@ describe('Formlar', () => {
       instructor_name: 'Bilgin Hoca',
       tagline: null,
       active: true,
+      capacity: null,
     });
   });
 
@@ -462,6 +464,7 @@ describe('Sunucu satırları ve önbellek', () => {
         instructorName: 'Yeliz Hoca',
         tagline: null,
         active: true,
+        capacity: null,
       },
     ]);
     expect(
