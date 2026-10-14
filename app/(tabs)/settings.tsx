@@ -77,10 +77,12 @@ import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { useRestNotificationSetting } from '@/hooks/useRestNotificationSetting';
+import { useNotificationPrefs } from '@/hooks/useNotificationPrefs';
 import { useProgressionSetting } from '@/hooks/useProgressionSetting';
 import { summarizeCounts, useBackupRestore } from '@/hooks/useBackupRestore';
 import type { RestNotificationPermissionState } from '@/lib/restNotification';
 import { openNotificationSettings } from '@/lib/restNative';
+import { unregisterPushBeforeSignOut } from '@/lib/pushNative';
 import {
   canFinishOpenSession,
   findOpenSessions,
@@ -95,6 +97,8 @@ import { promptConsentWithdraw, useHealthConsent } from '@/hooks/useHealthConsen
 import { hideBackupWarning, isBackupWarningHidden } from '@/lib/consent';
 import { BACKUP_SHARE_WARNING } from '@/content/legal';
 import { ConsentCard } from '@/components/ConsentCard';
+import { GymLogo } from '@/components/GymLogo';
+import { isGymColor } from '@/lib/gymAdmin';
 import { useGymFeatures } from '@/hooks/useGymFeatures';
 import { useSession } from '@/hooks/useSession';
 import { useGymMembership } from '@/hooks/useGymMembership';
@@ -346,7 +350,10 @@ function AccountSection() {
         style: 'destructive',
         onPress: () => {
           setSigningOut(true);
-          void signOut(getSupabase()).finally(() => setSigningOut(false));
+          // Push token'ı oturum varken silinir (v3.3)
+          void unregisterPushBeforeSignOut()
+            .then(() => signOut(getSupabase()))
+            .finally(() => setSigningOut(false));
         },
       },
     ]);
@@ -521,7 +528,9 @@ function OwnerMismatchCard() {
 
   const goBack = () => {
     setSigningOut(true);
-    void signOut(getSupabase()).finally(() => setSigningOut(false));
+    void unregisterPushBeforeSignOut()
+      .then(() => signOut(getSupabase()))
+      .finally(() => setSigningOut(false));
   };
 
   const wipeAndPull = async () => {
@@ -672,19 +681,27 @@ function MembershipCard({
 
   return (
     <View className="bg-bg-elevated rounded-2xl p-4 gap-3">
-      <View>
-        <Text className="text-white text-lg font-semibold" numberOfLines={1}>
-          {membership.gymName}
-        </Text>
-        <Text className="text-accent text-sm font-semibold mt-0.5">
-          {roleLabel(membership.role)}
-        </Text>
-        {membership.membershipEndsOn != null && (
-          <Text className={`text-xs mt-1 tabular-nums ${ended ? 'text-danger' : 'text-muted'}`}>
-            Üyelik bitişi: {formatDateKey(membership.membershipEndsOn)}
-            {ended ? ' (bitti)' : ''}
+      <View className="flex-row items-center gap-3">
+        <GymLogo
+          name={membership.gymName}
+          logoUrl={membership.logoUrl}
+          color={isGymColor(membership.primaryColor) ? membership.primaryColor : COLORS.accent}
+          size={44}
+        />
+        <View className="flex-1">
+          <Text className="text-white text-lg font-semibold" numberOfLines={1}>
+            {membership.gymName}
           </Text>
-        )}
+          <Text className="text-accent text-sm font-semibold mt-0.5">
+            {roleLabel(membership.role)}
+          </Text>
+          {membership.membershipEndsOn != null && (
+            <Text className={`text-xs mt-1 tabular-nums ${ended ? 'text-danger' : 'text-muted'}`}>
+              Üyelik bitişi: {formatDateKey(membership.membershipEndsOn)}
+              {ended ? ' (bitti)' : ''}
+            </Text>
+          )}
+        </View>
       </View>
       {(membership.role === 'admin' || membership.role === 'trainer') && (
         <View className="flex-row gap-2">
@@ -749,6 +766,7 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
   const [sound, setSound] = useState(settings?.restTimerSound ?? true);
   const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
   const restNotification = useRestNotificationSetting();
+  const gymNotifications = useNotificationPrefs();
   const progression = useProgressionSetting();
 
   const persist = async (values: Partial<typeof appSettings.$inferInsert>) => {
@@ -830,6 +848,23 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
           permission={restNotification.permission}
           onChange={(v) => void restNotification.setEnabled(v)}
         />
+      )}
+      {/* Salon bildirimleri (v3.3, sunucuda): yalnızca salon üyesiyken */}
+      {gymNotifications.visible && gymNotifications.loaded && (
+        <>
+          <ToggleRow
+            label="Salon duyuruları"
+            description="Salonundan yeni duyuru gelince bildirim."
+            value={gymNotifications.prefs.announcements}
+            onChange={(v) => gymNotifications.setPref('announcements', v)}
+          />
+          <ToggleRow
+            label="Ders iptalleri ve değişiklikleri"
+            description="Katılacağın ders iptal edilince ya da saati, hocası değişince."
+            value={gymNotifications.prefs.classChanges}
+            onChange={(v) => gymNotifications.setPref('classChanges', v)}
+          />
+        </>
       )}
       {progression.loaded && (
         <ToggleRow

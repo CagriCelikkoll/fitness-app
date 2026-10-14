@@ -206,7 +206,7 @@ describe('Salon ayarları', () => {
   it('salon adı ve rengi yalnızca yönetici değiştirir; kod doğrudan değiştirilemez', async () => {
     expect(await updateGymSettings(c.admin.client, A(), { name: '  INT  Yeni Ad ', primaryColor: '#3EC5FF' })).toEqual({
       ok: true,
-      value: { name: 'INT Yeni Ad', primaryColor: '#3EC5FF' },
+      value: { name: 'INT Yeni Ad', primaryColor: '#3EC5FF', logoUrl: null },
     });
     const mine = await fetchMemberships(c.member.client, u.member.id);
     expect(mine.ok && mine.value[0]).toMatchObject({ gymName: 'INT Yeni Ad', primaryColor: '#3EC5FF' });
@@ -219,8 +219,9 @@ describe('Salon ayarları', () => {
 
     const code = await c.admin.client.from('gyms').update({ join_code: 'ELLE99' }).eq('id', A()).select('id');
     expect(code.error).not.toBeNull();
+    // Logo yalnızca kendi gym-logos klasöründen (v3.3; ayrıntı push.int.ts)
     const logo = await c.admin.client.from('gyms').update({ logo_url: 'x' }).eq('id', A()).select('id');
-    expect(logo.error).not.toBeNull();
+    expect(logo.error?.code).toBe('23514');
     expect(await fetchGymSettings(c.admin.client, A())).toMatchObject({ ok: true, value: { name: 'INT Yeni Ad' } });
   });
 

@@ -339,28 +339,41 @@ export function removeMember(client: SupabaseClient | null, gymId: string, userI
 export interface GymSettings {
   name: string;
   primaryColor: string | null;
+  /** Logo (v3.3); yükleme / kaldırma gymLogo.ts'te */
+  logoUrl: string | null;
 }
+
+type GymSettingsRow = { name: string; primary_color: string | null; logo_url: string | null };
+const GYM_SETTINGS_COLUMNS = 'name, primary_color, logo_url';
+const toSettings = (r: GymSettingsRow): GymSettings => ({
+  name: r.name,
+  primaryColor: r.primary_color,
+  logoUrl: r.logo_url,
+});
 
 export function fetchGymSettings(client: SupabaseClient | null, gymId: string) {
   return run<GymSettings>(client, async (c) => {
-    const { data, error } = await c.from('gyms').select('name, primary_color').eq('id', gymId).maybeSingle();
+    const { data, error } = await c.from('gyms').select(GYM_SETTINGS_COLUMNS).eq('id', gymId).maybeSingle();
     if (error) return err(error);
     if (!data) return forbidden();
-    const r = data as { name: string; primary_color: string | null };
-    return ok({ name: r.name, primaryColor: r.primary_color });
+    return ok(toSettings(data as GymSettingsRow));
   });
 }
 
-export function updateGymSettings(client: SupabaseClient | null, gymId: string, patch: Partial<GymSettings>) {
+export function updateGymSettings(
+  client: SupabaseClient | null,
+  gymId: string,
+  patch: Partial<Pick<GymSettings, 'name' | 'primaryColor'>>
+) {
   return run<GymSettings>(client, async (c) => {
     const values = {
       ...(patch.name !== undefined ? { name: normalizeGymName(patch.name) } : {}),
       ...(patch.primaryColor !== undefined ? { primary_color: patch.primaryColor } : {}),
     };
-    const { data, error } = await c.from('gyms').update(values).eq('id', gymId).select('name, primary_color');
+    const { data, error } = await c.from('gyms').update(values).eq('id', gymId).select(GYM_SETTINGS_COLUMNS);
     if (error) return err(error);
-    const row = (data ?? [])[0] as { name: string; primary_color: string | null } | undefined;
-    return row ? ok({ name: row.name, primaryColor: row.primary_color }) : forbidden();
+    const row = (data ?? [])[0] as GymSettingsRow | undefined;
+    return row ? ok(toSettings(row)) : forbidden();
   });
 }
 

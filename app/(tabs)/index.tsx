@@ -4,7 +4,7 @@ import { Link, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Building2, CalendarDays, Check, Megaphone, Pin, Play, Scale, Target, UserRound } from 'lucide-react-native';
+import { CalendarDays, Check, Megaphone, Pin, Play, Scale, Target, UserRound } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
@@ -50,6 +50,7 @@ import {
 import { GoalRing } from '@/components/GoalRing';
 import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
 import { WorkoutCalendar } from '@/components/WorkoutCalendar';
+import { GymLogo } from '@/components/GymLogo';
 
 /**
  * Karşılama kararı uygulama açılışı başına bir kez verilir; sekmeler
@@ -131,10 +132,11 @@ function GymRow() {
     <View className="gap-2 -mb-1">
       <Link href="/(tabs)/settings" asChild>
         <Pressable
-          className="flex-row items-center self-start bg-bg-surface border rounded-full px-3 py-1.5 active:opacity-70"
+          className="flex-row items-center self-start bg-bg-surface border rounded-full pl-1 pr-3 py-1 active:opacity-70"
           style={{ borderColor: color }}
         >
-          <Building2 color={color} size={14} />
+          {/* Logo (v3.3); yoksa adın baş harfi salon renginde */}
+          <GymLogo name={primary.gymName} logoUrl={primary.logoUrl} color={color} size={22} />
           <Text className="text-white text-xs font-semibold ml-2" numberOfLines={1}>
             {primary.gymName}
           </Text>

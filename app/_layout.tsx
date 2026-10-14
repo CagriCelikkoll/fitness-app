@@ -18,6 +18,7 @@ import { useSyncTriggers } from '@/hooks/useSyncTriggers';
 import { useAnnouncementTriggers } from '@/hooks/useAnnouncements';
 import { useClassScheduleTriggers } from '@/hooks/useClassSchedule';
 import { useClassReminderResponses } from '@/lib/classReminderNative';
+import { usePushRegistration, usePushResponses } from '@/lib/pushNative';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -132,6 +133,9 @@ function SyncTriggers() {
   useClassScheduleTriggers();
   // Ders hatırlatmasına dokununca program ekranı (v3.2c)
   useClassReminderResponses();
+  // Push (v3.3): salon üyesiyse token kaydı; bildirime dokununca ilgili ekran
+  usePushRegistration();
+  usePushResponses();
   return null;
 }
 

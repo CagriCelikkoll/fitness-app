@@ -16,6 +16,7 @@ import { Trash2 } from 'lucide-react-native';
 import { useDb } from '@/hooks/useDb';
 import { useSession } from '@/hooks/useSession';
 import { deleteMyAccount } from '@/lib/account';
+import { forgetPushRegistration } from '@/lib/pushNative';
 import { getSupabase } from '@/lib/supabase';
 import { DELETE_ACCOUNT_TEXT, canConfirmAccountDeletion } from '@/lib/sync/ui';
 import { resetSyncAfterAccountDeleted } from '@/lib/syncState';
@@ -52,6 +53,8 @@ export default function DeleteAccountScreen() {
       setError(result.error.message);
       return;
     }
+    // Push token'ı sunucuda hesapla birlikte silindi (cascade); telefondaki kayıt da
+    void forgetPushRegistration();
     try {
       await resetSyncAfterAccountDeleted(db);
     } catch (err) {

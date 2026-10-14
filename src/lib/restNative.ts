@@ -14,6 +14,7 @@ import Storage from 'expo-sqlite/kv-store';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { reminderTarget } from '@/lib/classReminders';
+import { parsePushData } from '@/lib/push';
 import {
   connectRestNotifications,
   createRestNotificationScheduler,
@@ -101,10 +102,12 @@ export function installRestNotifications(): void {
   installed = true;
 
   // Dinlenme bildirimi ön planda gösterilmez: ekranda zaten sayaç,
-  // titreşim ve ses var. Ders hatırlatması (v3.2c) ön planda da görünür.
+  // titreşim ve ses var. Ders hatırlatması (v3.2c) ve salon push
+  // bildirimleri (v3.3) ön planda da görünür.
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
-      const show = reminderTarget(notification.request.content.data) != null;
+      const data = notification.request.content.data;
+      const show = reminderTarget(data) != null || parsePushData(data) != null;
       return {
         shouldShowBanner: show,
         shouldShowList: show,

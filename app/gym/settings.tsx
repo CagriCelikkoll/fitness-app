@@ -1,13 +1,10 @@
 /**
  * Salon ayarları (v3.2d, yalnızca yönetici): salon adı, katılım kodu
- * (göster, paylaş, yeni kod), salon rengi. Logo bu turda yok (resim
- * seçmek native paket ister); yeri hazır.
- *
- * Kopyalama için ayrı native paket yok: kod seçilebilir metin (uzun bas →
- * kopyala) ve sistem paylaşım ekranında da "Kopyala" var.
+ * (göster, kopyala, paylaş, yeni kod), salon rengi, logo (v3.3: seç →
+ * kare kırp → küçült → yükle; kaldır).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -20,7 +17,8 @@ import {
   View,
 } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Check, ImageIcon, RefreshCw, Share2 } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Check, Copy, ImageIcon, RefreshCw, Share2, Trash2 } from 'lucide-react-native';
 
 import { useGymMembership } from '@/hooks/useGymMembership';
 import {
@@ -30,13 +28,18 @@ import {
   fetchGymSettings,
   fetchJoinCode,
   gymNameError,
+  isGymColor,
   joinCodeShareText,
   normalizeGymName,
   regenerateJoinCode,
   updateGymSettings,
   type GymSettings,
 } from '@/lib/gymAdmin';
+import { removeGymLogo, uploadGymLogo } from '@/lib/gymLogo';
+import { pickGymLogo } from '@/lib/gymLogoNative';
+import { newId } from '@/lib/id';
 import { getSupabase } from '@/lib/supabase';
+import { GymLogo } from '@/components/GymLogo';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { COLORS } from '@/theme';
 
@@ -48,8 +51,17 @@ export default function GymSettingsScreen() {
   const [settings, setSettings] = useState<GymSettings | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [busy, setBusy] = useState<'name' | 'color' | 'code' | null>(null);
+  const [busy, setBusy] = useState<'name' | 'color' | 'code' | 'logo' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    []
+  );
 
   const load = useCallback(async () => {
     if (!gymId) return;
@@ -95,6 +107,69 @@ export default function GymSettingsScreen() {
     setSettings(r.value);
     // Ana sayfa salon satırı ve Ayarlar'daki kart
     void refreshMemberships();
+  };
+
+  const copy = async () => {
+    if (!code) return;
+    try {
+      await Clipboard.setStringAsync(code);
+    } catch (err) {
+      console.warn('[GYM-ADMIN] Kopyalanamadı:', err);
+      return;
+    }
+    setCopied(true);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+  };
+
+  const chooseLogo = async () => {
+    if (!settings) return;
+    setBusy('logo');
+    setError(null);
+    let bytes: ArrayBuffer | null;
+    try {
+      bytes = await pickGymLogo();
+    } catch (err) {
+      console.warn('[GYM-LOGO] Resim hazırlanamadı:', err);
+      setBusy(null);
+      setError('Resim açılamadı. Başka bir resim dene.');
+      return;
+    }
+    if (!bytes) {
+      setBusy(null);
+      return;
+    }
+    const r = await uploadGymLogo(getSupabase(), gymId, bytes, newId(), settings.logoUrl);
+    setBusy(null);
+    if (!r.ok) {
+      setError(r.error.message);
+      return;
+    }
+    setSettings({ ...settings, logoUrl: r.value });
+    void refreshMemberships();
+  };
+
+  const confirmRemoveLogo = () => {
+    if (!settings?.logoUrl) return;
+    Alert.alert('Logo kaldırılsın mı?', 'Yerine salon adının baş harfi görünür.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Kaldır',
+        style: 'destructive',
+        onPress: async () => {
+          setBusy('logo');
+          setError(null);
+          const r = await removeGymLogo(getSupabase(), gymId, settings.logoUrl);
+          setBusy(null);
+          if (!r.ok) {
+            setError(r.error.message);
+            return;
+          }
+          setSettings({ ...settings, logoUrl: null });
+          void refreshMemberships();
+        },
+      },
+    ]);
   };
 
   const share = () => {
@@ -162,10 +237,16 @@ export default function GymSettingsScreen() {
           >
             {code ?? '······'}
           </Text>
-          <Text className="text-muted text-xs leading-5 text-center">
-            Kopyalamak için koda uzun bas ya da paylaş.
-          </Text>
-          <PrimaryButton label="Kodu paylaş" icon={Share2} disabled={!code} onPress={share} />
+          <View className="flex-row gap-2">
+            <SecondaryButton
+              label={copied ? 'Kopyalandı' : 'Kopyala'}
+              icon={copied ? Check : Copy}
+              className="flex-1"
+              disabled={!code}
+              onPress={() => void copy()}
+            />
+            <PrimaryButton label="Paylaş" icon={Share2} className="flex-1" disabled={!code} onPress={share} />
+          </View>
           <SecondaryButton
             label="Yeni kod üret"
             icon={RefreshCw}
@@ -200,12 +281,31 @@ export default function GymSettingsScreen() {
           <Text className="text-muted text-xs leading-5">Ana sayfadaki salon satırında görünür.</Text>
         </Card>
 
-        <Card className="gap-2 opacity-60">
-          <View className="flex-row items-center gap-2">
-            <ImageIcon color={COLORS.muted} size={16} />
-            <Text className="text-white text-base">Logo</Text>
+        <Card className="gap-3">
+          <Text className="text-muted text-xs">Logo</Text>
+          <View className="flex-row items-center gap-4">
+            <GymLogo
+              name={settings?.name ?? name}
+              logoUrl={settings?.logoUrl}
+              color={isGymColor(settings?.primaryColor) ? settings.primaryColor : COLORS.accent}
+              size={72}
+            />
+            <View className="flex-1 gap-2">
+              <SecondaryButton
+                label={settings?.logoUrl ? 'Değiştir' : 'Logo seç'}
+                icon={ImageIcon}
+                loading={busy === 'logo'}
+                disabled={settings == null || busy != null}
+                onPress={() => void chooseLogo()}
+              />
+              {settings?.logoUrl != null && (
+                <SecondaryButton label="Kaldır" icon={Trash2} disabled={busy != null} onPress={confirmRemoveLogo} />
+              )}
+            </View>
           </View>
-          <Text className="text-muted text-xs leading-5">Yakında: bir sonraki uygulama güncellemesiyle.</Text>
+          <Text className="text-muted text-xs leading-5">
+            Kare kırpılıp küçültülür. Ana sayfada ve salon kartında görünür; logo yoksa salon adının baş harfi.
+          </Text>
         </Card>
 
         {error != null && <Text className="text-danger text-sm leading-5">{error}</Text>}

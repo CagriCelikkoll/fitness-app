@@ -24,6 +24,7 @@ import { joinGym, previewGym } from '@/lib/account';
 import { getSupabase } from '@/lib/supabase';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useProfile } from '@/hooks/useProfile';
+import { askPushPermissionAfterJoin } from '@/lib/pushNative';
 import { DISPLAY_NAME_MAX, displayNameError } from '@/lib/profile';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { COLORS } from '@/theme';
@@ -75,6 +76,8 @@ export default function JoinGymScreen() {
     setBusy(false);
     if (router.canGoBack()) router.back();
     else router.replace('/settings');
+    // Duyuru ve ders bildirimleri (v3.3): izin yoksa açıklamayla bir kez sor
+    if (userId) void askPushPermissionAfterJoin(userId);
   };
 
   if (!available || !userId) {
