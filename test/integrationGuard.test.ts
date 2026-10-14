@@ -62,6 +62,43 @@ describe('service role key uygulamaya girmiyor', () => {
     const ignore = readFileSync(path.join(ROOT, '.gitignore'), 'utf8').split(/\r?\n/);
     expect(ignore).toContain('.env.test');
   });
+
+  it('eas.json derleme env’i: yalnızca gerçek projenin herkese açık URL / publishable key’i', () => {
+    const eas = JSON.parse(readFileSync(path.join(ROOT, 'eas.json'), 'utf8')) as {
+      build: Record<string, { env?: Record<string, string> }>;
+    };
+    const roleOf = (key: string) => {
+      const part = key.split('.')[1];
+      if (!part) return null;
+      try {
+        return (JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as { role?: string }).role ?? null;
+      } catch {
+        return null;
+      }
+    };
+    const envFile = path.join(ROOT, '.env');
+    const real = existsSync(envFile) ? parseEnvText(readFileSync(envFile, 'utf8')) : null;
+    const testFile = path.join(ROOT, '.env.test');
+    const test = existsSync(testFile) ? parseEnvText(readFileSync(testFile, 'utf8')) : {};
+    const testValues = Object.values(test).filter((v) => v.length >= 20);
+
+    for (const [profile, { env = {} }] of Object.entries(eas.build)) {
+      for (const [name, value] of Object.entries(env)) {
+        expect(name, `${profile}.${name}`).toMatch(/^EXPO_PUBLIC_/);
+        expect(value.startsWith('sb_secret_'), `${profile}.${name}`).toBe(false);
+        expect(roleOf(value), `${profile}.${name}`).not.toBe('service_role');
+        expect(testValues.some((t) => value.includes(t) || t.includes(value)), `${profile}.${name}`).toBe(false);
+        if (real && name in real) expect(value, `${profile}.${name} .env ile aynı`).toBe(real[name]);
+      }
+    }
+    // APK'da hesap bölümü çalışsın: bulut derlemesi .env'i görmüyor
+    for (const profile of ['preview', 'production']) {
+      expect(Object.keys(eas.build[profile]?.env ?? {}).sort()).toEqual([
+        'EXPO_PUBLIC_SUPABASE_ANON_KEY',
+        'EXPO_PUBLIC_SUPABASE_URL',
+      ]);
+    }
+  });
 });
 
 const jwt = (payload: object) =>
