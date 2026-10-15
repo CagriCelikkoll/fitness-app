@@ -33,6 +33,10 @@ export interface GymMembership {
   /** YYYY-MM-DD ya da null */
   membershipEndsOn: string | null;
   joinedAt: string | null;
+  /** Salon rengi (#RRGGBB, yönetici seçer; v3.2d) ya da null */
+  primaryColor?: string | null;
+  /** Salon logosunun herkese açık adresi (v3.3) ya da null */
+  logoUrl?: string | null;
 }
 
 const ok = <T>(value: T): AccountResult<T> => ({ ok: true, value });
@@ -69,10 +73,21 @@ export function signInWithPassword(client: SupabaseClient | null, email: string,
  * E-posta zaten kayıtlıysa Supabase (doğrulama açıkken) hata vermiyor,
  * adresin varlığını gizlemek için sahte bir kullanıcı dönüyor; bunun
  * işareti boş `identities`. O durumda `email_taken`.
+ *
+ * Ad verilirse kullanıcı verisinde gider; sunucu (0007) profile yazar.
  */
-export function signUpWithPassword(client: SupabaseClient | null, email: string, password: string) {
+export function signUpWithPassword(
+  client: SupabaseClient | null,
+  email: string,
+  password: string,
+  displayName: string | null = null
+) {
   return run(client, async (c) => {
-    const { data, error } = await c.auth.signUp({ email: normalizeEmail(email), password });
+    const { data, error } = await c.auth.signUp({
+      email: normalizeEmail(email),
+      password,
+      ...(displayName ? { options: { data: { display_name: displayName } } } : {}),
+    });
     if (error) return fail<{ needsVerification: boolean }>(toAccountError(error));
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
       return fail<{ needsVerification: boolean }>(accountError('email_taken'));
@@ -168,6 +183,23 @@ export function signOut(client: SupabaseClient | null) {
   });
 }
 
+/**
+ * Hesabı ve buluttaki bütün verileri kalıcı olarak siler (v3.1c,
+ * supabase/migrations/0003_delete_account.sql). Kimlik sunucuda
+ * auth.uid(); başkasının hesabı silinemez. Salonun tek yöneticisiyse
+ * 'sole_admin'. Başarılıysa yerel oturum kapatılır (sunucuda zaten yok).
+ * Telefondaki antrenmanlara dokunmaz.
+ */
+export function deleteMyAccount(client: SupabaseClient | null) {
+  return run(client, async (c) => {
+    const { error } = await c.rpc('delete_my_account');
+    if (error) return fail<null>(toAccountError(error));
+    const { error: signOutError } = await c.auth.signOut({ scope: 'local' });
+    if (signOutError) console.error('[ACCOUNT] Silme sonrası çıkış hatası:', signOutError);
+    return ok(null);
+  });
+}
+
 // ============================================================================
 // Salon
 // ============================================================================
@@ -191,6 +223,8 @@ export function parseMembershipRows(data: unknown): GymMembership[] {
       role: r.role,
       membershipEndsOn: typeof r.membership_ends_on === 'string' ? r.membership_ends_on : null,
       joinedAt: typeof r.joined_at === 'string' ? r.joined_at : null,
+      primaryColor: typeof gym.primary_color === 'string' ? gym.primary_color : null,
+      logoUrl: typeof gym.logo_url === 'string' ? gym.logo_url : null,
     });
   }
   // En son katılınan önce
@@ -201,7 +235,7 @@ export function fetchMemberships(client: SupabaseClient | null, userId: string) 
   return run(client, async (c) => {
     const { data, error } = await c
       .from('gym_members')
-      .select('gym_id, role, membership_ends_on, joined_at, gyms(name)')
+      .select('gym_id, role, membership_ends_on, joined_at, gyms(name, primary_color, logo_url)')
       .eq('user_id', userId);
     return error ? fail<GymMembership[]>(toAccountError(error)) : ok(parseMembershipRows(data));
   });

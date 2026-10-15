@@ -3,9 +3,9 @@
     "name": "Dinç",
     "slug": "fitness-tracker",
     "scheme": "dinc",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brand/icon.png",
     "userInterfaceStyle": "automatic",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -15,19 +15,22 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.dincapp.antrenman"
+      "bundleIdentifier": "com.dincapp.antrenman",
+      "icon": "./assets/brand/icon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0f172a"
+        "foregroundImage": "./assets/brand/adaptive-icon.png",
+        "monochromeImage": "./assets/brand/monochrome-icon.png",
+        "backgroundColor": "#0A0A0B"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.dincapp.antrenman",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.SCHEDULE_EXACT_ALARM"
       ],
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -38,8 +41,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
-          "backgroundColor": "#0f172a",
+          "image": "./assets/brand/splash-icon.png",
+          "backgroundColor": "#0A0A0B",
           "resizeMode": "contain"
         }
       ],
@@ -55,7 +58,22 @@
           "enableBackgroundPlayback": false
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/brand/monochrome-icon.png",
+          "color": "#D7FF3E"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Salon logosunu seçmek için fotoğraflarına erişim gerekiyor.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -280,3 +280,14 @@ export function formatDaysAgo(key: string, now: Date = new Date()): string {
   if (diffDays < 30) return `${diffDays} gün önce`;
   return formatShortDate(date.toISOString(), now);
 }
+
+/** "az önce", "2 dk önce", "3 saat önce", "5 gün önce" */
+export function formatAgo(iso: string, nowMs: number): string {
+  const diff = Math.max(0, nowMs - Date.parse(iso));
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return 'az önce';
+  if (minutes < 60) return `${minutes} dk önce`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} saat önce`;
+  return `${Math.floor(hours / 24)} gün önce`;
+}

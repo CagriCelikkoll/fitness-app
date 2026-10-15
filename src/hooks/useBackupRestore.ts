@@ -14,6 +14,7 @@ import {
   type BackupFile,
 } from '@/lib/backup';
 import { formatDateTime } from '@/lib/format';
+import { restoreConfirmBody } from '@/lib/sync/ui';
 
 /** Yedekteki kayıt sayıları, uyarı metni için satır satır */
 export function summarizeCounts(counts: Record<string, number>): string {
@@ -31,7 +32,11 @@ export function summarizeCounts(counts: Record<string, number>): string {
  * Başarılı geri yüklemeden sonra `onRestored` çağrılıyor (ekrana göre
  * yönlendirme), ardından "Geri yüklendi" uyarısı.
  */
-export function useBackupRestore(onRestored: () => void | Promise<void>): {
+export function useBackupRestore(
+  onRestored: () => void | Promise<void>,
+  /** Eşitleme açıkken onayda bulutla birleşme uyarısı (v3.1c) */
+  options: { syncActive?: boolean } = {}
+): {
   importing: boolean;
   startRestore: () => Promise<void>;
 } {
@@ -96,7 +101,7 @@ export function useBackupRestore(onRestored: () => void | Promise<void>): {
             onPress: () =>
               Alert.alert(
                 'Mevcut tüm veriler silinecek',
-                'Geri yükleme birleştirme yapmaz. Cihazdaki rutinler, antrenmanlar, ölçümler ve egzersiz kütüphanesi silinip yedektekiyle değiştirilecek. Bu işlem geri alınamaz.',
+                restoreConfirmBody(options.syncActive ?? false),
                 [
                   { text: 'Vazgeç', style: 'cancel' },
                   {

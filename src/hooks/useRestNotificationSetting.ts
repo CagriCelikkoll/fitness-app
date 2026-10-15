@@ -13,6 +13,7 @@ import {
   getRestNotificationPermissionState,
   restNotificationScheduler,
 } from '@/lib/restNative';
+import { resyncClassReminders } from '@/hooks/useClassSchedule';
 
 /**
  * "Dinlenme bildirimi" ayarı (kv-store) ve bildirim izninin durumu.
@@ -70,6 +71,8 @@ export function useRestNotificationSetting(): {
       await setRestNotificationEnabled(Storage, value);
       // Kapatınca çalışan dinlenmenin bildirimi de kalksın
       if (!value) await restNotificationScheduler.cancel();
+      // Ders hatırlatmaları (v3.2c) da bu anahtara uyar
+      resyncClassReminders();
     } catch (err) {
       console.error('[REST-NOTIFICATION] Kaydedilemedi:', err);
       Alert.alert('Kaydetme hatası', String(err));

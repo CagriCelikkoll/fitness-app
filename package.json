@@ -1,6 +1,6 @@
 {
   "name": "fitness-app",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -12,7 +12,9 @@
     "db:studio": "drizzle-kit studio",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:db:reset": "node scripts/test-db-reset.mjs",
+    "test:integration": "vitest run --config vitest.integration.config.mts --reporter=verbose"
   },
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.4.7",
@@ -22,6 +24,7 @@
     "expo": "~57.0.27",
     "expo-asset": "~57.0.19",
     "expo-audio": "~57.0.5",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.18",
     "expo-crypto": "~57.0.3",
     "expo-document-picker": "~57.0.3",
@@ -29,6 +32,8 @@
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
     "expo-image": "~57.0.5",
+    "expo-image-manipulator": "~57.0.21",
+    "expo-image-picker": "~57.0.20",
     "expo-linking": "~57.0.12",
     "expo-notifications": "~57.0.22",
     "expo-router": "~57.0.25",
@@ -57,10 +62,12 @@
     "@babel/core": "^7.25.0",
     "@electric-sql/pglite": "^0.5.8",
     "@types/better-sqlite3": "^9.6.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "~19.2.4",
     "babel-plugin-inline-import": "^3.0.0",
     "better-sqlite3": "^12.11.1",
     "drizzle-kit": "^0.31.4",
+    "pg": "^8.23.1",
     "prettier-plugin-tailwindcss": "^0.6.11",
     "typescript": "~5.9.2",
     "vite": "^8.3.0",

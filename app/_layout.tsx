@@ -14,6 +14,11 @@ import migrations from '../drizzle/migrations';
 import { DATABASE_NAME } from '@/db/client';
 import { seedIfEmpty } from '@/db/seed';
 import { useDb } from '@/hooks/useDb';
+import { useSyncTriggers } from '@/hooks/useSyncTriggers';
+import { useAnnouncementTriggers } from '@/hooks/useAnnouncements';
+import { useClassScheduleTriggers } from '@/hooks/useClassSchedule';
+import { useClassReminderResponses } from '@/lib/classReminderNative';
+import { usePushRegistration, usePushResponses } from '@/lib/pushNative';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -117,6 +122,23 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Eşitleme (v3.1b), duyuru (v3.2b) ve ders programı (v3.2c) tetikleyicileri. Bayrak kapalıyken
+ * ya da giriş yapılmamışken hiçbir şey yapmaz. Veritabanı hazır olduktan
+ * sonra.
+ */
+function SyncTriggers() {
+  useSyncTriggers();
+  useAnnouncementTriggers();
+  useClassScheduleTriggers();
+  // Ders hatırlatmasına dokununca program ekranı (v3.2c)
+  useClassReminderResponses();
+  // Push (v3.3): salon üyesiyse token kaydı; bildirime dokununca ilgili ekran
+  usePushRegistration();
+  usePushResponses();
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -127,6 +149,7 @@ export default function RootLayout() {
           onInit={initDatabase}
         >
           <DatabaseInitializer>
+            <SyncTriggers />
             <StatusBar style="light" />
             <Stack
               screenOptions={{
@@ -199,6 +222,46 @@ export default function RootLayout() {
               <Stack.Screen
                 name="account/join-gym"
                 options={{ title: 'Salona katıl' }}
+              />
+              <Stack.Screen
+                name="account/name"
+                options={{ title: 'Adın' }}
+              />
+              <Stack.Screen
+                name="account/delete"
+                options={{ title: 'Hesabı sil' }}
+              />
+              <Stack.Screen
+                name="gym/members"
+                options={{ title: 'Üyeler' }}
+              />
+              <Stack.Screen
+                name="gym/member"
+                options={{ title: 'Üye' }}
+              />
+              <Stack.Screen
+                name="gym/settings"
+                options={{ title: 'Salon ayarları' }}
+              />
+              <Stack.Screen
+                name="announcements/index"
+                options={{ title: 'Duyurular' }}
+              />
+              <Stack.Screen
+                name="announcements/edit"
+                options={{ title: 'Duyuru' }}
+              />
+              <Stack.Screen
+                name="classes/index"
+                options={{ title: 'Ders programı' }}
+              />
+              <Stack.Screen
+                name="classes/templates"
+                options={{ title: 'Programı düzenle' }}
+              />
+              <Stack.Screen
+                name="classes/template"
+                options={{ title: 'Ders' }}
               />
             </Stack>
           </DatabaseInitializer>

@@ -13,6 +13,8 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 import Storage from 'expo-sqlite/kv-store';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
+import { reminderTarget } from '@/lib/classReminders';
+import { parsePushData } from '@/lib/push';
 import {
   connectRestNotifications,
   createRestNotificationScheduler,
@@ -99,14 +101,20 @@ export function installRestNotifications(): void {
   if (installed) return;
   installed = true;
 
-  // Ön planda gösterme: ekranda zaten sayaç, titreşim ve ses var
+  // Dinlenme bildirimi ön planda gösterilmez: ekranda zaten sayaç,
+  // titreşim ve ses var. Ders hatırlatması (v3.2c) ve salon push
+  // bildirimleri (v3.3) ön planda da görünür.
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: false,
-      shouldShowList: false,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      const data = notification.request.content.data;
+      const show = reminderTarget(data) != null || parsePushData(data) != null;
+      return {
+        shouldShowBanner: show,
+        shouldShowList: show,
+        shouldPlaySound: show,
+        shouldSetBadge: false,
+      };
+    },
   });
 
   connectRestNotifications(useActiveWorkoutStore, restNotificationScheduler);

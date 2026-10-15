@@ -32,6 +32,8 @@ yarn-error.*
 
 # local env files
 .env
+# gerçek Supabase test projesi anahtarları (v3.2a); örnek: .env.test.example
+.env.test
 .env*.local
 *.local.sql
 # gerçek kullanıcı yedekleri (test/syncMigration.test.ts), kişisel veri
@@ -62,3 +64,5 @@ docs/
 
 # Claude Code proje rehberi (lokal)
 CLAUDE.md
+# Supabase CLI yerel durumu (login / link; proje bilgisi)
+supabase/.temp/

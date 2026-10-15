@@ -25,7 +25,7 @@
  * 7 dokunuşla görünüyor; kapalıyken bölüm yok, Supabase'e istek yok.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -45,8 +45,11 @@ import { eq, sql } from 'drizzle-orm';
 import {
   Download,
   LogOut,
+  RefreshCw,
   RotateCcw,
+  Settings2,
   Upload,
+  Users,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -68,16 +71,18 @@ import {
   countRecords,
   wipeUserData,
 } from '@/lib/backup';
-import { getAppVersion, shareBackup } from '@/lib/backupFile';
+import { exportBackup, getAppVersion, shareBackup } from '@/lib/backupFile';
 import { ChipGroup } from '@/components/ChipGroup';
 import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { useRestNotificationSetting } from '@/hooks/useRestNotificationSetting';
+import { useNotificationPrefs } from '@/hooks/useNotificationPrefs';
 import { useProgressionSetting } from '@/hooks/useProgressionSetting';
 import { summarizeCounts, useBackupRestore } from '@/hooks/useBackupRestore';
 import type { RestNotificationPermissionState } from '@/lib/restNotification';
 import { openNotificationSettings } from '@/lib/restNative';
+import { unregisterPushBeforeSignOut } from '@/lib/pushNative';
 import {
   canFinishOpenSession,
   findOpenSessions,
@@ -92,14 +97,34 @@ import { promptConsentWithdraw, useHealthConsent } from '@/hooks/useHealthConsen
 import { hideBackupWarning, isBackupWarningHidden } from '@/lib/consent';
 import { BACKUP_SHARE_WARNING } from '@/content/legal';
 import { ConsentCard } from '@/components/ConsentCard';
+import { GymLogo } from '@/components/GymLogo';
+import { isGymColor } from '@/lib/gymAdmin';
 import { useGymFeatures } from '@/hooks/useGymFeatures';
 import { useSession } from '@/hooks/useSession';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useProfile } from '@/hooks/useProfile';
 import { leaveGym, signOut, type GymMembership } from '@/lib/account';
 import { INITIAL_TAP_COUNTER, registerVersionTap, roleLabel } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
+import {
+  requestSync,
+  resolveDeleteConfirmation,
+  useSyncActive,
+  useSyncStatus,
+} from '@/hooks/useSyncTriggers';
+import type { SyncIssue } from '@/lib/sync/engine';
+import {
+  INITIAL_ACCOUNT_SWITCH,
+  OWNER_MISMATCH_COPY,
+  SYNC_INFO_TEXT,
+  accountSwitchReducer,
+  confirmationCopy,
+  syncCardView,
+  wipeConfirmBody,
+} from '@/lib/sync/ui';
 import { COLORS } from '@/theme';
 import {
+  Card,
   DangerButton,
   ListRow,
   PrimaryButton,
@@ -293,6 +318,7 @@ function AccountSection() {
   const router = useRouter();
   const { available, ready, email } = useSession();
   const { userId, memberships, loading, error, refresh } = useGymMembership();
+  const profile = useProfile();
   const [signingOut, setSigningOut] = useState(false);
 
   if (!available) return null;
@@ -324,7 +350,10 @@ function AccountSection() {
         style: 'destructive',
         onPress: () => {
           setSigningOut(true);
-          void signOut(getSupabase()).finally(() => setSigningOut(false));
+          // Push token'ı oturum varken silinir (v3.3)
+          void unregisterPushBeforeSignOut()
+            .then(() => signOut(getSupabase()))
+            .finally(() => setSigningOut(false));
         },
       },
     ]);
@@ -341,6 +370,21 @@ function AccountSection() {
         }
       >
         <Text className="text-muted text-base">E-posta</Text>
+      </ListRow>
+      <ListRow
+        divider
+        chevron
+        onPress={() => router.push('/account/name')}
+        right={
+          <Text
+            className={`text-base ${profile.displayName ? 'text-white' : 'text-accent'}`}
+            numberOfLines={1}
+          >
+            {profile.displayName ?? (profile.loaded ? 'Ekle' : '…')}
+          </Text>
+        }
+      >
+        <Text className="text-muted text-base">Adın</Text>
       </ListRow>
 
       {memberships.map((membership) => (
@@ -365,13 +409,240 @@ function AccountSection() {
         <PrimaryButton label="Salona katıl" onPress={() => router.push('/account/join-gym')} />
       )}
 
+      <SyncCard />
+
       <SecondaryButton
         label={signingOut ? 'Çıkış yapılıyor...' : 'Çıkış yap'}
         icon={LogOut}
         loading={signingOut}
         onPress={confirmSignOut}
       />
+
+      <Pressable
+        onPress={() => router.push('/account/delete')}
+        hitSlop={6}
+        accessibilityRole="button"
+        className="self-center py-1 active:opacity-60"
+      >
+        <Text className="text-danger text-sm font-semibold">Hesabımı sil</Text>
+      </Pressable>
     </Section>
+  );
+}
+
+// ============================================================================
+// Antrenman eşitleme kartı (v3.1c)
+// ============================================================================
+
+const SYNC_INFO_SEEN_KEY = 'sync.infoSeen';
+const SYNC_TONE_CLASS = { ok: 'text-accent', muted: 'text-muted', danger: 'text-danger' } as const;
+
+/** "2 dk önce" kendiliğinden ilerlesin */
+function useNowTick(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+/** Bir kez gösterilen bilgi (kv-store; okunamazsa gösterilir) */
+function useSyncInfoSeen(): { seen: boolean; dismiss: () => void } {
+  const [seen, setSeen] = useState(true);
+  useEffect(() => {
+    Storage.getItem(SYNC_INFO_SEEN_KEY)
+      .then((value) => setSeen(value === '1'))
+      .catch(() => setSeen(false));
+  }, []);
+  const dismiss = () => {
+    setSeen(true);
+    Storage.setItem(SYNC_INFO_SEEN_KEY, '1').catch((err) =>
+      console.warn('[SYNC] Bilgi ayarı kaydedilemedi:', err)
+    );
+  };
+  return { seen, dismiss };
+}
+
+/**
+ * Durum (tek cümle), "Şimdi eşitle", atlanan satır uyarısı, bir kez
+ * gösterilen bilgi. Hesap uyuşmazlığında ve onay bekleyen silmede kartın
+ * yerine soru (3.1, 3.2). Mantık: src/lib/sync/ui.ts (syncCardView).
+ */
+function SyncCard() {
+  const { status, running } = useSyncStatus();
+  const now = useNowTick(30_000);
+  const info = useSyncInfoSeen();
+  const view = syncCardView(status, running, now);
+
+  if (view.kind === 'owner_mismatch') return <OwnerMismatchCard />;
+  if (view.kind === 'confirm') return <DeleteConfirmationCard issue={view.issue} />;
+
+  return (
+    <Card className="gap-3">
+      <Text className="text-white text-base font-semibold">Antrenman eşitleme</Text>
+      <Text className={`text-sm leading-5 ${SYNC_TONE_CLASS[view.tone]}`}>{view.text}</Text>
+      {view.notice != null && (
+        <Text className="text-muted text-xs leading-5">⚠︎ {view.notice}</Text>
+      )}
+      {view.detail != null && (
+        <Text className="text-muted text-xs leading-5" selectable>
+          Ayrıntı: {view.detail}
+        </Text>
+      )}
+      {!info.seen && (
+        <View className="gap-1">
+          <Text className="text-muted text-sm leading-5">{SYNC_INFO_TEXT}</Text>
+          <Pressable
+            onPress={info.dismiss}
+            hitSlop={6}
+            accessibilityRole="button"
+            className="self-start active:opacity-60"
+          >
+            <Text className="text-accent text-sm font-semibold">Anladım</Text>
+          </Pressable>
+        </View>
+      )}
+      <SecondaryButton
+        label={running ? 'Eşitleniyor...' : view.retry ? 'Tekrar dene' : 'Şimdi eşitle'}
+        icon={RefreshCw}
+        disabled={running}
+        loading={running}
+        onPress={() => void requestSync()}
+      />
+    </Card>
+  );
+}
+
+/**
+ * 3.1: telefondaki veri başka hesabın. "Önceki hesaba dön" çıkış yapar.
+ * "Bu telefonu yeni hesapla kullan": yedek zorunlu → ikinci onay →
+ * susturulmuş yerel temizlik (wipeUserData) → yeni hesabın verisi çekilir.
+ */
+function OwnerMismatchCard() {
+  const db = useDb();
+  const endSession = useActiveWorkoutStore((s) => s.endSession);
+  const [state, dispatch] = useReducer(accountSwitchReducer, INITIAL_ACCOUNT_SWITCH);
+  const [signingOut, setSigningOut] = useState(false);
+  const busy = state.step === 'backing_up' || state.step === 'wiping' || signingOut;
+
+  const goBack = () => {
+    setSigningOut(true);
+    void unregisterPushBeforeSignOut()
+      .then(() => signOut(getSupabase()))
+      .finally(() => setSigningOut(false));
+  };
+
+  const wipeAndPull = async () => {
+    dispatch({ type: 'confirmed' });
+    try {
+      await wipeUserData(db);
+      endSession();
+      dispatch({ type: 'wiped' });
+      await requestSync();
+    } catch (err) {
+      console.error('[SYNC] Hesap değiştirme temizliği:', err);
+      dispatch({ type: 'wipe_failed', message: `Silinemedi: ${String(err)}` });
+    }
+  };
+
+  const startSwitch = async () => {
+    dispatch({ type: 'start' });
+    try {
+      await exportBackup(db);
+    } catch (err) {
+      console.error('[SYNC] Hesap değiştirme yedeği:', err);
+      dispatch({ type: 'backup_failed', message: `Yedek alınamadı, hiçbir şey silinmedi: ${String(err)}` });
+      return;
+    }
+    dispatch({ type: 'backup_done' });
+    Alert.alert(
+      OWNER_MISMATCH_COPY.confirmTitle,
+      OWNER_MISMATCH_COPY.confirmBody,
+      [
+        { text: 'Vazgeç', style: 'cancel', onPress: () => dispatch({ type: 'cancel' }) },
+        {
+          text: OWNER_MISMATCH_COPY.confirmLabel,
+          style: 'destructive',
+          onPress: () => void wipeAndPull(),
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  return (
+    <Card className="gap-3">
+      <Text className="text-white text-base font-semibold">{OWNER_MISMATCH_COPY.title}</Text>
+      <Text className="text-muted text-sm leading-5">{OWNER_MISMATCH_COPY.body}</Text>
+      <PrimaryButton
+        label={OWNER_MISMATCH_COPY.backLabel}
+        disabled={busy}
+        loading={signingOut}
+        onPress={goBack}
+      />
+      <Text className="text-muted text-xs leading-5 -mt-1">{OWNER_MISMATCH_COPY.backHint}</Text>
+      <SecondaryButton
+        label={
+          state.step === 'backing_up'
+            ? 'Yedek hazırlanıyor...'
+            : state.step === 'wiping'
+              ? 'Hazırlanıyor...'
+              : OWNER_MISMATCH_COPY.switchLabel
+        }
+        disabled={busy}
+        loading={state.step === 'backing_up' || state.step === 'wiping'}
+        onPress={() => void startSwitch()}
+      />
+      <Text className="text-muted text-xs leading-5 -mt-1">{OWNER_MISMATCH_COPY.switchHint}</Text>
+      {state.error != null && <Text className="text-danger text-sm leading-5">{state.error}</Text>}
+    </Card>
+  );
+}
+
+/**
+ * 3.2: 50+ silme. Öne çıkan seçenek veriyi korur; silme ikinci onayla.
+ * Metinler ve davranış: src/lib/sync/ui.ts (confirmationCopy),
+ * resolveDeleteConfirmation.
+ */
+function DeleteConfirmationCard({
+  issue,
+}: {
+  issue: Extract<SyncIssue, { kind: 'needs_confirmation' }>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const copy = confirmationCopy(issue);
+
+  const resolve = (choice: 'keep' | 'drop') => {
+    setBusy(true);
+    resolveDeleteConfirmation(issue, choice)
+      .catch((err) => {
+        console.error('[SYNC] Silme onayı:', err);
+        Alert.alert('Hata', String(err));
+      })
+      .finally(() => setBusy(false));
+  };
+
+  const confirmDrop = () => {
+    Alert.alert(copy.dropConfirmTitle, copy.dropConfirmBody, [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: copy.dropLabel, style: 'destructive', onPress: () => resolve('drop') },
+    ]);
+  };
+
+  return (
+    <Card className="gap-3">
+      <Text className="text-white text-base font-semibold">{copy.title}</Text>
+      <Text className="text-white text-sm leading-5">{copy.body}</Text>
+      <PrimaryButton
+        label={copy.keepLabel}
+        disabled={busy}
+        loading={busy}
+        onPress={() => resolve('keep')}
+      />
+      <Text className="text-muted text-xs leading-5 -mt-1">{copy.keepHint}</Text>
+      <DangerButton label={copy.dropLabel} disabled={busy} onPress={confirmDrop} />
+    </Card>
   );
 }
 
@@ -384,6 +655,7 @@ function MembershipCard({
   userId: string;
   onLeft: () => void;
 }) {
+  const router = useRouter();
   const [leaving, setLeaving] = useState(false);
   const ended =
     membership.membershipEndsOn != null && membership.membershipEndsOn < toDateKey(new Date());
@@ -409,20 +681,46 @@ function MembershipCard({
 
   return (
     <View className="bg-bg-elevated rounded-2xl p-4 gap-3">
-      <View>
-        <Text className="text-white text-lg font-semibold" numberOfLines={1}>
-          {membership.gymName}
-        </Text>
-        <Text className="text-accent text-sm font-semibold mt-0.5">
-          {roleLabel(membership.role)}
-        </Text>
-        {membership.membershipEndsOn != null && (
-          <Text className={`text-xs mt-1 tabular-nums ${ended ? 'text-danger' : 'text-muted'}`}>
-            Üyelik bitişi: {formatDateKey(membership.membershipEndsOn)}
-            {ended ? ' (bitti)' : ''}
+      <View className="flex-row items-center gap-3">
+        <GymLogo
+          name={membership.gymName}
+          logoUrl={membership.logoUrl}
+          color={isGymColor(membership.primaryColor) ? membership.primaryColor : COLORS.accent}
+          size={44}
+        />
+        <View className="flex-1">
+          <Text className="text-white text-lg font-semibold" numberOfLines={1}>
+            {membership.gymName}
           </Text>
-        )}
+          <Text className="text-accent text-sm font-semibold mt-0.5">
+            {roleLabel(membership.role)}
+          </Text>
+          {membership.membershipEndsOn != null && (
+            <Text className={`text-xs mt-1 tabular-nums ${ended ? 'text-danger' : 'text-muted'}`}>
+              Üyelik bitişi: {formatDateKey(membership.membershipEndsOn)}
+              {ended ? ' (bitti)' : ''}
+            </Text>
+          )}
+        </View>
       </View>
+      {(membership.role === 'admin' || membership.role === 'trainer') && (
+        <View className="flex-row gap-2">
+          <SecondaryButton
+            label="Üyeler"
+            icon={Users}
+            className="flex-1"
+            onPress={() => router.push({ pathname: '/gym/members', params: { gymId: membership.gymId } })}
+          />
+          {membership.role === 'admin' && (
+            <SecondaryButton
+              label="Salon ayarları"
+              icon={Settings2}
+              className="flex-1"
+              onPress={() => router.push({ pathname: '/gym/settings', params: { gymId: membership.gymId } })}
+            />
+          )}
+        </View>
+      )}
       <DangerButton
         label={leaving ? 'Ayrılıyor...' : 'Salondan ayrıl'}
         loading={leaving}
@@ -468,6 +766,7 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
   const [sound, setSound] = useState(settings?.restTimerSound ?? true);
   const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
   const restNotification = useRestNotificationSetting();
+  const gymNotifications = useNotificationPrefs();
   const progression = useProgressionSetting();
 
   const persist = async (values: Partial<typeof appSettings.$inferInsert>) => {
@@ -549,6 +848,23 @@ function WorkoutSection({ settings }: { settings?: AppSettings }) {
           permission={restNotification.permission}
           onChange={(v) => void restNotification.setEnabled(v)}
         />
+      )}
+      {/* Salon bildirimleri (v3.3, sunucuda): yalnızca salon üyesiyken */}
+      {gymNotifications.visible && gymNotifications.loaded && (
+        <>
+          <ToggleRow
+            label="Salon duyuruları"
+            description="Salonundan yeni duyuru gelince bildirim."
+            value={gymNotifications.prefs.announcements}
+            onChange={(v) => gymNotifications.setPref('announcements', v)}
+          />
+          <ToggleRow
+            label="Ders iptalleri ve değişiklikleri"
+            description="Katılacağın ders iptal edilince ya da saati, hocası değişince."
+            value={gymNotifications.prefs.classChanges}
+            onChange={(v) => gymNotifications.setPref('classChanges', v)}
+          />
+        </>
       )}
       {progression.loaded && (
         <ToggleRow
@@ -698,10 +1014,14 @@ function DataSection({ onDataReplaced }: { onDataReplaced: () => void }) {
   };
 
   // Seç → doğrula → onay → geri yükle akışı karşılamayla ortak
-  const { importing, startRestore } = useBackupRestore(() => {
-    onDataReplaced();
-    router.replace('/');
-  });
+  const syncActive = useSyncActive();
+  const { importing, startRestore } = useBackupRestore(
+    () => {
+      onDataReplaced();
+      router.replace('/');
+    },
+    { syncActive }
+  );
 
   return (
     <Section
@@ -881,6 +1201,7 @@ function PrivacySection() {
 
 function DangerSection() {
   const db = useDb();
+  const syncActive = useSyncActive();
   const endSession = useActiveWorkoutStore((s) => s.endSession);
   const [wiping, setWiping] = useState(false);
 
@@ -904,7 +1225,7 @@ function DangerSection() {
   const confirmWipe = () => {
     Alert.alert(
       'Son onay',
-      'Rutinler, antrenman geçmişi ve vücut ölçümlerinin tamamı silinecek. Bu işlem geri alınamaz.',
+      wipeConfirmBody(syncActive),
       [
         { text: 'Vazgeç', style: 'cancel' },
         { text: 'Evet, sil', style: 'destructive', onPress: () => void runWipe() },

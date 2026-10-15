@@ -501,11 +501,11 @@ describe('üyelik satırları', () => {
     expect(
       parseMembershipRows([
         { gym_id: 'g1', role: 'member', membership_ends_on: null, joined_at: '2026-01-01T00:00:00Z', gyms: { name: 'A' } },
-        { gym_id: 'g2', role: 'admin', membership_ends_on: '2027-01-31', joined_at: '2026-05-01T00:00:00Z', gyms: [{ name: 'B' }] },
+        { gym_id: 'g2', role: 'admin', membership_ends_on: '2027-01-31', joined_at: '2026-05-01T00:00:00Z', gyms: [{ name: 'B', primary_color: '#3EC5FF', logo_url: 'https://x.supabase.co/storage/v1/object/public/gym-logos/g2/a.jpg' }] },
       ])
     ).toEqual([
-      { gymId: 'g2', gymName: 'B', role: 'admin', membershipEndsOn: '2027-01-31', joinedAt: '2026-05-01T00:00:00Z' },
-      { gymId: 'g1', gymName: 'A', role: 'member', membershipEndsOn: null, joinedAt: '2026-01-01T00:00:00Z' },
+      { gymId: 'g2', gymName: 'B', role: 'admin', membershipEndsOn: '2027-01-31', joinedAt: '2026-05-01T00:00:00Z', primaryColor: '#3EC5FF', logoUrl: 'https://x.supabase.co/storage/v1/object/public/gym-logos/g2/a.jpg' },
+      { gymId: 'g1', gymName: 'A', role: 'member', membershipEndsOn: null, joinedAt: '2026-01-01T00:00:00Z', primaryColor: null, logoUrl: null },
     ]);
   });
 

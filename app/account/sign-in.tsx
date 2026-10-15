@@ -58,6 +58,7 @@ import {
   verifySignupCode,
   type AccountResult,
 } from '@/lib/account';
+import { DISPLAY_NAME_MAX, displayNameError, displayNameValue } from '@/lib/profile';
 import { getSupabase } from '@/lib/supabase';
 import { useSession } from '@/hooks/useSession';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
@@ -133,8 +134,11 @@ export default function SignInScreen() {
     if (check(result)) dispatch({ type: 'codeSent', mode, now: Date.now() });
   };
 
+  // Kayıtta ad isteğe bağlı; yazıldıysa 2–40
+  const nameError = state.mode === 'signUp' ? displayNameError(state.displayName) : null;
+
   const submit = async () => {
-    if (!canSubmit(state)) return;
+    if (!canSubmit(state) || nameError != null) return;
     dispatch({ type: 'started' });
     const client = getSupabase();
 
@@ -161,7 +165,12 @@ export default function SignInScreen() {
         return;
       }
       case 'signUp': {
-        const result = await signUpWithPassword(client, state.email, state.password);
+        const result = await signUpWithPassword(
+          client,
+          state.email,
+          state.password,
+          displayNameValue(state.displayName)
+        );
         if (!check(result)) return;
         if (result.ok && !result.value.needsVerification) return done();
         dispatch({ type: 'codeSent', mode: 'verifySignup', now: Date.now() });
@@ -230,8 +239,9 @@ export default function SignInScreen() {
       >
         <Card className="gap-3">
           <Text className="text-white text-base leading-6">
-            Hesap oluşturursan e-posta adresin ve salon üyeliğin Dinç'in sunucusunda
-            saklanır. Antrenmanların şimdilik yalnızca telefonunda kalır.
+            Hesap oluşturursan e-posta adresin, salon üyeliğin ve antrenmanların (rutinler,
+            setler, notlar) Dinç'in sunucusunda saklanır; telefon değişince geri gelir.
+            Vücut ölçülerin yalnızca telefonunda kalır.
           </Text>
           <TextLink
             label="Gizlilik Politikası →"
@@ -315,6 +325,26 @@ export default function SignInScreen() {
             </Text>
           )}
 
+          {state.mode === 'signUp' && (
+            <Field label="Adın (isteğe bağlı)">
+              <TextInput
+                value={state.displayName}
+                onChangeText={setField('displayName')}
+                editable={!state.busy}
+                placeholder="Ör. Ayşe Yılmaz"
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                maxLength={DISPLAY_NAME_MAX + 10}
+                className={INPUT_CLASS}
+              />
+              <Text className={`text-xs mt-1.5 leading-5 ${nameError ? 'text-danger' : 'text-muted'}`}>
+                {nameError ?? 'Yalnızca salonunun hocaları ve yöneticisi görür.'}
+              </Text>
+            </Field>
+          )}
+
           {newPassword && (
             <>
               <Field label={state.mode === 'signUp' ? 'Şifre' : 'Yeni şifre'}>
@@ -345,7 +375,7 @@ export default function SignInScreen() {
 
           <PrimaryButton
             label={SUBMIT_LABELS[state.mode]}
-            disabled={!canSubmit(state)}
+            disabled={!canSubmit(state) || nameError != null}
             loading={state.busy}
             onPress={() => void submit()}
           />

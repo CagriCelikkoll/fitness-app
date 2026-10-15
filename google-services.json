@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "400004061611",
+    "project_id": "dinc-ff6bc",
+    "storage_bucket": "dinc-ff6bc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:400004061611:android:13dcce7e15d4d4e6091aee",
+        "android_client_info": {
+          "package_name": "com.dincapp.antrenman"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZXDNDHu-4mqoclXi59jjpCQoXkpwlRgw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

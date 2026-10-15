@@ -147,3 +147,27 @@ export async function startTracking(db: Db, ownerUserId: string): Promise<void> 
     }
   });
 }
+
+/**
+ * Hesap silindi (v3.1c): telefondaki veri artık hiçbir hesaba ait değil.
+ * Takip kapanır, giden kutusu ve imleç sıfırlanır. Yerel antrenmanlara
+ * dokunulmaz; yeniden giriş yapılırsa ilk eşitleme gibi davranır (sahip
+ * yok → telefon verisi o hesaba yüklenir, hesap uyuşmazlığı çıkmaz).
+ */
+export async function resetSyncAfterAccountDeleted(db: Db): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(syncOutbox);
+    await tx
+      .update(syncState)
+      .set({
+        tracking: false,
+        suppress: false,
+        ownerUserId: null,
+        initialUploadDone: false,
+        pullCursor: null,
+        lastSyncAt: null,
+        lastError: null,
+      })
+      .where(eq(syncState.id, STATE_ID));
+  });
+}
