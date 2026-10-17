@@ -24,6 +24,7 @@ import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-nativ
 
 import { useDb } from '@/hooks/useDb';
 import { useHealthConsent } from '@/hooks/useHealthConsent';
+import { useColors } from '@/hooks/useTheme';
 import { ConsentCard } from '@/components/ConsentCard';
 import { appSettings, bodyMetrics, type BodyMetric } from '@/db/schema';
 import {
@@ -59,7 +60,6 @@ import {
   weeklyMuscleSetsQuery,
   weeklyWindowStart,
 } from '@/lib/weeklyMuscles';
-import { COLORS } from '@/theme';
 import {
   Card,
   EmptyState,
@@ -78,6 +78,7 @@ interface Profile {
 }
 
 export default function ProgressScreen() {
+  const COLORS = useColors();
   const db = useDb();
   const consent = useHealthConsent();
 
@@ -159,13 +160,14 @@ export default function ProgressScreen() {
  * Ayarlar sekmesine gönderir. Profil doluysa hiçbir şey göstermez.
  */
 function ProfileHint({ profile }: { profile: Profile }) {
+  const COLORS = useColors();
   if (profile.heightCm != null && profile.birthDate != null) return null;
 
   return (
     <Link href="/(tabs)/settings" asChild>
       <Card className="flex-row items-center py-4">
         <SettingsIcon color={COLORS.muted} size={18} strokeWidth={1.75} />
-        <Text className="text-white text-sm flex-1 ml-3">
+        <Text className="text-fg text-sm flex-1 ml-3">
           Hesaplamalar için profil bilgilerini Ayarlar'dan gir
         </Text>
         <ChevronRight color={COLORS.muted} size={18} />
@@ -190,7 +192,7 @@ function CurrentCard({
     return (
       <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
         <Card variant="outline" className="items-center py-8">
-          <Text className="text-white text-xl font-semibold tracking-tight">
+          <Text className="text-fg text-xl font-semibold tracking-tight">
             İlk ölçümünü ekle
           </Text>
           <Text className="text-muted text-center text-sm mt-2">
@@ -353,7 +355,7 @@ function MetricRow({ label, value, detail, note, hint }: MetricRowProps) {
       </Text>
       {value != null && (
         <Text
-          className="text-white text-2xl font-bold tabular-nums tracking-tight mt-2"
+          className="text-fg text-2xl font-bold tabular-nums tracking-tight mt-2"
           numberOfLines={1}
           adjustsFontSizeToFit
         >
@@ -458,7 +460,7 @@ function WeeklyVolumeCard() {
           <Text className="text-muted text-xs uppercase tracking-widest">
             Bu hafta
           </Text>
-          <Text className="text-white text-4xl font-bold tabular-nums tracking-tight mt-2">
+          <Text className="text-fg text-4xl font-bold tabular-nums tracking-tight mt-2">
             {formatVolume(current.volume)}
           </Text>
         </View>
@@ -524,7 +526,7 @@ function WeeklyMusclesCard() {
             <View className="gap-2">
               {ranked.map(([muscle, sets]) => (
                 <View key={muscle} className="flex-row justify-between">
-                  <Text className="text-white text-base">
+                  <Text className="text-fg text-base">
                     {muscleLabel(muscle)}
                   </Text>
                   <Text className="text-muted text-base tabular-nums">
@@ -588,7 +590,7 @@ function RecordsCard() {
                   <LineChart variant="sparkline" points={r.trend} />
                   {r.records.e1rm ? (
                     <View className="items-end">
-                      <Text className="text-white text-base font-semibold tabular-nums">
+                      <Text className="text-fg text-base font-semibold tabular-nums">
                         {formatDecimal(r.records.e1rm.value)} kg
                       </Text>
                       <Text className="text-muted text-xs tabular-nums mt-0.5">
@@ -601,7 +603,7 @@ function RecordsCard() {
                 </View>
               }
             >
-              <Text className="text-white text-base" numberOfLines={1}>
+              <Text className="text-fg text-base" numberOfLines={1}>
                 {r.nameTr ?? r.name}
               </Text>
             </ListRow>
@@ -639,13 +641,13 @@ function HistoryCard({ metrics }: { metrics: BodyMetric[] }) {
                       %{formatDecimal(m.bodyFatPct)}
                     </Text>
                   )}
-                  <Text className="text-white text-base font-semibold tabular-nums">
+                  <Text className="text-fg text-base font-semibold tabular-nums">
                     {m.weightKg != null ? `${formatDecimal(m.weightKg)} kg` : '—'}
                   </Text>
                 </View>
               }
             >
-              <Text className="text-white text-base tabular-nums">
+              <Text className="text-fg text-base tabular-nums">
                 {formatDateKey(m.date)}
               </Text>
             </ListRow>

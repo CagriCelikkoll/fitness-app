@@ -126,7 +126,7 @@ export default function MemberScreen() {
       <Stack.Screen options={{ title: 'Üye' }} />
       <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 gap-4 pb-12" keyboardShouldPersistTaps="handled">
         <Card className="gap-1">
-          <Text className={`text-xl font-semibold ${member.name ? 'text-white' : 'text-muted'}`}>
+          <Text className={`text-xl font-semibold ${member.name ? 'text-fg' : 'text-muted'}`}>
             {name}
             {isMe ? ' (sen)' : ''}
           </Text>

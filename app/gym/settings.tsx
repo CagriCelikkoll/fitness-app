@@ -1,7 +1,7 @@
 /**
  * Salon ayarları (v3.2d, yalnızca yönetici): salon adı, katılım kodu
- * (göster, kopyala, paylaş, yeni kod), salon rengi, logo (v3.3: seç →
- * kare kırp → küçült → yükle; kaldır).
+ * (göster, kopyala, paylaş, yeni kod), salon rengi (v3.5: iki temada
+ * önizleme), logo (v3.3: seç → kare kırp → küçült → yükle; kaldır).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,6 +21,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Check, Copy, ImageIcon, RefreshCw, Share2, Trash2 } from 'lucide-react-native';
 
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useTheme } from '@/hooks/useTheme';
 import {
   GYM_COLORS,
   GYM_NAME_MAX,
@@ -28,7 +29,6 @@ import {
   fetchGymSettings,
   fetchJoinCode,
   gymNameError,
-  isGymColor,
   joinCodeShareText,
   normalizeGymName,
   regenerateJoinCode,
@@ -39,11 +39,13 @@ import { removeGymLogo, uploadGymLogo } from '@/lib/gymLogo';
 import { pickGymLogo } from '@/lib/gymLogoNative';
 import { newId } from '@/lib/id';
 import { getSupabase } from '@/lib/supabase';
+import { DINC_LIME, gymAccentTones } from '@/theme';
+import { GymColorPreview } from '@/components/GymColorPreview';
 import { GymLogo } from '@/components/GymLogo';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
 export default function GymSettingsScreen() {
+  const { scheme, colors: COLORS } = useTheme();
   const { gymId } = useLocalSearchParams<{ gymId: string }>();
   const { memberships, refresh: refreshMemberships } = useGymMembership();
   const isAdmin = gymId != null && canManageGym(gymId, memberships);
@@ -217,7 +219,7 @@ export default function GymSettingsScreen() {
             onChangeText={setName}
             editable={settings != null && busy == null}
             placeholderTextColor={COLORS.muted}
-            className="bg-bg-elevated text-white text-base px-4 h-12 rounded-xl"
+            className="bg-bg-elevated text-fg text-base px-4 h-12 rounded-xl"
           />
           {nameChanged && nameError != null && <Text className="text-danger text-xs">{nameError}</Text>}
           <PrimaryButton
@@ -232,7 +234,7 @@ export default function GymSettingsScreen() {
           <Text className="text-muted text-xs">Katılım kodu</Text>
           <Text
             selectable
-            className="text-white text-3xl font-bold tracking-[6px] tabular-nums text-center py-2"
+            className="text-fg text-3xl font-bold tracking-[6px] tabular-nums text-center py-2"
             accessibilityLabel={code ? `Katılım kodu ${code.split('').join(' ')}` : undefined}
           >
             {code ?? '······'}
@@ -261,6 +263,8 @@ export default function GymSettingsScreen() {
           <View className="flex-row flex-wrap gap-3">
             {GYM_COLORS.map((c) => {
               const selected = settings?.primaryColor === c.hex;
+              // Bu temadaki dolgu tonu (koyu temada salonun kendi rengi)
+              const tones = gymAccentTones(c.hex, scheme);
               return (
                 <Pressable
                   key={c.hex}
@@ -269,16 +273,19 @@ export default function GymSettingsScreen() {
                   accessibilityLabel={c.label}
                   accessibilityState={{ selected }}
                   className={`w-12 h-12 rounded-full items-center justify-center active:opacity-70 ${
-                    selected ? 'border-2 border-white' : ''
+                    selected ? 'border-2 border-fg' : ''
                   }`}
-                  style={{ backgroundColor: c.hex }}
+                  style={{ backgroundColor: tones.fill }}
                 >
-                  {selected && <Check color={COLORS.accentFg} size={20} />}
+                  {selected && <Check color={tones.onFill} size={20} />}
                 </Pressable>
               );
             })}
           </View>
-          <Text className="text-muted text-xs leading-5">Ana sayfadaki salon satırında görünür.</Text>
+          <GymColorPreview hex={settings?.primaryColor ?? DINC_LIME} />
+          <Text className="text-muted text-xs leading-5">
+            Ana sayfadaki salon satırında görünür; üyeler "Salon rengini kullan" açıksa düğme ve sekmelerde de.
+          </Text>
         </Card>
 
         <Card className="gap-3">
@@ -287,7 +294,7 @@ export default function GymSettingsScreen() {
             <GymLogo
               name={settings?.name ?? name}
               logoUrl={settings?.logoUrl}
-              color={isGymColor(settings?.primaryColor) ? settings.primaryColor : COLORS.accent}
+              gymColor={settings?.primaryColor}
               size={72}
             />
             <View className="flex-1 gap-2">

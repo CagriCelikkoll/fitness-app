@@ -16,8 +16,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, Text, TextInput, View } from 'react-native';
 import { NotebookPen } from 'lucide-react-native';
+import { useColors } from '@/hooks/useTheme';
 
-import { COLORS } from '@/theme';
 
 const SAVE_DEBOUNCE_MS = 500;
 
@@ -35,6 +35,7 @@ export function NoteEditor({
   addLabel,
   placeholder,
 }: NoteEditorProps) {
+  const COLORS = useColors();
   const [text, setText] = useState(initialValue ?? '');
   // Not yoksa önce "Not ekle" bağlantısı; basınca alan açılıyor
   const [open, setOpen] = useState(!!initialValue);
@@ -100,7 +101,7 @@ export function NoteEditor({
         multiline
         autoFocus={!initialValue}
         textAlignVertical="top"
-        className="text-white text-base min-h-[64px]"
+        className="text-fg text-base min-h-[64px]"
       />
     </View>
   );

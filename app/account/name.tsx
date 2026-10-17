@@ -11,6 +11,7 @@ import { Stack, useRouter } from 'expo-router';
 
 import { useProfile } from '@/hooks/useProfile';
 import { useSession } from '@/hooks/useSession';
+import { useColors } from '@/hooks/useTheme';
 import {
   DISPLAY_NAME_MAX,
   displayNameError,
@@ -18,9 +19,9 @@ import {
   normalizeDisplayName,
 } from '@/lib/profile';
 import { Card, PrimaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
 export default function NameScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const { available, userId } = useSession();
   const { displayName, loaded, save } = useProfile();
@@ -93,7 +94,7 @@ export default function NameScreen() {
               autoFocus
               returnKeyType="done"
               onSubmitEditing={() => void submit()}
-              className="bg-bg-elevated text-white text-base px-4 h-12 rounded-xl"
+              className="bg-bg-elevated text-fg text-base px-4 h-12 rounded-xl"
             />
             {validation != null && touched && <Text className="text-danger text-xs mt-1.5">{validation}</Text>}
           </View>

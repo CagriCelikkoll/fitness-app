@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useColors } from '@/hooks/useTheme';
 import {
   routineExercises,
   routines,
@@ -32,7 +33,6 @@ import {
   sessionExerciseImageUrls,
 } from '@/lib/startSession';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
-import { COLORS } from '@/theme';
 import {
   Card,
   EmptyState,
@@ -42,6 +42,7 @@ import {
 } from '@/components/ui';
 
 export default function WorkoutScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
 
@@ -237,11 +238,12 @@ function RoutineCard({
   onDelete,
   starting,
 }: RoutineCardProps) {
+  const COLORS = useColors();
   return (
     <Card>
       <View className="flex-row items-start justify-between">
         <View className="flex-1 mr-3">
-          <Text className="text-white text-xl font-semibold tracking-tight">
+          <Text className="text-fg text-xl font-semibold tracking-tight">
             {routine.name}
           </Text>
           {routine.description && (

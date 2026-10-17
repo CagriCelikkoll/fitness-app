@@ -24,7 +24,7 @@ export function SectionHeader({
   const titleClass =
     variant === 'label'
       ? `text-xs uppercase tracking-widest ${danger ? 'text-danger' : 'text-muted'}`
-      : `text-xl font-semibold tracking-tight ${danger ? 'text-danger' : 'text-white'}`;
+      : `text-xl font-semibold tracking-tight ${danger ? 'text-danger' : 'text-fg'}`;
 
   return (
     <View className={`flex-row items-end justify-between ${className}`}>

@@ -11,6 +11,7 @@ import { Trash2 } from 'lucide-react-native';
 
 import { useClassSchedule } from '@/hooks/useClassSchedule';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useColors } from '@/hooks/useTheme';
 import {
   INSTRUCTOR_MAX,
   NAME_MAX,
@@ -31,12 +32,12 @@ import {
 import { digitsOnly } from '@/lib/format';
 import { getSupabase } from '@/lib/supabase';
 import { Card, Chip, DangerButton, PrimaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
-const INPUT_CLASS = 'bg-bg-elevated text-white text-base px-4 rounded-xl h-12';
+const INPUT_CLASS = 'bg-bg-elevated text-fg text-base px-4 rounded-xl h-12';
 const WEEKDAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 7];
 
 export default function ClassTemplateScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const navigation = useNavigation();
   const { gymId, id } = useLocalSearchParams<{ gymId: string; id?: string }>();
@@ -232,14 +233,14 @@ export default function ClassTemplateScreen() {
 
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-3">
-              <Text className="text-white text-base">Programda göster</Text>
+              <Text className="text-fg text-base">Programda göster</Text>
               <Text className="text-muted text-xs mt-0.5">Kapalıyken üyeler bu dersi görmez; silinmez.</Text>
             </View>
             <Switch
               value={draft.active}
               onValueChange={(v) => set({ active: v })}
               disabled={busy}
-              trackColor={{ true: COLORS.accent }}
+              trackColor={{ true: COLORS.accentFill }}
             />
           </View>
 

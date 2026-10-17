@@ -103,11 +103,12 @@ import { hideBackupWarning, isBackupWarningHidden } from '@/lib/consent';
 import { BACKUP_SHARE_WARNING } from '@/content/legal';
 import { ConsentCard } from '@/components/ConsentCard';
 import { GymLogo } from '@/components/GymLogo';
-import { isGymColor } from '@/lib/gymAdmin';
 import { useGymFeatures } from '@/hooks/useGymFeatures';
 import { useSession } from '@/hooks/useSession';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useProfile } from '@/hooks/useProfile';
+import { setGymAccentEnabled, setThemeMode, useColors, useTheme } from '@/hooks/useTheme';
+import { THEME_MODE_OPTIONS } from '@/lib/themeMode';
 import { leaveGym, signOut, type GymMembership } from '@/lib/account';
 import { INITIAL_TAP_COUNTER, registerVersionTap, roleLabel } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
@@ -127,7 +128,6 @@ import {
   syncCardView,
   wipeConfirmBody,
 } from '@/lib/sync/ui';
-import { COLORS } from '@/theme';
 import {
   Card,
   DangerButton,
@@ -155,6 +155,7 @@ const MIN_REST_SECONDS = 0;
 const MAX_REST_SECONDS = 600;
 
 export default function SettingsScreen() {
+  const COLORS = useColors();
   const db = useDb();
 
   const { data: settingsRows, updatedAt } = useLiveQuery(
@@ -194,6 +195,7 @@ export default function SettingsScreen() {
         key={`workout-${settings?.id ?? 'new'}-${formEpoch}`}
         settings={settings}
       />
+      <AppearanceSection />
       <UnitsSection settings={settings} />
       <DataSection onDataReplaced={() => setFormEpoch((n) => n + 1)} />
       <UnfinishedSessionsSection />
@@ -243,7 +245,7 @@ function Section({
 }
 
 const INPUT_CLASS =
-  'bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl';
+  'bg-bg-elevated text-fg text-base tabular-nums px-4 h-12 rounded-xl';
 
 function ToggleRow({
   label,
@@ -256,6 +258,7 @@ function ToggleRow({
   value: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const COLORS = useColors();
   return (
     <ListRow
       divider
@@ -264,13 +267,13 @@ function ToggleRow({
         <Switch
           value={value}
           onValueChange={onChange}
-          trackColor={{ false: COLORS.border, true: COLORS.accent }}
+          trackColor={{ false: COLORS.border, true: COLORS.accentFill }}
           thumbColor={value ? COLORS.accentFg : COLORS.text}
           ios_backgroundColor={COLORS.border}
         />
       }
     >
-      <Text className="text-white text-base">{label}</Text>
+      <Text className="text-fg text-base">{label}</Text>
       {description != null && (
         <Text className="text-muted text-xs mt-0.5">{description}</Text>
       )}
@@ -320,6 +323,7 @@ function ActionButton({
  * render edilmiyor. Çıkış yapınca lokal antrenman verisi silinmez.
  */
 function AccountSection() {
+  const COLORS = useColors();
   const router = useRouter();
   const { available, ready, email } = useSession();
   const { userId, memberships, loading, error, refresh } = useGymMembership();
@@ -369,7 +373,7 @@ function AccountSection() {
       <ListRow
         className="-mt-3"
         right={
-          <Text className="text-white text-base" numberOfLines={1}>
+          <Text className="text-fg text-base" numberOfLines={1}>
             {email ?? '—'}
           </Text>
         }
@@ -382,7 +386,7 @@ function AccountSection() {
         onPress={() => router.push('/account/name')}
         right={
           <Text
-            className={`text-base ${profile.displayName ? 'text-white' : 'text-accent'}`}
+            className={`text-base ${profile.displayName ? 'text-fg' : 'text-accent'}`}
             numberOfLines={1}
           >
             {profile.displayName ?? (profile.loaded ? 'Ekle' : '…')}
@@ -485,7 +489,7 @@ function SyncCard() {
 
   return (
     <Card className="gap-3">
-      <Text className="text-white text-base font-semibold">Antrenman eşitleme</Text>
+      <Text className="text-fg text-base font-semibold">Antrenman eşitleme</Text>
       <Text className={`text-sm leading-5 ${SYNC_TONE_CLASS[view.tone]}`}>{view.text}</Text>
       {view.notice != null && (
         <Text className="text-muted text-xs leading-5">⚠︎ {view.notice}</Text>
@@ -578,7 +582,7 @@ function OwnerMismatchCard() {
 
   return (
     <Card className="gap-3">
-      <Text className="text-white text-base font-semibold">{OWNER_MISMATCH_COPY.title}</Text>
+      <Text className="text-fg text-base font-semibold">{OWNER_MISMATCH_COPY.title}</Text>
       <Text className="text-muted text-sm leading-5">{OWNER_MISMATCH_COPY.body}</Text>
       <PrimaryButton
         label={OWNER_MISMATCH_COPY.backLabel}
@@ -637,8 +641,8 @@ function DeleteConfirmationCard({
 
   return (
     <Card className="gap-3">
-      <Text className="text-white text-base font-semibold">{copy.title}</Text>
-      <Text className="text-white text-sm leading-5">{copy.body}</Text>
+      <Text className="text-fg text-base font-semibold">{copy.title}</Text>
+      <Text className="text-fg text-sm leading-5">{copy.body}</Text>
       <PrimaryButton
         label={copy.keepLabel}
         disabled={busy}
@@ -660,6 +664,7 @@ function MembershipCard({
   userId: string;
   onLeft: () => void;
 }) {
+  const COLORS = useColors();
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
   const ended =
@@ -690,11 +695,11 @@ function MembershipCard({
         <GymLogo
           name={membership.gymName}
           logoUrl={membership.logoUrl}
-          color={isGymColor(membership.primaryColor) ? membership.primaryColor : COLORS.accent}
+          gymColor={membership.primaryColor}
           size={44}
         />
         <View className="flex-1">
-          <Text className="text-white text-lg font-semibold" numberOfLines={1}>
+          <Text className="text-fg text-lg font-semibold" numberOfLines={1}>
             {membership.gymName}
           </Text>
           <Text className="text-accent text-sm font-semibold mt-0.5">
@@ -764,6 +769,7 @@ function ProfileSection({ settings }: { settings?: AppSettings }) {
 // ============================================================================
 
 function WorkoutSection({ settings }: { settings?: AppSettings }) {
+  const COLORS = useColors();
   const db = useDb();
 
   const [rest, setRest] = useState(String(settings?.defaultRestSeconds ?? 90));
@@ -934,6 +940,36 @@ function RestNotificationRow({
         </View>
       )}
     </View>
+  );
+}
+
+// ============================================================================
+// Görünüm (v3.5)
+// ============================================================================
+
+/**
+ * Tema (Sistem / Açık / Koyu) anında uygulanır. "Salon rengini kullan"
+ * yalnızca renkli bir salona üyeyken (bayrak açık) görünür.
+ */
+function AppearanceSection() {
+  const { mode, gymAccent, gymAccentAvailable } = useTheme();
+  return (
+    <Section title="Görünüm">
+      <ChipGroup
+        label="Tema"
+        options={THEME_MODE_OPTIONS}
+        value={mode}
+        onChange={setThemeMode}
+      />
+      {gymAccentAvailable && (
+        <ToggleRow
+          label="Salon rengini kullan"
+          description="Düğmeler, sekmeler ve bağlantılar salonunun renginde."
+          value={gymAccent}
+          onChange={setGymAccentEnabled}
+        />
+      )}
+    </Section>
   );
 }
 
@@ -1124,7 +1160,7 @@ function UnfinishedSessionRow({
   return (
     <View className="gap-3">
       <View>
-        <Text className="text-white text-base font-semibold" numberOfLines={1}>
+        <Text className="text-fg text-base font-semibold" numberOfLines={1}>
           {session.name}
         </Text>
         <Text className="text-muted text-xs mt-0.5 tabular-nums">
@@ -1176,14 +1212,14 @@ function PrivacySection() {
           router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy' } })
         }
       >
-        <Text className="text-white text-base">Gizlilik Politikası</Text>
+        <Text className="text-fg text-base">Gizlilik Politikası</Text>
       </ListRow>
       <ListRow
         chevron
         divider
         onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'kvkk' } })}
       >
-        <Text className="text-white text-base">Aydınlatma Metni</Text>
+        <Text className="text-fg text-base">Aydınlatma Metni</Text>
       </ListRow>
       <ListRow
         divider
@@ -1197,7 +1233,7 @@ function PrivacySection() {
           )
         }
       >
-        <Text className="text-white text-base">Vücut ölçüsü izni</Text>
+        <Text className="text-fg text-base">Vücut ölçüsü izni</Text>
       </ListRow>
       {cardOpen && consent.state != null && !consent.granted && (
         <ConsentCard
@@ -1341,7 +1377,7 @@ function AboutSection() {
             divider={idx > 0}
             onPress={row.onPress}
             right={
-              <Text className="text-white text-base font-semibold tabular-nums">
+              <Text className="text-fg text-base font-semibold tabular-nums">
                 {row.value}
               </Text>
             }
@@ -1350,7 +1386,7 @@ function AboutSection() {
           </ListRow>
         ))}
         <ListRow divider chevron onPress={() => router.push('/onboarding')}>
-          <Text className="text-white text-base">Tanıtımı tekrar göster</Text>
+          <Text className="text-fg text-base">Tanıtımı tekrar göster</Text>
         </ListRow>
         {showFlag && gymFeatures.enabled != null && (
           <ToggleRow

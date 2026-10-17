@@ -48,7 +48,7 @@ export default function ConsentScreen() {
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: insets.top }}>
       <ScrollView contentContainerClassName="px-5 pt-6 pb-6 gap-4">
-        <Text className="text-white text-3xl font-bold tracking-tight">
+        <Text className="text-fg text-3xl font-bold tracking-tight">
           Vücut ölçüleri
         </Text>
         <Text className="text-muted text-sm leading-5">

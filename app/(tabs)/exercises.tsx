@@ -14,6 +14,8 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useColors, useTheme } from '@/hooks/useTheme';
+import { imageFrameClass } from '@/theme';
 import { exercises, type Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
 import {
@@ -26,10 +28,10 @@ import {
   equipmentLabel,
   muscleLabels,
 } from '@/lib/exerciseTaxonomy';
-import { COLORS } from '@/theme';
 import { Chip } from '@/components/ui';
 
 export default function ExercisesScreen() {
+  const COLORS = useColors();
   const db = useDb();
 
   const [search, setSearch] = useState('');
@@ -69,7 +71,7 @@ export default function ExercisesScreen() {
             onChangeText={setSearch}
             placeholder="Egzersiz ara..."
             placeholderTextColor={COLORS.muted}
-            className="flex-1 text-white text-base ml-3"
+            className="flex-1 text-fg text-base ml-3"
             autoCorrect={false}
             autoCapitalize="none"
           />
@@ -132,6 +134,7 @@ export default function ExercisesScreen() {
 }
 
 function ExerciseRow({ exercise }: { exercise: Exercise }) {
+  const { scheme } = useTheme();
   const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
   const muscles = muscleLabels(exercise.primaryMuscles);
   const displayName = exercise.nameTr ?? exercise.name;
@@ -139,7 +142,9 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
   return (
     <Link href={`/exercise/${exercise.id}`} asChild>
       <Pressable className="flex-row items-center bg-bg-surface border border-border rounded-3xl p-3 active:opacity-80">
-        <View className="w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center">
+        <View
+          className={`w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center ${imageFrameClass(scheme)}`}
+        >
           {coverUrl ? (
             <Image
               source={{ uri: coverUrl }}
@@ -154,7 +159,7 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
           )}
         </View>
         <View className="flex-1 ml-4 justify-center">
-          <Text className="text-white text-base font-semibold" numberOfLines={1}>
+          <Text className="text-fg text-base font-semibold" numberOfLines={1}>
             {displayName}
           </Text>
           <Text className="text-muted text-xs mt-1" numberOfLines={1}>

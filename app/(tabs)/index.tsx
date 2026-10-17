@@ -15,7 +15,8 @@ import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { featuredAnnouncement, unreadCount } from '@/lib/announcements';
 import { useClassSchedule } from '@/hooks/useClassSchedule';
 import { useProfile } from '@/hooks/useProfile';
-import { isGymColor, membershipWarning } from '@/lib/gymAdmin';
+import { useColors, useGymTones } from '@/hooks/useTheme';
+import { membershipWarning } from '@/lib/gymAdmin';
 import { markNamePrompted, shouldPromptForName, wasNamePrompted } from '@/lib/profile';
 import {
   canEditSchedule,
@@ -39,7 +40,6 @@ import {
   workoutDayKeys,
   workoutDaysThisWeek,
 } from '@/lib/workoutCalendar';
-import { COLORS } from '@/theme';
 import {
   Card,
   ListRow,
@@ -123,21 +123,22 @@ export default function HomeScreen() {
  * kapalıysa / giriş yoksa / üyelik yoksa hiçbir şey çizmez, istek atmaz.
  */
 function GymRow() {
+  const COLORS = useColors();
   const { primary } = useGymMembership();
+  // Salon rengi (v3.2d): yönetici seçer; yoksa uygulama vurgusu. Temaya göre ton (v3.5)
+  const tones = useGymTones(primary?.primaryColor);
   if (!primary) return null;
-  // Salon rengi (v3.2d): yönetici seçer; yoksa uygulama vurgusu
-  const color = isGymColor(primary.primaryColor) ? primary.primaryColor : COLORS.accent;
   const warning = membershipWarning(primary.membershipEndsOn, Date.now());
   return (
     <View className="gap-2 -mb-1">
       <Link href="/(tabs)/settings" asChild>
         <Pressable
           className="flex-row items-center self-start bg-bg-surface border rounded-full pl-1 pr-3 py-1 active:opacity-70"
-          style={{ borderColor: color }}
+          style={{ borderColor: tones.ink }}
         >
           {/* Logo (v3.3); yoksa adın baş harfi salon renginde */}
-          <GymLogo name={primary.gymName} logoUrl={primary.logoUrl} color={color} size={22} />
-          <Text className="text-white text-xs font-semibold ml-2" numberOfLines={1}>
+          <GymLogo name={primary.gymName} logoUrl={primary.logoUrl} gymColor={primary.primaryColor} size={22} />
+          <Text className="text-fg text-xs font-semibold ml-2" numberOfLines={1}>
             {primary.gymName}
           </Text>
           <Text className="text-muted text-xs ml-1.5">· {roleLabel(primary.role)}</Text>
@@ -160,6 +161,7 @@ let namePromptShownFor: string | null = null;
  * ile hemen kapanır; ad sonra Ayarlar → Hesap ve salon → Adın'dan girilir.
  */
 function NamePromptCard() {
+  const COLORS = useColors();
   const router = useRouter();
   const { primary, userId } = useGymMembership();
   const { displayName, loaded } = useProfile();
@@ -198,7 +200,7 @@ function NamePromptCard() {
     <Card className="gap-3">
       <View className="flex-row items-center gap-2">
         <UserRound color={COLORS.accent} size={16} />
-        <Text className="text-white text-base font-semibold flex-1">Adını ekle</Text>
+        <Text className="text-fg text-base font-semibold flex-1">Adını ekle</Text>
       </View>
       <Text className="text-muted text-sm leading-5">
         Hocaların seni tanısın diye adını yaz. Yalnızca salonunun hocaları ve yöneticisi görür.
@@ -224,6 +226,7 @@ function NamePromptCard() {
  * duyuru yoksa ya da bayrak kapalıysa hiç görünmez.
  */
 function AnnouncementCard() {
+  const COLORS = useColors();
   const { primary } = useGymMembership();
   const { items, lastSeenAt } = useAnnouncements();
   const featured = featuredAnnouncement(items);
@@ -238,7 +241,7 @@ function AnnouncementCard() {
           ) : (
             <Megaphone color={COLORS.accent} size={14} />
           )}
-          <Text className="text-white text-base font-semibold flex-1" numberOfLines={1}>
+          <Text className="text-fg text-base font-semibold flex-1" numberOfLines={1}>
             {featured.title}
           </Text>
           {unread && <View className="w-2 h-2 rounded-full bg-accent" accessibilityLabel="Okunmamış duyuru var" />}
@@ -261,6 +264,7 @@ function AnnouncementCard() {
  * "Programı oluştur").
  */
 function TodayClassesCard() {
+  const COLORS = useColors();
   const { primary, memberships } = useGymMembership();
   const { templates, exceptions, attendance } = useClassSchedule();
   if (!primary) return null;
@@ -283,7 +287,7 @@ function TodayClassesCard() {
       <Card className="gap-2">
         <View className="flex-row items-center gap-2">
           <CalendarDays color={COLORS.accent} size={14} />
-          <Text className="text-white text-base font-semibold flex-1">Bugün</Text>
+          <Text className="text-fg text-base font-semibold flex-1">Bugün</Text>
           <Text className="text-muted text-xs">Program →</Text>
         </View>
         {summary.kind === 'today' ? (
@@ -316,15 +320,16 @@ function TodayClassRow({
   past: boolean;
   joined: boolean;
 }) {
+  const COLORS = useColors();
   const cancelled = o.status === 'cancelled';
   const change = changeSummary(o);
   return (
     <View className={past || cancelled ? 'opacity-50' : ''}>
       <View className="flex-row items-center gap-3">
-        <Text className={`text-white text-sm font-semibold tabular-nums w-12 ${cancelled ? 'line-through' : ''}`}>
+        <Text className={`text-fg text-sm font-semibold tabular-nums w-12 ${cancelled ? 'line-through' : ''}`}>
           {o.startTime}
         </Text>
-        <Text className={`text-white text-sm flex-shrink ${cancelled ? 'line-through' : ''}`} numberOfLines={1}>
+        <Text className={`text-fg text-sm flex-shrink ${cancelled ? 'line-through' : ''}`} numberOfLines={1}>
           {o.name}
         </Text>
         <Text className="text-muted text-sm flex-1" numberOfLines={1}>
@@ -339,6 +344,7 @@ function TodayClassRow({
 }
 
 function HomeContent() {
+  const COLORS = useColors();
   const db = useDb();
   const router = useRouter();
   const consent = useHealthConsent();
@@ -404,7 +410,7 @@ function HomeContent() {
       <AnnouncementCard />
       <TodayClassesCard />
       <View className="mb-3">
-        <Text className="text-white text-4xl font-bold tracking-tight">
+        <Text className="text-fg text-4xl font-bold tracking-tight">
           Hoş geldin 💪
         </Text>
         <Text className="text-muted text-sm mt-2">
@@ -476,7 +482,7 @@ function HomeContent() {
               <Play color={COLORS.accentFg} size={20} fill={COLORS.accentFg} />
             </View>
             <View className="flex-1 ml-4">
-              <Text className="text-white text-xl font-semibold tracking-tight">
+              <Text className="text-fg text-xl font-semibold tracking-tight">
                 Antrenmana Başla
               </Text>
               <Text className="text-muted text-sm mt-0.5">
@@ -514,7 +520,7 @@ function HomeContent() {
               asChild
             >
               <ListRow divider={idx > 0} chevron>
-                <Text className="text-white text-base font-semibold">
+                <Text className="text-fg text-base font-semibold">
                   {session.name}
                 </Text>
                 <Text className="text-muted text-xs mt-1 tabular-nums">
@@ -550,6 +556,7 @@ function GoalCard({
   streak: number;
   onPress: () => void;
 }) {
+  const COLORS = useColors();
   // Hedef okunmadan "belirle" daveti göstermeyelim — boş kart
   if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
 
@@ -559,7 +566,7 @@ function GoalCard({
         <View className="w-12 h-12 rounded-full bg-accent items-center justify-center">
           <Target color={COLORS.accentFg} size={22} />
         </View>
-        <Text className="text-white text-base font-semibold text-center mt-3">
+        <Text className="text-fg text-base font-semibold text-center mt-3">
           Haftalık hedef belirle
         </Text>
         <Text className="text-muted text-xs text-center mt-1">
@@ -577,7 +584,7 @@ function GoalCard({
     >
       <GoalRing done={done} goal={goal} />
       {streak >= 2 && (
-        <Text className="text-white text-xs font-medium mt-3">
+        <Text className="text-fg text-xs font-medium mt-3">
           🔥 {streak} haftalık seri
         </Text>
       )}
@@ -592,6 +599,7 @@ function WeightCard({
   loaded: boolean;
   latest?: { date: string; weightKg: number | null };
 }) {
+  const COLORS = useColors();
   if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
 
   if (latest?.weightKg == null) {
@@ -601,7 +609,7 @@ function WeightCard({
           <View className="w-12 h-12 rounded-full bg-bg-elevated border border-border items-center justify-center">
             <Scale color={COLORS.text} size={22} />
           </View>
-          <Text className="text-white text-base font-semibold text-center mt-3">
+          <Text className="text-fg text-base font-semibold text-center mt-3">
             Kilonu ekle
           </Text>
           <Text className="text-muted text-xs text-center mt-1">
@@ -617,7 +625,7 @@ function WeightCard({
       <Card className={BENTO_CARD_CLASS}>
         <Text className="text-muted text-xs tracking-widest">GÜNCEL KİLO</Text>
         <View className="flex-row items-baseline mt-2">
-          <Text className="text-white text-4xl font-bold tracking-tight tabular-nums">
+          <Text className="text-fg text-4xl font-bold tracking-tight tabular-nums">
             {formatDecimal(latest.weightKg)}
           </Text>
           <Text className="text-muted text-base ml-1">kg</Text>
@@ -653,7 +661,7 @@ function GoalPickerModal({
         {/* İçerideki basışlar arka plana gidip modalı kapatmasın */}
         <Pressable onPress={() => {}} className="bg-bg-surface rounded-t-3xl px-5 pt-6 pb-10 gap-5 border-t border-border">
           <View>
-            <Text className="text-white text-xl font-semibold tracking-tight">
+            <Text className="text-fg text-xl font-semibold tracking-tight">
               Haftalık hedef
             </Text>
             <Text className="text-muted text-sm mt-1">

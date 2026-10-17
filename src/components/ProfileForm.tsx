@@ -11,6 +11,7 @@ import { Alert, Text, TextInput, View } from 'react-native';
 
 import type { AppSettings } from '@/db/schema';
 import { useDb } from '@/hooks/useDb';
+import { useColors } from '@/hooks/useTheme';
 import { saveSettings } from '@/lib/appSettings';
 import { calculateAge } from '@/lib/bodyMetrics';
 import {
@@ -22,7 +23,6 @@ import {
 } from '@/lib/format';
 import { DateInput } from '@/components/DateInput';
 import { ChipGroup } from '@/components/ChipGroup';
-import { COLORS } from '@/theme';
 
 type Gender = 'male' | 'female' | 'unspecified';
 
@@ -42,7 +42,7 @@ const MIN_HEIGHT_CM = 50;
 const MAX_HEIGHT_CM = 272;
 
 const INPUT_CLASS =
-  'bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl';
+  'bg-bg-elevated text-fg text-base tabular-nums px-4 h-12 rounded-xl';
 
 /**
  * Doğum tarihi opsiyonel: üç alan da boşsa hata yok. Aksi halde ortak
@@ -154,6 +154,7 @@ export function useProfileForm(settings?: AppSettings) {
 }
 
 export function ProfileFields({ form }: { form: ProfileFormState }) {
+  const COLORS = useColors();
   const age = form.settings?.birthDate
     ? calculateAge(form.settings.birthDate)
     : null;

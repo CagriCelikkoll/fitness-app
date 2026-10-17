@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
-import { COLORS } from '@/theme';
+import { useColors } from '@/hooks/useTheme';
 
 interface ButtonProps extends Omit<PressableProps, 'children'> {
   label: string;
@@ -27,12 +27,6 @@ type Tone = {
 const BASE =
   'min-h-[52px] rounded-2xl px-5 flex-row items-center justify-center gap-2 active:opacity-80';
 
-const DISABLED: Tone = {
-  container: 'bg-bg-elevated',
-  text: 'text-muted',
-  iconColor: COLORS.muted,
-};
-
 function BaseButton({
   label,
   icon: Icon,
@@ -43,7 +37,11 @@ function BaseButton({
   tone,
   ...rest
 }: ButtonProps & { tone: Tone }) {
-  const t = disabled || loading ? DISABLED : tone;
+  const COLORS = useColors();
+  const t: Tone =
+    disabled || loading
+      ? { container: 'bg-bg-elevated', text: 'text-muted', iconColor: COLORS.muted }
+      : tone;
 
   return (
     <Pressable
@@ -65,8 +63,9 @@ function BaseButton({
   );
 }
 
-/** Ekrandaki birincil aksiyon — limon dolgu */
+/** Ekrandaki birincil aksiyon — vurgu dolgusu (limon ya da salon rengi) */
 export function PrimaryButton(props: ButtonProps) {
+  const COLORS = useColors();
   return (
     <BaseButton
       {...props}
@@ -81,12 +80,13 @@ export function PrimaryButton(props: ButtonProps) {
 
 /** İkincil aksiyon — yükseltilmiş zemin, ince çerçeve */
 export function SecondaryButton(props: ButtonProps) {
+  const COLORS = useColors();
   return (
     <BaseButton
       {...props}
       tone={{
         container: 'bg-bg-elevated border border-border',
-        text: 'text-white',
+        text: 'text-fg',
         iconColor: COLORS.text,
       }}
     />
@@ -100,6 +100,7 @@ export function DangerButton({
   solid = false,
   ...props
 }: ButtonProps & { solid?: boolean }) {
+  const COLORS = useColors();
   return (
     <BaseButton
       {...props}
@@ -107,8 +108,8 @@ export function DangerButton({
         solid
           ? {
               container: 'bg-danger',
-              text: 'text-accent-fg',
-              iconColor: COLORS.accentFg,
+              text: 'text-danger-fg',
+              iconColor: COLORS.dangerFg,
             }
           : {
               container: 'bg-danger/10 border border-danger/40',

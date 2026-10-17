@@ -21,6 +21,7 @@ import { asc, eq } from 'drizzle-orm';
 import { Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useColors } from '@/hooks/useTheme';
 import {
   cardioSegments,
   exercises as exercisesTable,
@@ -40,7 +41,6 @@ import {
 import { saveSessionNote } from '@/lib/notes';
 import { rirLabel } from '@/lib/rir';
 import { supersetPositions, type SupersetPosition } from '@/lib/superset';
-import { COLORS } from '@/theme';
 import { Card, DangerButton } from '@/components/ui';
 import { NoteEditor } from '@/components/NoteEditor';
 
@@ -51,6 +51,7 @@ interface ExerciseGroup {
 }
 
 export default function SessionDetailScreen() {
+  const COLORS = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useDb();
@@ -170,7 +171,7 @@ export default function SessionDetailScreen() {
     return (
       <View className="flex-1 bg-bg items-center justify-center p-6">
         <Stack.Screen options={{ title: 'Antrenman' }} />
-        <Text className="text-white text-xl font-semibold tracking-tight">
+        <Text className="text-fg text-xl font-semibold tracking-tight">
           Antrenman bulunamadı
         </Text>
         <Text className="text-muted text-sm text-center mt-2">
@@ -189,7 +190,7 @@ export default function SessionDetailScreen() {
 
       {/* Özet */}
       <View className="mb-1">
-        <Text className="text-white text-4xl font-bold tracking-tight">
+        <Text className="text-fg text-4xl font-bold tracking-tight">
           {session.name}
         </Text>
         <Text className="text-muted text-sm mt-2 tabular-nums">
@@ -293,7 +294,7 @@ function ExerciseDetailCard({
           SÜPERSET {superset.letter} · {superset.label}
         </Text>
       )}
-      <Text className="text-white text-xl font-semibold tracking-tight">
+      <Text className="text-fg text-xl font-semibold tracking-tight">
         {group.exercise.nameTr ?? group.exercise.name}
       </Text>
 
@@ -330,10 +331,10 @@ function ExerciseDetailCard({
               <Text className="text-muted text-base tabular-nums w-10">
                 {set.setNumber}
               </Text>
-              <Text className="text-white text-base font-semibold tabular-nums flex-1 text-right">
+              <Text className="text-fg text-base font-semibold tabular-nums flex-1 text-right">
                 {set.weightKg != null ? String(set.weightKg) : '—'}
               </Text>
-              <Text className="text-white text-base font-semibold tabular-nums flex-1 text-right">
+              <Text className="text-fg text-base font-semibold tabular-nums flex-1 text-right">
                 {set.reps != null ? String(set.reps) : '—'}
               </Text>
               {showRir && (
@@ -353,7 +354,7 @@ function ExerciseDetailCard({
               {group.sets.length} set
             </Text>
             {volume > 0 && (
-              <Text className="text-white text-xs font-semibold tabular-nums">
+              <Text className="text-fg text-xs font-semibold tabular-nums">
                 {formatVolume(volume)}
               </Text>
             )}
@@ -384,7 +385,7 @@ function CardioRow({
 }) {
   return (
     <View className="border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <Text className="text-white text-base font-semibold">
+      <Text className="text-fg text-base font-semibold">
         {exercise.nameTr ?? exercise.name}
       </Text>
       <View className="flex-row gap-4 mt-1">
@@ -411,7 +412,7 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
         {label}
       </Text>
       <Text
-        className="text-white text-2xl font-bold tabular-nums tracking-tight mt-2"
+        className="text-fg text-2xl font-bold tabular-nums tracking-tight mt-2"
         numberOfLines={1}
         adjustsFontSizeToFit
       >

@@ -31,7 +31,7 @@ export function LegalText({ blocks }: { blocks: LegalBlock[] }) {
 
 export function RichLine({ text, className = '' }: { text: string; className?: string }) {
   return (
-    <Text className={`text-white text-base leading-6 ${className}`}>
+    <Text className={`text-fg text-base leading-6 ${className}`}>
       {parseBold(text).map((span, i) =>
         span.bold ? (
           <Text key={i} className="font-semibold">

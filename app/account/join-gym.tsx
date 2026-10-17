@@ -24,12 +24,13 @@ import { joinGym, previewGym } from '@/lib/account';
 import { getSupabase } from '@/lib/supabase';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useProfile } from '@/hooks/useProfile';
+import { useColors } from '@/hooks/useTheme';
 import { askPushPermissionAfterJoin } from '@/lib/pushNative';
 import { DISPLAY_NAME_MAX, displayNameError } from '@/lib/profile';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
 export default function JoinGymScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const { available, userId, refresh } = useGymMembership();
   const [code, setCode] = useState('');
@@ -121,7 +122,7 @@ export default function JoinGymScreen() {
               maxLength={JOIN_CODE_MAX + 4}
               returnKeyType="search"
               onSubmitEditing={() => !preview && isValidJoinCode(code) && void findGym()}
-              className="bg-bg-elevated text-white text-xl tracking-[4px] px-4 h-12 rounded-xl text-center"
+              className="bg-bg-elevated text-fg text-xl tracking-[4px] px-4 h-12 rounded-xl text-center"
             />
           </View>
 
@@ -136,14 +137,14 @@ export default function JoinGymScreen() {
             <>
               <View className="bg-bg-elevated rounded-2xl p-4 gap-1">
                 <Text className="text-muted text-xs">Salon</Text>
-                <Text className="text-white text-lg font-semibold">{preview.gymName}</Text>
+                <Text className="text-fg text-lg font-semibold">{preview.gymName}</Text>
                 <Text className="text-muted text-xs">
                   {roleLabel('member')} olarak katılacaksın.
                 </Text>
               </View>
               {needsName && (
                 <View>
-                  <Text className="text-white text-sm leading-5 mb-2">
+                  <Text className="text-fg text-sm leading-5 mb-2">
                     Hocaların seni tanısın diye adını yaz.
                   </Text>
                   <TextInput
@@ -159,7 +160,7 @@ export default function JoinGymScreen() {
                     autoComplete="name"
                     textContentType="name"
                     maxLength={DISPLAY_NAME_MAX + 10}
-                    className="bg-bg-elevated text-white text-base px-4 h-12 rounded-xl"
+                    className="bg-bg-elevated text-fg text-base px-4 h-12 rounded-xl"
                   />
                   <Text className="text-muted text-xs mt-1.5 leading-5">
                     {name.trim().length > 0 && nameError

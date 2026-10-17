@@ -188,7 +188,10 @@ export function canEditMember(target: Pick<GymMember, 'userId'>, myUserId: strin
 // Salon ayarları
 // ============================================================================
 
-/** Ana sayfa salon satırı ve ayarlardaki seçim; tema (koyu zemin) ile uyumlu */
+/**
+ * Salonun seçebileceği renkler (kayıtlı değer hex). Temaya göre tonları
+ * `gymAccentTones` (`src/theme.ts`) hesaplıyor; v3.5 Fuşya (Euphoria).
+ */
 export const GYM_COLORS: { hex: string; label: string }[] = [
   { hex: '#D7FF3E', label: 'Limon' },
   { hex: '#3EE6B0', label: 'Nane' },
@@ -198,6 +201,7 @@ export const GYM_COLORS: { hex: string; label: string }[] = [
   { hex: '#FF6FAE', label: 'Pembe' },
   { hex: '#FF9A3C', label: 'Turuncu' },
   { hex: '#FFD23E', label: 'Güneş' },
+  { hex: '#A33A8C', label: 'Fuşya' },
 ];
 
 export function isGymColor(hex: string | null | undefined): hex is string {

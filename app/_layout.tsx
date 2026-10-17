@@ -3,7 +3,6 @@ import '../global.css';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
@@ -22,7 +21,7 @@ import { usePushRegistration, usePushResponses } from '@/lib/pushNative';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
-import { COLORS } from '@/theme';
+import { AppThemeProvider, useColors } from '@/hooks/useTheme';
 
 // Dinlenme bildirimi: ön plan işleyicisi + sayaç dinleyicisi. İzin
 // burada istenmiyor, ilk dinlenme başlarken soruluyor.
@@ -59,6 +58,7 @@ const SQLITE_OPTIONS = { enableChangeListener: true };
  * o yüzden ayrı bir component.
  */
 function DatabaseInitializer({ children }: { children: React.ReactNode }) {
+  const COLORS = useColors();
   const db = useDb();
   const { success, error } = useMigrations(db, migrations);
   const [seedState, setSeedState] = useState<
@@ -143,130 +143,139 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <SQLiteProvider
-          databaseName={DATABASE_NAME}
-          options={SQLITE_OPTIONS}
-          onInit={initDatabase}
-        >
-          <DatabaseInitializer>
-            <SyncTriggers />
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerStyle: { backgroundColor: COLORS.bg },
-                headerShadowVisible: false,
-                headerTintColor: COLORS.text,
-                headerTitleStyle: { fontWeight: '600' },
-                headerBackButtonDisplayMode: 'minimal',
-                contentStyle: { backgroundColor: COLORS.bg },
-              }}
-            >
-              <Stack.Screen
-                name="(tabs)"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="exercise/[id]"
-                options={{ title: 'Egzersiz' }}
-              />
-              <Stack.Screen
-                name="routine/[id]"
-                options={{
-                  title: 'Rutin',
-                  presentation: 'modal',
-                }}
-              />
-              <Stack.Screen
-                name="templates/index"
-                options={{ title: 'Hazır Programlar' }}
-              />
-              <Stack.Screen
-                name="templates/[id]"
-                options={{ title: 'Program' }}
-              />
-              <Stack.Screen
-                name="metrics/[date]"
-                options={{ title: 'Ölçüm', presentation: 'modal' }}
-              />
-              <Stack.Screen
-                name="history"
-                options={{ title: 'Antrenman Geçmişi' }}
-              />
-              <Stack.Screen
-                name="session/[id]"
-                options={{ title: 'Antrenman' }}
-              />
-              <Stack.Screen
-                name="session/active"
-                options={{
-                  title: 'Antrenman',
-                  gestureEnabled: false,
-                }}
-              />
-              <Stack.Screen
-                name="onboarding"
-                options={{ headerShown: false, gestureEnabled: false }}
-              />
-              <Stack.Screen
-                name="legal/[doc]"
-                options={{ title: 'Metin' }}
-              />
-              <Stack.Screen
-                name="consent"
-                options={{ headerShown: false, gestureEnabled: false }}
-              />
-              <Stack.Screen
-                name="account/sign-in"
-                options={{ title: 'Giriş yap' }}
-              />
-              <Stack.Screen
-                name="account/join-gym"
-                options={{ title: 'Salona katıl' }}
-              />
-              <Stack.Screen
-                name="account/name"
-                options={{ title: 'Adın' }}
-              />
-              <Stack.Screen
-                name="account/delete"
-                options={{ title: 'Hesabı sil' }}
-              />
-              <Stack.Screen
-                name="gym/members"
-                options={{ title: 'Üyeler' }}
-              />
-              <Stack.Screen
-                name="gym/member"
-                options={{ title: 'Üye' }}
-              />
-              <Stack.Screen
-                name="gym/settings"
-                options={{ title: 'Salon ayarları' }}
-              />
-              <Stack.Screen
-                name="announcements/index"
-                options={{ title: 'Duyurular' }}
-              />
-              <Stack.Screen
-                name="announcements/edit"
-                options={{ title: 'Duyuru' }}
-              />
-              <Stack.Screen
-                name="classes/index"
-                options={{ title: 'Ders programı' }}
-              />
-              <Stack.Screen
-                name="classes/templates"
-                options={{ title: 'Programı düzenle' }}
-              />
-              <Stack.Screen
-                name="classes/template"
-                options={{ title: 'Ders' }}
-              />
-            </Stack>
-          </DatabaseInitializer>
-        </SQLiteProvider>
+        {/* Tema (v3.5): durum çubuğu, CSS değişkenleri, useColors() */}
+        <AppThemeProvider>
+          <SQLiteProvider
+            databaseName={DATABASE_NAME}
+            options={SQLITE_OPTIONS}
+            onInit={initDatabase}
+          >
+            <DatabaseInitializer>
+              <SyncTriggers />
+              <RootStack />
+            </DatabaseInitializer>
+          </SQLiteProvider>
+        </AppThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function RootStack() {
+  const COLORS = useColors();
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: COLORS.bg },
+        headerShadowVisible: false,
+        headerTintColor: COLORS.text,
+        headerTitleStyle: { fontWeight: '600' },
+        headerBackButtonDisplayMode: 'minimal',
+        contentStyle: { backgroundColor: COLORS.bg },
+      }}
+    >
+      <Stack.Screen
+        name="(tabs)"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="exercise/[id]"
+        options={{ title: 'Egzersiz' }}
+      />
+      <Stack.Screen
+        name="routine/[id]"
+        options={{
+          title: 'Rutin',
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="templates/index"
+        options={{ title: 'Hazır Programlar' }}
+      />
+      <Stack.Screen
+        name="templates/[id]"
+        options={{ title: 'Program' }}
+      />
+      <Stack.Screen
+        name="metrics/[date]"
+        options={{ title: 'Ölçüm', presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="history"
+        options={{ title: 'Antrenman Geçmişi' }}
+      />
+      <Stack.Screen
+        name="session/[id]"
+        options={{ title: 'Antrenman' }}
+      />
+      <Stack.Screen
+        name="session/active"
+        options={{
+          title: 'Antrenman',
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="onboarding"
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="legal/[doc]"
+        options={{ title: 'Metin' }}
+      />
+      <Stack.Screen
+        name="consent"
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="account/sign-in"
+        options={{ title: 'Giriş yap' }}
+      />
+      <Stack.Screen
+        name="account/join-gym"
+        options={{ title: 'Salona katıl' }}
+      />
+      <Stack.Screen
+        name="account/name"
+        options={{ title: 'Adın' }}
+      />
+      <Stack.Screen
+        name="account/delete"
+        options={{ title: 'Hesabı sil' }}
+      />
+      <Stack.Screen
+        name="gym/members"
+        options={{ title: 'Üyeler' }}
+      />
+      <Stack.Screen
+        name="gym/member"
+        options={{ title: 'Üye' }}
+      />
+      <Stack.Screen
+        name="gym/settings"
+        options={{ title: 'Salon ayarları' }}
+      />
+      <Stack.Screen
+        name="announcements/index"
+        options={{ title: 'Duyurular' }}
+      />
+      <Stack.Screen
+        name="announcements/edit"
+        options={{ title: 'Duyuru' }}
+      />
+      <Stack.Screen
+        name="classes/index"
+        options={{ title: 'Ders programı' }}
+      />
+      <Stack.Screen
+        name="classes/templates"
+        options={{ title: 'Programı düzenle' }}
+      />
+      <Stack.Screen
+        name="classes/template"
+        options={{ title: 'Ders' }}
+      />
+    </Stack>
   );
 }

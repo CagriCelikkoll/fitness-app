@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * v3.5 tema değişkenleri. Buradakiler koyu tema + Dinç vurgusu
+ * (src/theme.ts DARK_COLORS ile aynı, test/theme.test.ts denetliyor);
+ * çalışırken kökteki `vars()` açık temayı / salon rengini veriyor.
+ */
+:root {
+  --color-bg: 10 10 11;
+  --color-surface: 20 20 22;
+  --color-elevated: 30 30 33;
+  --color-border: 42 42 47;
+  --color-text: 250 250 250;
+  --color-muted: 138 138 144;
+  --color-accent: 215 255 62;
+  --color-accent-fg: 10 10 11;
+  --color-accent-ink: 215 255 62;
+  --color-warning: 255 154 60;
+  --color-danger: 255 90 90;
+  --color-danger-fg: 10 10 11;
+  --color-success: 215 255 62;
+  --color-success-fg: 10 10 11;
+  --color-pr: 215 255 62;
+  --color-pr-fg: 10 10 11;
+}

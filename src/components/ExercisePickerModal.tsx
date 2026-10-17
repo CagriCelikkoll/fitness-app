@@ -15,6 +15,8 @@ import { inArray } from 'drizzle-orm';
 import { Check, ChevronLeft, Info, Search, X } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useColors, useTheme } from '@/hooks/useTheme';
+import { imageFrameClass } from '@/theme';
 import { exercises, type Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
 import {
@@ -33,7 +35,6 @@ import {
   toggleInSelection,
   type PickerSelection,
 } from '@/lib/pickerSelection';
-import { COLORS } from '@/theme';
 import { Chip, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { ExerciseDetailContent } from '@/components/ExerciseDetailContent';
 
@@ -56,6 +57,7 @@ export function ExercisePickerModal({
   initiallySelectedIds = [],
   singleSelect = false,
 }: Props) {
+  const COLORS = useColors();
   const db = useDb();
 
   const [search, setSearch] = useState('');
@@ -162,7 +164,7 @@ export function ExercisePickerModal({
               <X color={COLORS.text} size={22} />
             </Pressable>
             <Text
-              className="text-white text-lg font-semibold tracking-tight flex-1 text-center px-2"
+              className="text-fg text-lg font-semibold tracking-tight flex-1 text-center px-2"
               numberOfLines={1}
             >
               {title}
@@ -193,7 +195,7 @@ export function ExercisePickerModal({
                 onChangeText={setSearch}
                 placeholder="Egzersiz ara..."
                 placeholderTextColor={COLORS.muted}
-                className="flex-1 text-white text-base ml-3"
+                className="flex-1 text-fg text-base ml-3"
                 autoCorrect={false}
                 autoCapitalize="none"
               />
@@ -259,6 +261,7 @@ function PreviewView({
   onBack: () => void;
   onToggle: () => void;
 }) {
+  const COLORS = useColors();
   return (
     <View className="flex-1">
       <View className="flex-row items-center px-3 py-3 border-b border-border">
@@ -270,7 +273,7 @@ function PreviewView({
           <ChevronLeft color={COLORS.text} size={24} />
         </Pressable>
         <Text
-          className="text-white text-lg font-semibold tracking-tight flex-1 px-2"
+          className="text-fg text-lg font-semibold tracking-tight flex-1 px-2"
           numberOfLines={1}
         >
           {exercise.nameTr ?? exercise.name}
@@ -308,6 +311,8 @@ function PickerRow({
   /** ⓘ: seçimi değiştirmeden önizlemeyi açar */
   onPreview: () => void;
 }) {
+  const COLORS = useColors();
+  const { scheme } = useTheme();
   const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
   const muscles = muscleLabels(exercise.primaryMuscles);
   const displayName = exercise.nameTr ?? exercise.name;
@@ -319,7 +324,9 @@ function PickerRow({
         selected ? 'border-accent' : 'border-border'
       }`}
     >
-      <View className="w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center">
+      <View
+        className={`w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center ${imageFrameClass(scheme)}`}
+      >
         {coverUrl ? (
           <Image
             source={{ uri: coverUrl }}
@@ -334,7 +341,7 @@ function PickerRow({
         )}
       </View>
       <View className="flex-1 ml-4">
-        <Text className="text-white text-base font-semibold" numberOfLines={1}>
+        <Text className="text-fg text-base font-semibold" numberOfLines={1}>
           {displayName}
         </Text>
         <Text className="text-muted text-xs mt-1" numberOfLines={1}>

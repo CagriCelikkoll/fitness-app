@@ -28,7 +28,7 @@ export function StatTile({
 }: StatTileProps) {
   const onAccent = variant === 'accent';
   const labelColor = onAccent ? 'text-accent-fg/70' : 'text-muted';
-  const valueColor = onAccent ? 'text-accent-fg' : 'text-white';
+  const valueColor = onAccent ? 'text-accent-fg' : 'text-fg';
 
   return (
     <Card variant={variant} className={`justify-between ${className}`}>

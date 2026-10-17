@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Check } from 'lucide-react-native';
 
 import { HEALTH_CONSENT_TEXT } from '@/content/legal';
-import { COLORS } from '@/theme';
+import { useColors } from '@/hooks/useTheme';
 import { Card, PrimaryButton } from '@/components/ui';
 
 /**
@@ -54,10 +54,10 @@ export function ConsentCard({
 
   return (
     <Card className="gap-4">
-      <Text className="text-white text-lg font-semibold tracking-tight">
+      <Text className="text-fg text-lg font-semibold tracking-tight">
         {HEALTH_CONSENT_TEXT.title}
       </Text>
-      <Text className="text-white text-base leading-6">{HEALTH_CONSENT_TEXT.body}</Text>
+      <Text className="text-fg text-base leading-6">{HEALTH_CONSENT_TEXT.body}</Text>
       {showNoticeLink && (
         <Pressable
           onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'kvkk' } })}
@@ -94,6 +94,7 @@ export function ConsentCheckbox({
   label: string;
   onToggle: () => void;
 }) {
+  const COLORS = useColors();
   return (
     <Pressable
       onPress={onToggle}
@@ -109,7 +110,7 @@ export function ConsentCheckbox({
       >
         {checked && <Check color={COLORS.accentFg} size={18} strokeWidth={3} />}
       </View>
-      <Text className="text-white text-base font-semibold ml-3">{label}</Text>
+      <Text className="text-fg text-base font-semibold ml-3">{label}</Text>
     </Pressable>
   );
 }

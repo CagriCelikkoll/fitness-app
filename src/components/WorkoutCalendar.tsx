@@ -88,7 +88,7 @@ export function WorkoutCalendar({
   return (
     <Card>
       <View className="flex-row items-baseline justify-between mb-4">
-        <Text className="text-white text-lg font-semibold tracking-tight">
+        <Text className="text-fg text-lg font-semibold tracking-tight">
           Antrenman Takvimi
         </Text>
         <Text className="text-muted text-xs tabular-nums">
@@ -131,7 +131,7 @@ export function WorkoutCalendar({
                   router.push({ pathname: '/session/[id]', params: { id: s.id } })
                 }
               >
-                <Text className="text-white text-sm" numberOfLines={1}>
+                <Text className="text-fg text-sm" numberOfLines={1}>
                   {[
                     selectedLabel,
                     s.name,
@@ -236,12 +236,12 @@ function Dot({
   );
   if (!today && !selected) return inner;
 
-  // Seçili gün vurgu çerçevesi, bugün ince beyaz çerçeve
+  // Seçili gün vurgu çerçevesi, bugün ince metin renginde çerçeve
   return (
     <View
       style={{ width: ring, height: ring }}
       className={`rounded-full items-center justify-center border ${
-        selected ? 'border-accent' : 'border-white/60'
+        selected ? 'border-accent' : 'border-fg/60'
       }`}
     >
       {inner}

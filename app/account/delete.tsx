@@ -16,6 +16,7 @@ import { Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useSession } from '@/hooks/useSession';
+import { useColors } from '@/hooks/useTheme';
 import { deleteMyAccount } from '@/lib/account';
 import { forgetPushRegistration } from '@/lib/pushNative';
 import { getSupabase } from '@/lib/supabase';
@@ -23,11 +24,11 @@ import { DELETE_ACCOUNT_TEXT, canConfirmAccountDeletion } from '@/lib/sync/ui';
 import { resetSyncAfterAccountDeleted } from '@/lib/syncState';
 import { LegalLink } from '@/components/LegalLink';
 import { Card, DangerButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
-const INPUT_CLASS = 'bg-bg-elevated text-white text-base px-4 h-12 rounded-xl';
+const INPUT_CLASS = 'bg-bg-elevated text-fg text-base px-4 h-12 rounded-xl';
 
 export default function DeleteAccountScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
   const { available, userId, email } = useSession();
@@ -84,11 +85,11 @@ export default function DeleteAccountScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Card className="gap-4">
-          <Text className="text-white text-lg font-semibold tracking-tight">Hesabımı sil</Text>
-          <Text className="text-white text-base leading-6">{DELETE_ACCOUNT_TEXT}</Text>
+          <Text className="text-fg text-lg font-semibold tracking-tight">Hesabımı sil</Text>
+          <Text className="text-fg text-base leading-6">{DELETE_ACCOUNT_TEXT}</Text>
           <Text className="text-muted text-sm leading-5">
             Bu işlem geri alınamaz. Onaylamak için e-posta adresini yaz:{' '}
-            <Text className="text-white font-semibold">{email ?? '—'}</Text>
+            <Text className="text-fg font-semibold">{email ?? '—'}</Text>
           </Text>
           <TextInput
             value={typed}

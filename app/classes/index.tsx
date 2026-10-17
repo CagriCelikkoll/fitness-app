@@ -31,6 +31,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react
 
 import { useClassSchedule } from '@/hooks/useClassSchedule';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useColors } from '@/hooks/useTheme';
 import {
   INSTRUCTOR_MAX,
   NOTE_MAX,
@@ -63,11 +64,11 @@ import {
 import { attendanceView, attendeeNames, canSeeAttendees, type Attendance } from '@/lib/classRsvps';
 import { getSupabase } from '@/lib/supabase';
 import { Chip, DangerButton, EmptyState, PrimaryButton, SecondaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
-const INPUT_CLASS = 'bg-bg-elevated text-white text-base px-4 rounded-xl h-12';
+const INPUT_CLASS = 'bg-bg-elevated text-fg text-base px-4 rounded-xl h-12';
 
 export default function ClassesScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const { available, userId, memberships, primary, refresh: refreshMemberships } = useGymMembership();
   const { templates, exceptions, attendance, pending, loaded, loading, offline, error, refresh, setRsvp } =
@@ -196,7 +197,7 @@ export default function ClassesScreen() {
             disabled={weekStart === weekStartOf(today)}
             className="items-center active:opacity-60"
           >
-            <Text className="text-white text-base font-semibold">{formatWeekRange(weekStart)}</Text>
+            <Text className="text-fg text-base font-semibold">{formatWeekRange(weekStart)}</Text>
             {weekStart !== weekStartOf(today) && <Text className="text-accent text-xs mt-0.5">Bu haftaya dön</Text>}
           </Pressable>
           <Pressable
@@ -223,7 +224,7 @@ export default function ClassesScreen() {
                 }`}
               >
                 <Text className={`text-xs ${active ? 'text-accent-fg' : 'text-muted'}`}>{WEEKDAY_SHORT_TR[i]}</Text>
-                <Text className={`text-base font-semibold mt-0.5 ${active ? 'text-accent-fg' : 'text-white'}`}>
+                <Text className={`text-base font-semibold mt-0.5 ${active ? 'text-accent-fg' : 'text-fg'}`}>
                   {dayOfMonth(d)}
                 </Text>
                 <View className={`w-1 h-1 rounded-full mt-1 ${hasClasses ? (active ? 'bg-accent-fg' : 'bg-accent') : ''}`} />
@@ -333,14 +334,14 @@ function OccurrenceCard({
         className="p-5 pb-3 flex-row gap-4 active:opacity-80"
       >
         <View className="w-14">
-          <Text className={`text-white text-base font-semibold tabular-nums ${cancelled ? 'line-through' : ''}`}>
+          <Text className={`text-fg text-base font-semibold tabular-nums ${cancelled ? 'line-through' : ''}`}>
             {o.startTime}
           </Text>
           <Text className="text-muted text-xs tabular-nums mt-0.5">{o.endTime}</Text>
         </View>
         <View className="flex-1 gap-0.5">
           <View className="flex-row items-center gap-2">
-            <Text className={`text-white text-base font-semibold flex-shrink ${cancelled ? 'line-through' : ''}`}>
+            <Text className={`text-fg text-base font-semibold flex-shrink ${cancelled ? 'line-through' : ''}`}>
               {o.name}
             </Text>
             {cancelled && (
@@ -390,7 +391,7 @@ function OccurrenceCard({
           {view.fullMessage != null && <Text className="text-muted text-xs leading-5">{view.fullMessage}</Text>}
           {who.length > 0 && (
             <Text className="text-muted text-xs leading-5">
-              <Text className="text-white">Katılacaklar: </Text>
+              <Text className="text-fg">Katılacaklar: </Text>
               {attendeeNames(who, attendance.names)}
             </Text>
           )}
@@ -415,6 +416,7 @@ function OccurrenceActions({
   onDone: (o: ClassOccurrence, ex: ClassException) => void;
   onRemoved: () => void;
 }) {
+  const COLORS = useColors();
   const [view, setView] = useState<'menu' | 'change'>('menu');
   const [draft, setDraft] = useState<ChangeDraft>({ startTime: '', instructorName: '', note: '' });
   const [busy, setBusy] = useState(false);
@@ -478,7 +480,7 @@ function OccurrenceActions({
           {/* İçerideki basışlar arka plana gidip modalı kapatmasın */}
           <Pressable onPress={() => {}} className="bg-bg-surface rounded-t-3xl px-5 pt-6 pb-10 gap-4 border-t border-border">
             <View>
-              <Text className="text-white text-xl font-semibold tracking-tight">
+              <Text className="text-fg text-xl font-semibold tracking-tight">
                 {o.originalStartTime} {o.name}
               </Text>
               <Text className="text-muted text-sm mt-1">{formatDayLong(o.date)} · yalnızca bu tarih</Text>

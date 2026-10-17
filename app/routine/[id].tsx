@@ -36,6 +36,7 @@ import {
 
 import { useDb } from '@/hooks/useDb';
 import { FALLBACK_REST_SECONDS, useAppSettings } from '@/hooks/useAppSettings';
+import { useColors } from '@/hooks/useTheme';
 import {
   exercises as exercisesTable,
   routineExercises,
@@ -63,7 +64,6 @@ import {
   type SupersetPosition,
 } from '@/lib/superset';
 import { ExercisePickerModal } from '@/components/ExercisePickerModal';
-import { COLORS, DISABLED_ICON } from '@/theme';
 import { Card, PrimaryButton } from '@/components/ui';
 
 interface DraftExercise {
@@ -82,6 +82,7 @@ interface DraftExercise {
 }
 
 export default function RoutineEditorScreen() {
+  const COLORS = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useDb();
@@ -411,7 +412,7 @@ export default function RoutineEditorScreen() {
                 onChangeText={setName}
                 placeholder="Örn: Push Day"
                 placeholderTextColor={COLORS.muted}
-                className="text-white text-2xl font-bold tracking-tight py-1"
+                className="text-fg text-2xl font-bold tracking-tight py-1"
               />
             </View>
             <View className="pt-4 border-t border-border">
@@ -423,7 +424,7 @@ export default function RoutineEditorScreen() {
                 onChangeText={setDescription}
                 placeholder="Göğüs, omuz, triceps odaklı"
                 placeholderTextColor={COLORS.muted}
-                className="text-white text-base"
+                className="text-fg text-base"
                 multiline
               />
             </View>
@@ -469,7 +470,7 @@ export default function RoutineEditorScreen() {
                 className="min-h-[56px] border border-dashed border-border rounded-3xl items-center flex-row justify-center active:bg-bg-surface"
               >
                 <Plus color={COLORS.text} size={18} />
-                <Text className="text-white text-base font-semibold ml-2">
+                <Text className="text-fg text-base font-semibold ml-2">
                   Egzersiz Ekle
                 </Text>
               </Pressable>
@@ -499,6 +500,7 @@ function SupersetLinkButton({
   linked: boolean;
   onPress: () => void;
 }) {
+  const COLORS = useColors();
   return (
     <View className="flex-row items-center -my-1">
       <View className={`w-1 self-stretch rounded-full ${linked ? 'bg-accent' : ''}`} />
@@ -550,6 +552,7 @@ function DraftExerciseCard({
   onRemove,
   onMove,
 }: DraftCardProps) {
+  const COLORS = useColors();
   const router = useRouter();
   const isCardio = draft.category === 'cardio';
   const canMoveUp = index > 0;
@@ -573,7 +576,7 @@ function DraftExerciseCard({
             className="w-8 h-6 items-center justify-center"
           >
             <ChevronUp
-              color={canMoveUp ? COLORS.muted : DISABLED_ICON}
+              color={canMoveUp ? COLORS.muted : COLORS.disabledIcon}
               size={20}
             />
           </Pressable>
@@ -584,7 +587,7 @@ function DraftExerciseCard({
             className="w-8 h-6 items-center justify-center"
           >
             <ChevronDown
-              color={canMoveDown ? COLORS.muted : DISABLED_ICON}
+              color={canMoveDown ? COLORS.muted : COLORS.disabledIcon}
               size={20}
             />
           </Pressable>
@@ -600,7 +603,7 @@ function DraftExerciseCard({
           hitSlop={4}
           className="flex-1 active:opacity-60"
         >
-          <Text className="text-white text-lg font-semibold tracking-tight">
+          <Text className="text-fg text-lg font-semibold tracking-tight">
             {index + 1}. {draft.name}
           </Text>
         </Pressable>
@@ -701,6 +704,7 @@ function NumberField({
   /** Pasif: düzenlenemez ve soluk (değer korunur) */
   disabled?: boolean;
 }) {
+  const COLORS = useColors();
   return (
     <View className={`flex-1 ${disabled ? 'opacity-40' : ''}`}>
       <Text className="text-muted text-xs mb-2">{label}</Text>
@@ -712,7 +716,7 @@ function NumberField({
         keyboardType={keyboardType}
         maxLength={maxLength}
         editable={!disabled}
-        className="bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl"
+        className="bg-bg-elevated text-fg text-base tabular-nums px-4 h-12 rounded-xl"
       />
     </View>
   );

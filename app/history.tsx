@@ -5,16 +5,17 @@ import { and, count, countDistinct, desc, eq, isNotNull, sql } from 'drizzle-orm
 import { ChevronRight, History, Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useColors } from '@/hooks/useTheme';
 import { sessionExercises, sets, workoutSessions } from '@/db/schema';
 import {
   formatDuration,
   formatRelativeDate,
   formatVolume,
 } from '@/lib/format';
-import { COLORS } from '@/theme';
 import { Card, EmptyState, PrimaryButton } from '@/components/ui';
 
 export default function HistoryScreen() {
+  const COLORS = useColors();
   const db = useDb();
 
   // Tamamlanmış seanslar + tek sorguda özet metrikler
@@ -87,7 +88,7 @@ export default function HistoryScreen() {
             <Card>
               <View className="flex-row items-center">
                 <View className="flex-1 mr-3">
-                  <Text className="text-white text-xl font-semibold tracking-tight">
+                  <Text className="text-fg text-xl font-semibold tracking-tight">
                     {item.name}
                   </Text>
                   <Text className="text-muted text-sm mt-1 tabular-nums">
@@ -107,7 +108,7 @@ export default function HistoryScreen() {
                   {item.setCount} set
                 </Text>
                 {item.totalVolume > 0 && (
-                  <Text className="text-white text-xs font-semibold uppercase tracking-widest tabular-nums">
+                  <Text className="text-fg text-xs font-semibold uppercase tracking-widest tabular-nums">
                     {formatVolume(item.totalVolume)}
                   </Text>
                 )}

@@ -57,17 +57,18 @@ import {
 import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { ConsentCard } from '@/components/ConsentCard';
 import { setHealthConsent } from '@/hooks/useHealthConsent';
+import { useColors } from '@/hooks/useTheme';
 import {
   Card,
   Chip,
   PrimaryButton,
   SecondaryButton,
 } from '@/components/ui';
-import { COLORS } from '@/theme';
 
 const STEP_COUNT = 5;
 
 export default function OnboardingScreen() {
+  const COLORS = useColors();
   const db = useDb();
   const router = useRouter();
 
@@ -351,7 +352,7 @@ function StepDots({ step }: { step: number }) {
 function StepTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View className="mb-2">
-      <Text className="text-white text-3xl font-bold tracking-tight">
+      <Text className="text-fg text-3xl font-bold tracking-tight">
         {title}
       </Text>
       {subtitle != null && (
@@ -381,6 +382,7 @@ const WELCOME_POINTS: { icon: LucideIcon; text: string }[] = [
 ];
 
 function WelcomeStep() {
+  const COLORS = useColors();
   return (
     <>
       <StepTitle title="Hoş geldin 💪" />
@@ -389,7 +391,7 @@ function WelcomeStep() {
           <View className="w-11 h-11 rounded-full bg-accent items-center justify-center">
             <Icon color={COLORS.accentFg} size={20} />
           </View>
-          <Text className="flex-1 ml-4 text-white text-base leading-6">
+          <Text className="flex-1 ml-4 text-fg text-base leading-6">
             {text}
           </Text>
         </Card>
@@ -503,6 +505,7 @@ function ProgramStep({
   adding: boolean;
   onAdd: () => void;
 }) {
+  const COLORS = useColors();
   const template = choice != null ? suggestedTemplate(choice) : undefined;
   const added = template != null && addedTemplateIds.includes(template.id);
 
@@ -522,7 +525,7 @@ function ProgramStep({
 
       {choice === 'custom' && (
         <Card>
-          <Text className="text-white text-base leading-6">
+          <Text className="text-fg text-base leading-6">
             Antrenman sekmesinden kendi rutinlerini oluşturabilirsin. Hazır
             programlara da istediğin zaman oradan göz atabilirsin.
           </Text>
@@ -532,10 +535,10 @@ function ProgramStep({
       {template && (
         <Card className="gap-3">
           <Text className="text-muted text-xs tracking-widest">ÖNERİLEN PROGRAM</Text>
-          <Text className="text-white text-xl font-semibold tracking-tight">
+          <Text className="text-fg text-xl font-semibold tracking-tight">
             {template.name}
           </Text>
-          <Text className="text-white text-sm">
+          <Text className="text-fg text-sm">
             {template.days.map((d, i) => `${i + 1}. ${d.name}`).join('  ·  ')}
           </Text>
           <Text className="text-muted text-sm leading-5">
@@ -568,12 +571,13 @@ function ProgramStep({
 // ============================================================================
 
 function TipsStep() {
+  const COLORS = useColors();
   return (
     <>
       <StepTitle title="Bilmen gereken iki şey" />
 
       <Card className="gap-3">
-        <Text className="text-white text-lg font-semibold">✓ ile onayla</Text>
+        <Text className="text-fg text-lg font-semibold">✓ ile onayla</Text>
         <Text className="text-muted text-sm leading-5">
           Setin değerlerini girdikten sonra sağdaki ✓'ye bas. Onaylanmayan
           setler antrenman bitince sorulur.
@@ -584,7 +588,7 @@ function TipsStep() {
       <Card className="gap-3">
         <View className="flex-row items-center gap-2">
           <Upload color={COLORS.text} size={18} />
-          <Text className="text-white text-lg font-semibold">Yedek al</Text>
+          <Text className="text-fg text-lg font-semibold">Yedek al</Text>
         </View>
         <Text className="text-muted text-sm leading-5">
           Verilerin sadece bu telefonda. Telefon değiştirirsen ya da
@@ -600,21 +604,22 @@ function TipsStep() {
  * ✓ henüz basılmamış ve vurgulu. Gerçek bileşen değil, dokunulmaz.
  */
 function SetRowMock() {
+  const COLORS = useColors();
   return (
     <View
       className="flex-row items-center px-2 py-2 rounded-2xl bg-bg-elevated/50"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <Text className="text-white text-lg font-semibold tabular-nums w-7">1</Text>
+      <Text className="text-fg text-lg font-semibold tabular-nums w-7">1</Text>
       <Text className="flex-1 text-muted text-sm tabular-nums text-center">
         60 × 8
       </Text>
       <View className="w-16 h-11 rounded-xl bg-bg-elevated items-center justify-center">
-        <Text className="text-white text-lg font-semibold tabular-nums">62,5</Text>
+        <Text className="text-fg text-lg font-semibold tabular-nums">62,5</Text>
       </View>
       <View className="w-12 h-11 rounded-xl bg-bg-elevated items-center justify-center ml-2">
-        <Text className="text-white text-lg font-semibold tabular-nums">8</Text>
+        <Text className="text-fg text-lg font-semibold tabular-nums">8</Text>
       </View>
       <View className="w-11 h-11 rounded-xl items-center justify-center ml-2 border-2 border-accent">
         <Check color={COLORS.accent} size={20} strokeWidth={3} />

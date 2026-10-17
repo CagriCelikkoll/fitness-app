@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Minus, Plus, X, type LucideIcon } from 'lucide-react-native';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
+import { useColors } from '@/hooks/useTheme';
 import {
   FALLBACK_REST_SOUND,
   FALLBACK_REST_VIBRATE,
@@ -11,7 +12,6 @@ import {
 } from '@/hooks/useAppSettings';
 import { shouldPlayRestSound } from '@/lib/restSound';
 import { playRestDoneSound, preloadRestDoneSound } from '@/lib/restNative';
-import { COLORS } from '@/theme';
 
 /**
  * Aktif antrenmanın altında sabit görünen dinlenme zamanlayıcısı.
@@ -225,7 +225,7 @@ const TimerCountdown = memo(function TimerCountdown({
 
   return (
     <>
-      <Text className="text-white text-5xl font-bold tabular-nums tracking-tight">
+      <Text className="text-fg text-5xl font-bold tabular-nums tracking-tight">
         {minutes}:{seconds.toString().padStart(2, '0')}
       </Text>
       <Text className="text-muted text-xs tracking-wide tabular-nums">
@@ -253,6 +253,7 @@ const TimerButton = memo(function TimerButton({
   completed: boolean;
   className?: string;
 }) {
+  const COLORS = useColors();
   return (
     <Pressable
       onPress={onPress}

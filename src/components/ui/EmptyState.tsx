@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
+import { useColors } from '@/hooks/useTheme';
 
-import { COLORS } from '@/theme';
 
 interface EmptyStateProps {
   icon?: LucideIcon;
@@ -19,6 +19,7 @@ export function EmptyState({
   action,
   className = '',
 }: EmptyStateProps) {
+  const COLORS = useColors();
   return (
     <View className={`items-center justify-center px-6 ${className}`}>
       {Icon && (
@@ -26,7 +27,7 @@ export function EmptyState({
           <Icon color={COLORS.muted} size={26} strokeWidth={1.75} />
         </View>
       )}
-      <Text className="text-white text-xl font-semibold tracking-tight text-center">
+      <Text className="text-fg text-xl font-semibold tracking-tight text-center">
         {title}
       </Text>
       {description != null && (

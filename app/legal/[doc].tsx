@@ -23,7 +23,7 @@ export default function LegalScreen() {
     return (
       <View className="flex-1 bg-bg items-center justify-center p-6">
         <Stack.Screen options={{ title: 'Metin' }} />
-        <Text className="text-white text-base">Metin bulunamadı.</Text>
+        <Text className="text-fg text-base">Metin bulunamadı.</Text>
       </View>
     );
   }

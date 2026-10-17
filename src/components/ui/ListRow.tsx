@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { Pressable, View, type PressableProps } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
+import { useColors } from '@/hooks/useTheme';
 
-import { COLORS } from '@/theme';
 
 interface ListRowProps extends Omit<PressableProps, 'children'> {
   children: ReactNode;
@@ -28,6 +28,7 @@ export function ListRow({
   onPress,
   ...rest
 }: ListRowProps) {
+  const COLORS = useColors();
   const cls = `min-h-[52px] flex-row items-center py-3 ${
     divider ? 'border-t border-border' : ''
   } ${className}`;

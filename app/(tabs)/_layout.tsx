@@ -6,12 +6,13 @@ import {
   TrendingUp,
   Settings as SettingsIcon,
 } from 'lucide-react-native';
+import { useColors } from '@/hooks/useTheme';
 
-import { COLORS } from '@/theme';
 
 const TAB_ICON_SIZE = 24;
 
 export default function TabsLayout() {
+  const COLORS = useColors();
   return (
     <Tabs
       screenOptions={{

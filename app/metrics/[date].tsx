@@ -30,6 +30,7 @@ import { Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useHealthConsent } from '@/hooks/useHealthConsent';
+import { useColors } from '@/hooks/useTheme';
 import { ConsentCard } from '@/components/ConsentCard';
 import { bodyMetrics } from '@/db/schema';
 import { newId } from '@/lib/id';
@@ -44,7 +45,6 @@ import {
   toDateKey,
   type DateParts,
 } from '@/lib/format';
-import { COLORS } from '@/theme';
 import { Card, DangerButton } from '@/components/ui';
 
 interface MetricsForm {
@@ -116,6 +116,7 @@ function numToField(n: number | null): string {
  * İlerleme'deki bütün "ölçüm ekle / düzenle" yolları bu ekrana geliyor.
  */
 export default function MetricsScreen() {
+  const COLORS = useColors();
   const consent = useHealthConsent();
 
   if (consent.state == null) {
@@ -140,6 +141,7 @@ export default function MetricsScreen() {
 }
 
 function MetricsEditorScreen() {
+  const COLORS = useColors();
   const { date: dateParam } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
   const db = useDb();
@@ -425,7 +427,7 @@ function MetricsEditorScreen() {
           </Card>
 
           <Card className="gap-4">
-            <Text className="text-white text-xl font-semibold tracking-tight">
+            <Text className="text-fg text-xl font-semibold tracking-tight">
               Çevre ölçümleri{' '}
               <Text className="text-muted text-xs font-normal tracking-normal">
                 (opsiyonel)
@@ -453,7 +455,7 @@ function MetricsEditorScreen() {
               onChangeText={(v) => update('notes', v)}
               placeholder="Sabah aç karnına"
               placeholderTextColor={COLORS.muted}
-              className="text-white text-base"
+              className="text-fg text-base"
               multiline
             />
           </Card>
@@ -484,6 +486,7 @@ function DecimalField({
   onChange: (v: string) => void;
   placeholder?: string;
 }) {
+  const COLORS = useColors();
   return (
     <View className="flex-1">
       <Text className="text-muted text-xs mb-2">{label}</Text>
@@ -493,7 +496,7 @@ function DecimalField({
         placeholder={placeholder}
         placeholderTextColor={COLORS.muted}
         keyboardType="decimal-pad"
-        className="bg-bg-elevated text-white text-base tabular-nums px-4 h-12 rounded-xl"
+        className="bg-bg-elevated text-fg text-base tabular-nums px-4 h-12 rounded-xl"
       />
     </View>
   );
