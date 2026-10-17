@@ -29,6 +29,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   Switch,
@@ -80,7 +81,11 @@ import { useRestNotificationSetting } from '@/hooks/useRestNotificationSetting';
 import { useNotificationPrefs } from '@/hooks/useNotificationPrefs';
 import { useProgressionSetting } from '@/hooks/useProgressionSetting';
 import { summarizeCounts, useBackupRestore } from '@/hooks/useBackupRestore';
-import type { RestNotificationPermissionState } from '@/lib/restNotification';
+import {
+  EXACT_ALARM_HINT,
+  shouldShowExactAlarmHint,
+  type RestNotificationPermissionState,
+} from '@/lib/restNotification';
 import { openNotificationSettings } from '@/lib/restNative';
 import { unregisterPushBeforeSignOut } from '@/lib/pushNative';
 import {
@@ -914,6 +919,19 @@ function RestNotificationRow({
             Telefon ayarlarını aç
           </Text>
         </Pressable>
+      )}
+      {shouldShowExactAlarmHint(Platform.OS, Platform.Version, enabled, permission) && (
+        <View className="mt-4 gap-2">
+          <Text className="text-muted text-sm leading-5">{EXACT_ALARM_HINT}</Text>
+          <Pressable
+            onPress={openNotificationSettings}
+            accessibilityRole="button"
+            hitSlop={8}
+            className="self-start active:opacity-70"
+          >
+            <Text className="text-accent text-sm font-semibold">Telefon ayarlarını aç</Text>
+          </Pressable>
+        </View>
       )}
     </View>
   );

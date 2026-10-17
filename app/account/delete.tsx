@@ -6,6 +6,7 @@
  * üyeliği ve buluttaki antrenmanlar silinir; telefondaki veriler kalır
  * ve eşitleme durumu sıfırlanır (yeniden giriş yapılırsa ilk eşitleme
  * gibi). Salonun tek yöneticisi silemez, sunucu açıklamayla reddeder.
+ * Altta web'deki hesap silme sayfasına bağlantı (v3.4, Play kuralı).
  */
 
 import { useState } from 'react';
@@ -20,6 +21,7 @@ import { forgetPushRegistration } from '@/lib/pushNative';
 import { getSupabase } from '@/lib/supabase';
 import { DELETE_ACCOUNT_TEXT, canConfirmAccountDeletion } from '@/lib/sync/ui';
 import { resetSyncAfterAccountDeleted } from '@/lib/syncState';
+import { LegalLink } from '@/components/LegalLink';
 import { Card, DangerButton } from '@/components/ui';
 import { COLORS } from '@/theme';
 
@@ -37,6 +39,9 @@ export default function DeleteAccountScreen() {
     return (
       <View className="flex-1 bg-bg items-center justify-center p-6">
         <Text className="text-muted text-base text-center">Giriş yapılmamış.</Text>
+        <View className="mt-4">
+          <LegalLink to="accountDeletion" label="Uygulamaya erişemiyorsan: hesap silme sayfası →" />
+        </View>
       </View>
     );
   }
@@ -105,6 +110,7 @@ export default function DeleteAccountScreen() {
           />
           {error != null && <Text className="text-danger text-sm leading-5">{error}</Text>}
         </Card>
+        <LegalLink to="accountDeletion" label="Uygulamaya erişemiyorsan: hesap silme sayfası →" />
       </ScrollView>
     </KeyboardAvoidingView>
   );
