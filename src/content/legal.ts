@@ -1,5 +1,7 @@
 /**
  * Uygulama içi yasal metinler — `docs/yasal-metinler.md`'nin aynısı.
+ * Gizlilik Politikası v3.4'ten beri yayındaki web sayfasının özeti
+ * (`LEGAL_URLS.privacy`); web sayfası değişirse bu da güncellenir.
  *
  * Metinleri burada değiştirme, kısaltma, yeniden yazma: kaynak md
  * dosyası. `test/legal.test.ts` md dosyası varsa ikisini birebir
@@ -9,11 +11,20 @@
  * (markdown paketi yok). Metin bölüm dizisi: paragraf ya da madde listesi.
  */
 
-/** Ad, e-posta ve yürürlük tarihi tek yerden. Şimdilik yer tutucu. */
+/** Ad, e-posta ve yürürlük tarihi tek yerden (web sayfasıyla aynı) */
 export const LEGAL_CONTACT = {
-  name: '[Ad Soyad]',
-  email: '[iletişim e-postası]',
-  effectiveDate: '[yürürlük tarihi]',
+  name: 'Çağrı Çelikkol',
+  email: 'dinc.destekk@gmail.com',
+  effectiveDate: '15 Ekim 2026',
+} as const;
+
+/**
+ * Yayındaki tam metinler (v3.4). Uygulama içi Gizlilik Politikası bunun
+ * özeti; ikisi çelişmesin. Sistem tarayıcısında açılır.
+ */
+export const LEGAL_URLS = {
+  privacy: 'https://cagricelikkoll.github.io/dinc-legal/',
+  accountDeletion: 'https://cagricelikkoll.github.io/dinc-legal/hesap-sil.html',
 } as const;
 
 const { name: NAME, email: EMAIL, effectiveDate: EFFECTIVE_DATE } = LEGAL_CONTACT;
@@ -33,7 +44,7 @@ const p = (text: string): LegalBlock => ({ kind: 'paragraph', text });
 const list = (...items: string[]): LegalBlock => ({ kind: 'list', items });
 
 // ============================================================================
-// METİN 1 — Gizlilik Politikası
+// METİN 1 — Gizlilik Politikası (özet; tam metin LEGAL_URLS.privacy)
 // ============================================================================
 
 export const PRIVACY_POLICY: LegalDocument = {
@@ -41,62 +52,51 @@ export const PRIVACY_POLICY: LegalDocument = {
   blocks: [
     p(`Yürürlük tarihi: ${EFFECTIVE_DATE}`),
     p(
-      `Dinç, ${NAME} tarafından geliştirilen bir antrenman takip uygulamasıdır. Bu politika, uygulamanın hangi bilgileri işlediğini ve bu bilgilerin nerede durduğunu açıklar.`
+      `Dinç, ${NAME} tarafından geliştirilen bir antrenman takip uygulamasıdır. Bu sayfa Gizlilik Politikası'nın özetidir; tam metin web sayfasındadır.`
     ),
     p(
-      '**Kısaca:** Girdiğin tüm bilgiler yalnızca senin cihazında saklanır. Hesap açman gerekmez. Verilerin bize veya başka bir şirkete gönderilmez; biz onları göremeyiz.'
+      '**Kısaca:** Hesap açmadan kullanırsan tüm bilgilerin yalnızca telefonunda kalır. Hesap açarsan antrenmanların ve rutinlerin hesabına yedeklenir; vücut ölçülerin ve profil bilgilerin yine yalnızca telefonunda kalır. Reklam ve analitik yoktur; verilerin satılmaz.'
     ),
-    p('**1. Uygulamaya girdiğin bilgiler**'),
+    p('**1. Hesap açarsan işlenen bilgiler**'),
     list(
-      'Profil bilgileri: cinsiyet, doğum tarihi, boy',
-      'Vücut ölçüleri: kilo, yağ oranı, çevre ölçüleri',
-      'Antrenman kayıtları: rutinler, setler, tekrarlar, ağırlıklar, RIR değerleri, kardiyo süreleri, notlar, haftalık hedef',
-      'Uygulama ayarları'
+      'Hesap bilgileri: e-posta adresin, şifren (tek yönlü şifrelenmiş) ve görünen adın',
+      'Eşitlenen antrenman verileri: rutinler, antrenmanlar, setler, ağırlık ve tekrarlar, RIR değerleri, kardiyo süreleri ve notlar',
+      'Bildirim bilgileri: telefonunun bildirim kimliği (push token), cihaz platformu ve bildirim tercihlerin',
+      'Teknik bilgiler: bağlantılarda IP adresin ve bağlantı zamanı'
     ),
+    p('Vücut ölçüleri, profil bilgileri ve uygulama ayarları eşitlenmez.'),
+    p('**2. Salona katılırsan**'),
     p(
-      'Kilo ve vücut ölçüleri sağlık verisi sayılabilir. Bu bilgileri girmek tamamen isteğe bağlıdır; uygulama onlar olmadan da çalışır.'
+      "Salon üyeliğini ve derslere katılımını salonun yöneticileri ve hocaları görebilir; diğer üyeler yalnızca kişi sayısını görür. Salon duyuruları ve katılacağın derslerdeki değişiklikler telefon bildirimi olarak gelir; Ayarlar'dan kapatabilirsin. Salon yöneticisinin yüklediği logo herkese açık bir adreste saklanır."
     ),
-    p('**2. Bilgilerin saklandığı yer**'),
-    p(
-      'Tüm bilgiler cihazındaki uygulama veritabanında tutulur. Sunucumuz yoktur. Uygulamayı silersen bu bilgiler de silinir.'
-    ),
-    p('**3. Yedekleme dosyaları**'),
-    p(
-      '"Yedekle" dediğinde verilerin bir dosyaya yazılır ve bu dosyayı nereye kaydedeceğini ya da kiminle paylaşacağını sen seçersin (ör. Google Drive, e-posta, mesajlaşma uygulaması). Dosya bu noktadan sonra seçtiğin hizmetin gizlilik koşullarına tabidir. Yedek dosyası şifrelenmez; güvendiğin bir yerde sakla.'
-    ),
-    p('**4. İnternet bağlantısı ne için kullanılır**'),
-    p(
-      'Uygulama şu durumlarda internete bağlanır; hiçbirinde antrenman veya vücut verin gönderilmez:'
-    ),
+    p('**3. Bilgileri kimler işler**'),
     list(
-      'Uygulama güncellemeleri: Uygulama açılışta Expo (650 Industries, Inc., ABD) sunucularından yeni sürüm olup olmadığını kontrol eder. Bu istekte uygulama sürümü ve platform bilgisi gönderilir; her internet isteğinde olduğu gibi IP adresin de karşı sunucuya ulaşır.',
-      'Egzersiz görselleri: Egzersiz resimleri GitHub sunucularından indirilir ve cihazda önbelleğe alınır.',
-      "Video bağlantıları: Bir egzersizin videosunu açarsan YouTube uygulaması veya tarayıcı açılır; o andan sonra YouTube'un koşulları geçerlidir."
+      'Supabase Inc.: hesap, eşitlenen antrenmanlar, salon üyeliği, bildirim bilgileri ve salon logoları; Frankfurt (Avrupa Birliği) sunucuları, yurt dışına aktarım sayılır',
+      "Google: giriş ve doğrulama e-postaları (Gmail); Android'de telefon bildirimleri (Firebase Cloud Messaging)",
+      'Expo (650 Industries, Inc., ABD): uygulama güncelleme kontrolü ve telefon bildirimlerinin iletimi',
+      'GitHub: egzersiz görselleri'
     ),
-    p('**5. İzinler**'),
+    p('Bildirimlerde bildirim kimliği ve bildirim metni iletilir; antrenman verisi iletilmez.'),
+    p('**4. İzinler**'),
     list(
-      'Bildirimler: Dinlenme süren bittiğinde haber vermek için. Bildirimler cihazda planlanır, uzaktan gönderilmez. Ayarlardan kapatabilirsin.',
-      'Tam zamanlı alarm (Android): Dinlenme bildiriminin zamanında gelmesi için.'
+      'Bildirimler: dinlenme süresi, ders hatırlatmaları, salon duyuruları ve ders değişiklikleri için',
+      'Tam zamanlı alarm (Android): dinlenme süresi bildiriminin zamanında gelmesi için',
+      'Fotoğraf seçme: yalnızca salon yöneticisi logo yüklerken, sistemin fotoğraf seçicisiyle seçtiği tek görsel; uygulama galerine erişmez'
     ),
-    p('Uygulama konum, kamera, mikrofon, rehber veya fotoğraflara erişmez.'),
-    p('**6. Analitik, reklam ve üçüncü taraflar**'),
+    p('Uygulama konum, kamera, mikrofon veya rehbere erişmez.'),
+    p('**5. Yedek dosyaları**'),
     p(
-      'Uygulamada reklam, analitik, çökme raporlama veya izleme aracı yoktur. Verilerin satılmaz ve kimseyle paylaşılmaz.'
+      'Yedek dosyası şifrelenmez; nereye kaydedeceğini ya da kiminle paylaşacağını sen seçersin. Güvendiğin bir yerde sakla.'
     ),
-    p('**7. Çocuklar**'),
+    p('**6. Saklama ve silme**'),
     p(
-      'Dinç 18 yaş ve üzeri kullanıcılar için tasarlanmıştır ve bilerek çocuklardan bilgi toplamaz.'
+      'Hesabın sen silene kadar saklanır. Ayarlar → Hesap ve salon → Hesabımı sil ile hesabını ve sunucudaki verilerini kalıcı olarak silebilirsin; sunucu yedeklerinden en geç 30 gün içinde silinir. Uygulamaya erişemiyorsan web sayfasındaki hesap silme yolunu izle.'
     ),
-    p('**8. Hakların**'),
+    p('**7. Hakların ve iletişim**'),
     p(
-      "Verilerin tamamen senin kontrolündedir: uygulama içinden düzenleyebilir, silebilir, yedek alarak dışa aktarabilir veya uygulamayı kaldırarak hepsini silebilirsin. KVKK kapsamındaki hakların için Aydınlatma Metni'ne bak."
+      `Verilerini uygulama içinden düzenleyebilir, silebilir ve yedek alarak dışa aktarabilirsin. KVKK kapsamındaki diğer hakların için ${EMAIL} adresine yaz; talepler en geç 30 gün içinde ücretsiz yanıtlanır.`
     ),
-    p('**9. Değişiklikler**'),
-    p(
-      'Bu politika değişirse güncel sürüm yayınlanır ve yürürlük tarihi güncellenir. Verilerin cihaz dışına çıkmasını gerektiren bir değişiklik olursa uygulama içinde ayrıca onayın istenir.'
-    ),
-    p('**10. İletişim**'),
-    p(`${NAME} — ${EMAIL}`),
+    p('Dinç 18 yaş ve üzeri içindir ve bilerek çocuklardan bilgi toplamaz.'),
   ],
 };
 
@@ -109,22 +109,22 @@ export const KVKK_NOTICE: LegalDocument = {
   blocks: [
     p(`**Veri sorumlusu:** ${NAME}, ${EMAIL}`),
     p(
-      '**İşlenen veriler:** Profil bilgileri (cinsiyet, doğum tarihi, boy), vücut ölçüleri (kilo, yağ oranı, çevre ölçüleri), antrenman kayıtları ve notlar. Kilo ve vücut ölçüleri, KVKK md. 6 kapsamında sağlık verisi olarak değerlendirilebilecek özel nitelikli kişisel verilerdir.'
+      '**İşlenen veriler:** Profil bilgileri (cinsiyet, doğum tarihi, boy), vücut ölçüleri (kilo, yağ oranı, çevre ölçüleri), antrenman kayıtları ve notlar. Hesap açarsan ayrıca e-posta adresin, görünen adın, bildirim kimliğin ve bildirim tercihlerin; salona katılırsan salon üyeliğin ve ders katılımların. Kilo ve vücut ölçüleri, KVKK md. 6 kapsamında sağlık verisi olarak değerlendirilebilecek özel nitelikli kişisel verilerdir.'
     ),
     p(
-      '**İşleme amacı:** Antrenmanlarını kaydetmen, ilerlemeni grafik ve istatistiklerle görmen ve vücut ölçülerini takip etmen.'
+      '**İşleme amacı:** Antrenmanlarını kaydetmen, ilerlemeni grafik ve istatistiklerle görmen ve vücut ölçülerini takip etmen; hesap açarsan antrenmanlarının eşitlenmesi, salon üyeliği, ders programı ve salon bildirimleri.'
     ),
     p(
-      '**Toplama yöntemi ve hukuki sebep:** Veriler, uygulamaya senin girdiğin bilgilerden otomatik olmayan yolla elde edilir ve yalnızca cihazında işlenir. Genel nitelikli veriler, kullandığın hizmetin sunulması için gerekli olmasına (md. 5/2-c) dayanır. Sağlık verisi sayılabilecek vücut ölçüleri ise yalnızca açık rızana (md. 6/2) dayanılarak işlenir; rıza vermezsen bu alanları kullanmadan uygulamanın geri kalanını kullanmaya devam edebilirsin.'
+      '**Toplama yöntemi ve hukuki sebep:** Veriler, uygulamaya senin girdiğin bilgilerden elde edilir. Genel nitelikli veriler, kullandığın hizmetin sunulması için gerekli olmasına (md. 5/2-c) dayanır. Sağlık verisi sayılabilecek vücut ölçüleri yalnızca açık rızana (md. 6/2) dayanılarak ve yalnızca cihazında işlenir; sunucuya gönderilmez. Rıza vermezsen bu alanları kullanmadan uygulamanın geri kalanını kullanmaya devam edebilirsin.'
     ),
     p(
-      '**Aktarım:** Verilerin veri sorumlusuna, yurt içinde veya yurt dışında herhangi bir kişi ya da kuruluşa aktarılmaz. Yedek dosyasını bir bulut hizmetine kaydetmek veya biriyle paylaşmak senin kendi tercihindir ve veri sorumlusu bu aktarıma taraf değildir. Uygulama güncelleme kontrolü sırasında Expo (ABD) sunucularına yalnızca uygulama sürümü, platform bilgisi ve teknik olarak kaçınılmaz olan IP adresi ulaşır; antrenman veya vücut verisi gönderilmez.'
+      "**Aktarım:** Hesapsız kullanımda verilerin hiçbir kişi ya da kuruluşa aktarılmaz. Hesap açarsan hesap ve eşitlenen antrenman verilerin Supabase Inc.'in Frankfurt (Avrupa Birliği) sunucularında saklanır; e-postalar Google (Gmail), Android bildirimleri Google (Firebase Cloud Messaging) ve Expo (ABD) üzerinden iletilir. Bunlar yurt dışına aktarım sayılır; ayrıntılar Gizlilik Politikası'nda. Uygulama güncelleme kontrolünde Expo'ya yalnızca uygulama sürümü, platform bilgisi ve IP adresi ulaşır. Yedek dosyasını paylaşmak senin tercihindir; veri sorumlusu bu aktarıma taraf değildir."
     ),
     p(
-      '**Saklama süresi:** Veriler sen silene veya uygulamayı kaldırana kadar cihazında kalır.'
+      '**Saklama süresi:** Telefondaki veriler sen silene veya uygulamayı kaldırana kadar cihazında kalır. Sunucudaki veriler hesabını silene kadar saklanır; hesap silinince sunucu yedeklerinden de en geç 30 gün içinde silinir.'
     ),
     p(
-      `**Hakların (KVKK md. 11):** Verilerinin işlenip işlenmediğini öğrenme, bilgi talep etme, işleme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme, aktarıldığı üçüncü kişileri bilme, eksik veya yanlış işlenmişse düzeltilmesini, şartları oluştuğunda silinmesini isteme, bu işlemlerin aktarılan kişilere bildirilmesini isteme, otomatik sistemlerle analiz sonucu aleyhine bir sonuç çıkmasına itiraz etme ve kanuna aykırı işleme nedeniyle zararın giderilmesini talep etme haklarına sahipsin. Veriler yalnızca cihazında bulunduğu için bu hakların çoğunu uygulama içinden doğrudan kullanabilirsin (düzenleme, silme, dışa aktarma). Diğer talepler için ${EMAIL} adresine yazabilirsin; talepler en geç 30 gün içinde ücretsiz yanıtlanır.`
+      `**Hakların (KVKK md. 11):** Verilerinin işlenip işlenmediğini öğrenme, bilgi talep etme, işleme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme, aktarıldığı üçüncü kişileri bilme, eksik veya yanlış işlenmişse düzeltilmesini, şartları oluştuğunda silinmesini isteme, bu işlemlerin aktarılan kişilere bildirilmesini isteme, otomatik sistemlerle analiz sonucu aleyhine bir sonuç çıkmasına itiraz etme ve kanuna aykırı işleme nedeniyle zararın giderilmesini talep etme haklarına sahipsin. Bu hakların çoğunu uygulama içinden doğrudan kullanabilirsin (düzenleme, silme, dışa aktarma, Hesabımı sil). Diğer talepler için ${EMAIL} adresine yazabilirsin; talepler en geç 30 gün içinde ücretsiz yanıtlanır.`
     ),
   ],
 };

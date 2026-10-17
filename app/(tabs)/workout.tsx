@@ -66,7 +66,8 @@ export default function WorkoutScreen() {
   );
 
   useEffect(() => {
-    if (routineList) {
+    // Yalnızca geliştirmede: mağaza derlemesinde her değişimde tüm listeyi yazmasın
+    if (__DEV__ && routineList) {
       console.log('[ROUTINE-LIST]', JSON.stringify(routineList, null, 2));
     }
   }, [routineList]);

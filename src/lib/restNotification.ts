@@ -90,6 +90,37 @@ export function restNotificationPermissionState(
 }
 
 // ============================================================================
+// Tam zamanlı alarm (Android, v3.4)
+// ============================================================================
+
+/**
+ * `SCHEDULE_EXACT_ALARM` (kullanıcı izinli, Play beyanı gerektirmez;
+ * `USE_EXACT_ALARM` engelli). expo-notifications izin varsa
+ * `setExactAndAllowWhileIdle`, yoksa `setAndAllowWhileIdle` kullanıyor:
+ * izin yoksa bildirim yine gelir, yalnızca sistem geciktirebilir.
+ * Android 12–13'te izin kurulumda verili; 14+ (API 34) yeni kurulumda
+ * kapalı. JS'ten izin okunamıyor, bu yüzden 14+ telefonda açıklama
+ * gösteriliyor. Ders hatırlatması (1 saat önce) tam zamanlı olmak zorunda
+ * değil; aynı yol, gecikme payı kabul edilebilir.
+ */
+export const EXACT_ALARM_DEFAULT_DENIED_API = 34;
+
+export const EXACT_ALARM_HINT =
+  'Android 14 ve sonrasında bildirimin tam zamanında gelmesi için "Alarmlar ve hatırlatıcılar" izni gerekir. Kapalıysa bildirim yine gelir ama birkaç dakikaya kadar gecikebilir. Telefon ayarları → Dinç → Alarmlar ve hatırlatıcılar.';
+
+/** Ayarlar'da açıklama gösterilsin mi (yalnızca Android 14+, bildirim açık ve izinli) */
+export function shouldShowExactAlarmHint(
+  platform: string,
+  apiLevel: number | string,
+  enabled: boolean,
+  permission: RestNotificationPermissionState | null
+): boolean {
+  if (platform !== 'android' || !enabled || permission !== 'granted') return false;
+  const level = typeof apiLevel === 'number' ? apiLevel : Number(apiLevel);
+  return Number.isFinite(level) && level >= EXACT_ALARM_DEFAULT_DENIED_API;
+}
+
+// ============================================================================
 // Planlama kararı
 // ============================================================================
 

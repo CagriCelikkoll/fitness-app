@@ -66,3 +66,9 @@ docs/
 CLAUDE.md
 # Supabase CLI yerel durumu (login / link; proje bilgisi)
 supabase/.temp/
+# İmza anahtarı ve Play PEPK dosyaları (docs/play-imza-rehberi.md); projeye girmez
+*.jks
+*.keystore
+*.pem
+pepk*.jar
+*-pepk.zip
