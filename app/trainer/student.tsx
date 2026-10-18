@@ -1,8 +1,8 @@
 /**
  * Öğrenci ayrıntısı (v3.6b, hoca / yönetici). Öğrencilerim → öğrenciye
- * dokun. Atanmış programlar (kaldırma onaylı) ve hocanın henüz atanmamış
- * programlarından atama. Hoca öğrencinin ağırlık, set ve ölçülerini
- * görmez (rıza metni).
+ * dokun. Devam (v3.6c: son 8 hafta ısı haritası, ziyaret listesi), atanmış
+ * programlar (kaldırma onaylı) ve hocanın henüz atanmamış programlarından
+ * atama. Hoca öğrencinin ağırlık, set ve ölçülerini görmez (rıza metni).
  */
 
 import { useCallback, useState } from 'react';
@@ -13,6 +13,7 @@ import { useGymMembership } from '@/hooks/useGymMembership';
 import { usePrograms } from '@/hooks/usePrograms';
 import { useColors } from '@/hooks/useTheme';
 import { useTrainerLinks } from '@/hooks/useTrainerLinks';
+import { useGymVisits } from '@/hooks/useVisits';
 import {
   assignProgram,
   canManageProgram,
@@ -22,6 +23,8 @@ import {
 } from '@/lib/programs';
 import { getSupabase } from '@/lib/supabase';
 import { linkDateText, studentLabel } from '@/lib/trainers';
+import { attendanceText, heatmap, studentAttendance, visitRowText } from '@/lib/visits';
+import { VisitHeatmap } from '@/components/VisitHeatmap';
 import { Card, ListRow, SectionHeader } from '@/components/ui';
 
 export default function StudentDetailScreen() {
@@ -32,12 +35,15 @@ export default function StudentDetailScreen() {
   const { links, loading: linksLoading, refresh: refreshLinks } = useTrainerLinks();
   const { userId, programs, assignments, loaded, loading, error, refresh } = usePrograms();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const visits = useGymVisits(links.find((l) => l.id === id)?.gymId ?? null);
+  const { refresh: refreshVisits } = visits;
 
   useFocusEffect(
     useCallback(() => {
       void refreshLinks();
       void refresh();
-    }, [refreshLinks, refresh])
+      void refreshVisits();
+    }, [refreshLinks, refresh, refreshVisits])
   );
 
   const link = links.find((l) => l.id === id && l.status === 'active') ?? null;
@@ -66,6 +72,9 @@ export default function StudentDetailScreen() {
   const assigned = candidates.filter((p) => assignedIds.has(p.id));
   const available = candidates.filter((p) => !assignedIds.has(p.id));
   const name = studentLabel(link.studentName);
+  const nowMs = Date.now();
+  const studentVisits = visits.visits.filter((v) => v.userId === link.studentId);
+  const attendance = studentAttendance(studentVisits, nowMs);
 
   const act = async (p: GymProgram, assign: boolean) => {
     setBusyId(p.id);
@@ -126,6 +135,28 @@ export default function StudentDetailScreen() {
       <View className="px-1 gap-1">
         <Text className="text-fg text-2xl font-bold tracking-tight">{name}</Text>
         <Text className="text-muted text-sm">{linkDateText(link, Date.now())}</Text>
+      </View>
+
+      <View className="gap-2">
+        <SectionHeader title="Devam" variant="label" className="px-1" />
+        <Card className="gap-3">
+          <Text className={`text-sm ${attendance.inactive ? 'text-warm' : 'text-muted'}`}>{attendanceText(attendance)}</Text>
+          <VisitHeatmap weeks={heatmap(studentVisits, nowMs)} />
+        </Card>
+        {studentVisits.length > 0 && (
+          <Card flush className="px-4">
+            {studentVisits.slice(0, 20).map((v, i) => {
+              const row = visitRowText(v, nowMs);
+              return (
+                <View key={v.id} className={`flex-row items-center py-3 gap-3 ${i > 0 ? 'border-t border-border' : ''}`}>
+                  <Text className="text-fg text-sm flex-1">{row.date}</Text>
+                  <Text className="text-muted text-sm tabular-nums">{row.time}</Text>
+                  <Text className="text-fg text-sm tabular-nums w-24 text-right">{row.duration}</Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
       </View>
       {error != null && <Text className="text-danger text-sm leading-5">{error.message}</Text>}
 

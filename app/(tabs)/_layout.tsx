@@ -1,18 +1,24 @@
 import { Tabs } from 'expo-router';
 import {
+  Building2,
   Dumbbell,
   ListChecks,
   Activity,
   TrendingUp,
   Settings as SettingsIcon,
 } from 'lucide-react-native';
-import { useColors } from '@/hooks/useTheme';
+import { useGymMembership } from '@/hooks/useGymMembership';
+import { useColors, useGymTones } from '@/hooks/useTheme';
 
 
 const TAB_ICON_SIZE = 24;
 
 export default function TabsLayout() {
   const COLORS = useColors();
+  // Salon sekmesi (v3.6c): bayrak açık ve bir salona üyeyse; salon renginde.
+  // Bayrak kapalıyken useGymMembership istek atmaz, sekme gizli kalır.
+  const { primary } = useGymMembership();
+  const gymTones = useGymTones(primary?.primaryColor);
   return (
     <Tabs
       screenOptions={{
@@ -37,6 +43,17 @@ export default function TabsLayout() {
           title: 'Ana Sayfa',
           tabBarIcon: ({ color }) => (
             <Activity color={color} size={TAB_ICON_SIZE} strokeWidth={1.75} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="gym"
+        options={{
+          title: 'Salon',
+          href: primary ? undefined : null,
+          tabBarActiveTintColor: gymTones.ink,
+          tabBarIcon: ({ color }) => (
+            <Building2 color={color} size={TAB_ICON_SIZE} strokeWidth={1.75} />
           ),
         }}
       />

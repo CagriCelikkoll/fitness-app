@@ -32,10 +32,13 @@ import { Card, Chip, EmptyState, ListRow } from '@/components/ui';
 export default function MembersScreen() {
   const COLORS = useColors();
   const router = useRouter();
-  const { gymId } = useLocalSearchParams<{ gymId: string }>();
+  // filter: Salon panelinden "7 gün içinde bitenler" ile açılınca (v3.6c)
+  const { gymId, filter: initialFilter } = useLocalSearchParams<{ gymId: string; filter?: string }>();
   const { userId, memberships } = useGymMembership();
   const { members, loaded, loading, error, refresh } = useGymMembers(gymId ?? null);
-  const [filter, setFilter] = useState<MemberFilter>('all');
+  const [filter, setFilter] = useState<MemberFilter>(
+    () => MEMBER_FILTERS.find((f) => f.key === initialFilter)?.key ?? 'all'
+  );
   const [query, setQuery] = useState('');
 
   useFocusEffect(

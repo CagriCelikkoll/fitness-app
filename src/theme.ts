@@ -180,3 +180,9 @@ export function imageFrameClass(scheme: ColorScheme): string {
 
 /** Koyu tema + Dinç vurgusu: açılış ekranı ve tema yüklenmeden önceki an */
 export const DARK_COLORS: ThemeColors = buildColors('dark', DINC_ACCENT.dark);
+
+/**
+ * QR afişi (v3.6c): temadan bağımsız siyah üstüne beyaz. Okuyucular açık
+ * zemin üstünde koyu modül bekliyor; koyu temada da afiş beyaz kalır.
+ */
+export const QR_COLORS = { dark: '#000000', light: '#FFFFFF' } as const;

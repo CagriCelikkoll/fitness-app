@@ -64,9 +64,8 @@ describe('izinler (app.json)', () => {
     }
   });
 
-  it('kamera, mikrofon, konum, ön plan servisi, reklam kimliği engelli', () => {
+  it('mikrofon, konum, ön plan servisi, reklam kimliği engelli', () => {
     for (const p of [
-      'android.permission.CAMERA',
       'android.permission.RECORD_AUDIO',
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
@@ -77,6 +76,21 @@ describe('izinler (app.json)', () => {
       expect(blocked).toContain(p);
     }
     expect(permissions.filter((p) => blocked.includes(p))).toEqual([]);
+  });
+
+  it('kamera (v3.6c) yalnızca salon girişi QR için: engelli değil, mikrofon kapalı, açıklama Türkçe', () => {
+    expect(blocked).not.toContain('android.permission.CAMERA');
+    const plugins = app.plugins as unknown[];
+    const camera = plugins.find((p) => Array.isArray(p) && p[0] === 'expo-camera') as [string, Record<string, unknown>];
+    expect(camera[1]).toMatchObject({
+      cameraPermission: 'Salon girişindeki QR kodu okumak için.',
+      microphonePermission: false,
+      recordAudioAndroid: false,
+    });
+    // Görsel seçici kamerayı engellemesin (yoksa expo-camera'nın izni de kalkar)
+    const picker = plugins.find((p) => Array.isArray(p) && p[0] === 'expo-image-picker') as [string, Record<string, unknown>];
+    expect(picker[1].cameraPermission).not.toBe(false);
+    expect(picker[1].microphonePermission).toBe(false);
   });
 
   it('istenen ama engellenen izin yok; bildirim izni engellenmemiş', () => {

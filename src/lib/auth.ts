@@ -127,6 +127,9 @@ export type AccountErrorKind =
   | 'program_invalid'
   | 'program_archived'
   | 'student_not_active'
+  | 'checkin_key_invalid'
+  | 'checkin_not_member'
+  | 'visit_invalid'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -165,6 +168,9 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   program_invalid: 'Program kaydedilemedi: gün, egzersiz ya da sayılar sınırların dışında.',
   program_archived: 'Bu program arşivde. Önce arşivden çıkar.',
   student_not_active: 'Program yalnızca aktif öğrencilere atanabilir. Listeyi yenile.',
+  checkin_key_invalid: 'Bu QR artık geçersiz, salona sor.',
+  checkin_not_member: 'Bu salonun üyesi değilsin.',
+  visit_invalid: 'Giriş ve çıkış saatlerini kontrol et.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -245,6 +251,10 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('program_invalid')) return 'program_invalid';
   if (message.includes('program_archived')) return 'program_archived';
   if (message.includes('student_not_active')) return 'student_not_active';
+  // Salon girişi (v3.6c, 0012_visits.sql)
+  if (message.includes('checkin_key_invalid')) return 'checkin_key_invalid';
+  if (message.includes('checkin_not_member')) return 'checkin_not_member';
+  if (message.includes('visit_invalid')) return 'visit_invalid';
   // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular v3.2b, ders programı v3.2c)
   if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
   if (code === '23514') return 'invalid_input';

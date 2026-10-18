@@ -14,6 +14,7 @@ import { DATABASE_NAME } from '@/db/client';
 import { seedIfEmpty } from '@/db/seed';
 import { useDb } from '@/hooks/useDb';
 import { useSyncTriggers } from '@/hooks/useSyncTriggers';
+import { useVisitWorkoutLink } from '@/hooks/useVisits';
 import { useAnnouncementTriggers } from '@/hooks/useAnnouncements';
 import { useClassScheduleTriggers } from '@/hooks/useClassSchedule';
 import { useClassReminderResponses } from '@/lib/classReminderNative';
@@ -136,6 +137,8 @@ function SyncTriggers() {
   // Push (v3.3): salon üyesiyse token kaydı; bildirime dokununca ilgili ekran
   usePushRegistration();
   usePushResponses();
+  // Salon girişi (v3.6c): antrenman bitince ziyarete bağla (otomatik çıkış)
+  useVisitWorkoutLink();
   return null;
 }
 
@@ -315,6 +318,22 @@ function RootStack() {
       <Stack.Screen
         name="programs/assign"
         options={{ title: 'Ata' }}
+      />
+      <Stack.Screen
+        name="checkin"
+        options={{ title: 'Salona giriş' }}
+      />
+      <Stack.Screen
+        name="gym/panel"
+        options={{ title: 'Salon paneli' }}
+      />
+      <Stack.Screen
+        name="gym/qr"
+        options={{ title: 'QR afişi' }}
+      />
+      <Stack.Screen
+        name="gym/visit"
+        options={{ title: 'Elle giriş' }}
       />
     </Stack>
   );

@@ -4,6 +4,8 @@
  * istekler; "Öğrenci ekle"; bağı bitirme / isteği geri çekme (onaylı).
  *
  * Aktif öğrenciye dokununca ayrıntı (v3.6b: atanmış programlar).
+ * v3.6c: her satırda devam (son geliş, bu ay gün, ortalama süre); 10
+ * günden uzun gelmeyen öğrenci üstte ve uyarı renginde.
  * Satır (`src/components/StudentRow.tsx`) 3.6c'de devam bilgisini (`detail`) alacak şekilde
  * kurulu. Yetkiyi sunucu belirler; rol kontrolü yalnızca görünüm.
  */
@@ -16,6 +18,7 @@ import { GraduationCap, UserPlus } from 'lucide-react-native';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useColors } from '@/hooks/useTheme';
 import { useTrainerLinks } from '@/hooks/useTrainerLinks';
+import { useGymVisits } from '@/hooks/useVisits';
 import { canViewMembers } from '@/lib/gymAdmin';
 import { getSupabase } from '@/lib/supabase';
 import {
@@ -26,6 +29,7 @@ import {
   studentLabel,
   type TrainerLink,
 } from '@/lib/trainers';
+import { attendanceText, sortByAttendance, studentAttendance, type StudentAttendance } from '@/lib/visits';
 import { StudentRow } from '@/components/StudentRow';
 import { Card, EmptyState, PrimaryButton, SectionHeader } from '@/components/ui';
 
@@ -36,11 +40,14 @@ export default function TrainerStudentsScreen() {
   const { memberships } = useGymMembership();
   const { userId, links, loaded, loading, error, refresh } = useTrainerLinks();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const visits = useGymVisits(gymId ?? null);
+  const { refresh: refreshVisits } = visits;
 
   useFocusEffect(
     useCallback(() => {
       void refresh();
-    }, [refresh])
+      void refreshVisits();
+    }, [refresh, refreshVisits])
   );
 
   if (!gymId || !canViewMembers(gymId, memberships)) {
@@ -53,7 +60,14 @@ export default function TrainerStudentsScreen() {
   }
 
   const mine = linksAsTrainer(links, userId, gymId);
-  const active = sortByName(mine.filter((l) => l.status === 'active'), (l) => l.studentName);
+  const nowMsForStats = Date.now();
+  const attendance = new Map<string, StudentAttendance>(
+    mine.map((l) => [l.studentId, studentAttendance(visits.visits.filter((v) => v.userId === l.studentId), nowMsForStats)])
+  );
+  const attendanceOf = (l: TrainerLink) => attendance.get(l.studentId)!;
+  const active = visits.loaded
+    ? sortByAttendance(mine.filter((l) => l.status === 'active'), attendanceOf, (l) => l.studentName)
+    : sortByName(mine.filter((l) => l.status === 'active'), (l) => l.studentName);
   const pending = sortByName(mine.filter((l) => l.status === 'pending'), (l) => l.studentName);
   const nowMs = Date.now();
 
@@ -87,7 +101,7 @@ export default function TrainerStudentsScreen() {
       refreshControl={
         <RefreshControl
           refreshing={loading && loaded}
-          onRefresh={() => void refresh()}
+          onRefresh={() => void Promise.all([refresh(), refreshVisits()])}
           tintColor={COLORS.accent}
           colors={[COLORS.accent]}
         />
@@ -118,6 +132,16 @@ export default function TrainerStudentsScreen() {
                   link={l}
                   divider={i > 0}
                   subtitle={linkDateText(l, nowMs)}
+                  detail={
+                    visits.loaded ? (
+                      <Text
+                        className={`text-xs mt-0.5 ${attendanceOf(l).inactive ? 'text-warm' : 'text-muted'}`}
+                        numberOfLines={1}
+                      >
+                        {attendanceText(attendanceOf(l))}
+                      </Text>
+                    ) : undefined
+                  }
                   actionLabel="Bitir"
                   busy={busyId === l.id}
                   onAction={() => confirmEnd(l)}
