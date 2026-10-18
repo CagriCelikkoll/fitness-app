@@ -119,6 +119,11 @@ export type AccountErrorKind =
   | 'class_cancelled'
   | 'class_started'
   | 'class_not_scheduled'
+  | 'student_not_member'
+  | 'trainer_self'
+  | 'trainer_already_linked'
+  | 'trainer_link_closed'
+  | 'consent_outdated'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -149,6 +154,11 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   class_cancelled: 'Bu ders iptal edildi.',
   class_started: 'Ders başladı; katılım artık değiştirilemiyor.',
   class_not_scheduled: 'Bu ders programda yok. Programı yenileyip tekrar dene.',
+  student_not_member: 'Bu kişi salonun üyesi değil.',
+  trainer_self: 'Kendini öğrenci olarak ekleyemezsin.',
+  trainer_already_linked: 'Bu kişiye zaten istek gönderilmiş ya da zaten öğrencin.',
+  trainer_link_closed: 'Bu istek artık geçerli değil. Listeyi yenile.',
+  consent_outdated: 'İzin metni güncellendi. Uygulamayı güncelleyip tekrar dene.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -219,6 +229,12 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('class_cancelled')) return 'class_cancelled';
   if (message.includes('class_started')) return 'class_started';
   if (message.includes('class_not_scheduled')) return 'class_not_scheduled';
+  // Hoca–öğrenci (v3.6a, 0010_trainers.sql)
+  if (message.includes('student_not_member')) return 'student_not_member';
+  if (message.includes('trainer_self')) return 'trainer_self';
+  if (message.includes('trainer_already_linked')) return 'trainer_already_linked';
+  if (message.includes('trainer_link_closed')) return 'trainer_link_closed';
+  if (message.includes('consent_outdated')) return 'consent_outdated';
   // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular v3.2b, ders programı v3.2c)
   if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
   if (code === '23514') return 'invalid_input';

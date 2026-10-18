@@ -45,11 +45,13 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
 import {
   Download,
+  GraduationCap,
   LogOut,
   RefreshCw,
   RotateCcw,
   Settings2,
   Upload,
+  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -731,6 +733,23 @@ function MembershipCard({
           )}
         </View>
       )}
+      {/* Hoca–öğrenci (v3.6a) */}
+      <View className="flex-row gap-2">
+        {(membership.role === 'admin' || membership.role === 'trainer') && (
+          <SecondaryButton
+            label="Öğrencilerim"
+            icon={GraduationCap}
+            className="flex-1"
+            onPress={() => router.push({ pathname: '/trainer/students', params: { gymId: membership.gymId } })}
+          />
+        )}
+        <SecondaryButton
+          label="Hocalarım"
+          icon={UserRound}
+          className="flex-1"
+          onPress={() => router.push('/trainer/mine')}
+        />
+      </View>
       <DangerButton
         label={leaving ? 'Ayrılıyor...' : 'Salondan ayrıl'}
         loading={leaving}

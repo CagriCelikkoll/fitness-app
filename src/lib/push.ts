@@ -22,8 +22,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   CHANNEL_ANNOUNCEMENTS,
   CHANNEL_CLASS_CHANGES,
+  CHANNEL_TRAINER,
   PUSH_TYPE_ANNOUNCEMENT,
   PUSH_TYPE_CLASS_CHANGE,
+  PUSH_TYPE_TRAINER_ACCEPTED,
+  PUSH_TYPE_TRAINER_REQUEST,
   type PushData,
 } from '../../supabase/functions/notify/logic';
 import type { AccountResult } from '@/lib/account';
@@ -40,6 +43,7 @@ export type { PushData };
 export const PUSH_CHANNELS = [
   { id: CHANNEL_ANNOUNCEMENTS, name: 'Duyurular', description: 'Salonundan yeni duyurular' },
   { id: CHANNEL_CLASS_CHANGES, name: 'Dersler', description: 'Katılacağın dersin iptali ya da değişikliği' },
+  { id: CHANNEL_TRAINER, name: 'Hoca', description: 'Hoca istekleri ve kabulleri' },
 ] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -61,21 +65,29 @@ export function parsePushData(data: unknown): PushData | null {
   ) {
     return { type: PUSH_TYPE_CLASS_CHANGE, gymId: d.gymId, templateId: d.templateId, date: d.date };
   }
+  if ((d.type === PUSH_TYPE_TRAINER_REQUEST || d.type === PUSH_TYPE_TRAINER_ACCEPTED) && isText(d.gymId) && isText(d.linkId)) {
+    return { type: d.type, gymId: d.gymId, linkId: d.linkId };
+  }
   return null;
 }
 
 export type PushTarget =
   | { pathname: '/announcements' }
-  | { pathname: '/classes'; params: { date: string; focus: string; gymId: string } };
+  | { pathname: '/classes'; params: { date: string; focus: string; gymId: string } }
+  | { pathname: '/trainer/consent'; params: { id: string } }
+  | { pathname: '/trainer/students'; params: { gymId: string } };
 
 /**
  * Dokununca: duyuru → duyurular ekranı (açılınca yenilenir); ders →
- * program ekranında o gün ve o ders (ders hatırlatmasıyla aynı).
+ * program ekranında o gün ve o ders (ders hatırlatmasıyla aynı). Hoca
+ * isteği → öğrencinin izin ekranı; kabul → hocanın öğrenci listesi (v3.6a).
  */
 export function pushTarget(data: unknown): PushTarget | null {
   const d = parsePushData(data);
   if (!d) return null;
   if (d.type === PUSH_TYPE_ANNOUNCEMENT) return { pathname: '/announcements' };
+  if (d.type === PUSH_TYPE_TRAINER_REQUEST) return { pathname: '/trainer/consent', params: { id: d.linkId } };
+  if (d.type === PUSH_TYPE_TRAINER_ACCEPTED) return { pathname: '/trainer/students', params: { gymId: d.gymId } };
   return { pathname: '/classes', params: { date: d.date, focus: `${d.templateId}:${d.date}`, gymId: d.gymId } };
 }
 

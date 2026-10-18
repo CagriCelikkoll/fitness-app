@@ -1,7 +1,8 @@
 /**
  * notify Edge Function'ının saf mantığı (v3.3): webhook'tan olayı
  * çıkarma, alıcı seçimi (tercih filtresi, yazar hariç), bildirim metni,
- * Expo Push mesajları ve geçersiz token'lar.
+ * Expo Push mesajları ve geçersiz token'lar. v3.6a: hoca isteği (öğrenciye)
+ * ve kabulü (hocaya).
  *
  * Deno ve Node'da aynı çalışır: hiçbir şey içe aktarmaz, ağa çıkmaz.
  * Vitest: test/pushNotify.test.ts. Uygulama tarafındaki karşılığı
@@ -16,13 +17,18 @@
 /** Android bildirim kanalları; uygulama aynı kimliklerle kuruyor */
 export const CHANNEL_ANNOUNCEMENTS = 'announcements';
 export const CHANNEL_CLASS_CHANGES = 'class-changes';
+export const CHANNEL_TRAINER = 'trainer';
 
 export const PUSH_TYPE_ANNOUNCEMENT = 'announcement';
 export const PUSH_TYPE_CLASS_CHANGE = 'class-change';
+export const PUSH_TYPE_TRAINER_REQUEST = 'trainer-request';
+export const PUSH_TYPE_TRAINER_ACCEPTED = 'trainer-accepted';
 
 export type PushData =
   | { type: typeof PUSH_TYPE_ANNOUNCEMENT; gymId: string; announcementId: string }
-  | { type: typeof PUSH_TYPE_CLASS_CHANGE; gymId: string; templateId: string; date: string };
+  | { type: typeof PUSH_TYPE_CLASS_CHANGE; gymId: string; templateId: string; date: string }
+  | { type: typeof PUSH_TYPE_TRAINER_REQUEST; gymId: string; linkId: string }
+  | { type: typeof PUSH_TYPE_TRAINER_ACCEPTED; gymId: string; linkId: string };
 
 /** Salonun saati: sabit UTC+3 (src/lib/classes.ts GYM_UTC_OFFSET_MIN ile aynı) */
 export const GYM_UTC_OFFSET_MIN = 180;
@@ -57,7 +63,17 @@ export interface ClassChangeEvent {
   previousStartTime: string | null;
 }
 
-export type NotifyEvent = AnnouncementEvent | ClassChangeEvent;
+/** Hoca–öğrenci (v3.6a): yeni istek → öğrenciye, kabul → hocaya */
+export interface TrainerEvent {
+  kind: 'trainer';
+  change: 'requested' | 'accepted';
+  linkId: string;
+  gymId: string;
+  trainerId: string;
+  studentId: string;
+}
+
+export type NotifyEvent = AnnouncementEvent | ClassChangeEvent | TrainerEvent;
 
 type Row = Record<string, unknown>;
 
@@ -78,6 +94,7 @@ function exceptionKey(r: Row): string {
  * - class_exceptions INSERT → iptal / değişiklik
  * - class_exceptions UPDATE → yalnızca tür, saat, hoca ya da not değiştiyse
  * - class_exceptions DELETE → iptal / değişiklik geri alındı ("programda")
+ * - trainer_students INSERT (pending) → istek; UPDATE pending → active → kabul
  *
  * Başka her şey null (bildirim yok).
  */
@@ -121,6 +138,21 @@ export function parseWebhook(payload: unknown): NotifyEvent | null {
       previousStartTime: type === 'UPDATE' && old?.kind === 'changed' ? str(old.start_time) : null,
     };
   }
+
+  if (payload.table === 'trainer_students') {
+    if (!record) return null;
+    const linkId = str(record.id);
+    const gymId = str(record.gym_id);
+    const trainerId = str(record.trainer_id);
+    const studentId = str(record.student_id);
+    if (!linkId || !gymId || !trainerId || !studentId) return null;
+    const base = { kind: 'trainer' as const, linkId, gymId, trainerId, studentId };
+    if (type === 'INSERT' && record.status === 'pending') return { ...base, change: 'requested' };
+    if (type === 'UPDATE' && old?.status === 'pending' && record.status === 'active') {
+      return { ...base, change: 'accepted' };
+    }
+    return null;
+  }
   return null;
 }
 
@@ -147,7 +179,8 @@ export interface TokenRow {
 export function recipientTokens(
   candidateUserIds: readonly string[],
   options: {
-    kind: 'announcements' | 'classChanges';
+    /** personal: tercih filtresi yok (yalnızca o kişiye giden hoca bildirimleri) */
+    kind: 'announcements' | 'classChanges' | 'personal';
     excludeUserId?: string | null;
     prefs: readonly PrefsRow[];
     tokens: readonly TokenRow[];
@@ -158,7 +191,12 @@ export function recipientTokens(
   for (const id of candidateUserIds) {
     if (id === options.excludeUserId) continue;
     const p = prefs.get(id);
-    const on = p == null ? true : options.kind === 'announcements' ? p.notify_announcements : p.notify_class_changes;
+    const on =
+      p == null || options.kind === 'personal'
+        ? true
+        : options.kind === 'announcements'
+          ? p.notify_announcements
+          : p.notify_class_changes;
     if (on) allowed.add(id);
   }
   const out = new Set<string>();
@@ -262,6 +300,31 @@ export function isUpcomingClass(e: ClassChangeEvent, template: ClassTemplateInfo
   return Math.max(classStartMs(e.date, time), plannedStart) > nowMs;
 }
 
+/** "Duygu" → "Duygu Hoca" (src/lib/trainers.ts trainerTitle ile aynı; test denetliyor) */
+export function trainerTitle(name: string | null | undefined): string {
+  const n = name?.trim();
+  if (!n) return 'Hocan';
+  return /\bhoca$/i.test(n) ? n : `${n} Hoca`;
+}
+
+/** Hoca bildirimi: istek öğrenciye, kabul hocaya */
+export function trainerContent(
+  e: TrainerEvent,
+  names: { trainerName: string | null; studentName: string | null }
+): PushContent {
+  if (e.change === 'requested') {
+    const who = names.trainerName?.trim() ? trainerTitle(names.trainerName) : 'Bir hoca';
+    return { title: 'Hoca isteği', body: truncate(`${who} seni öğrencisi olarak eklemek istiyor.`) };
+  }
+  const student = names.studentName?.trim() || 'Öğrencin';
+  return { title: 'Yeni öğrenci', body: truncate(`${student} isteğini kabul etti.`) };
+}
+
+/** Bildirimin gideceği kişi */
+export function trainerRecipient(e: TrainerEvent): string {
+  return e.change === 'requested' ? e.studentId : e.trainerId;
+}
+
 // ============================================================================
 // Expo Push
 // ============================================================================
@@ -281,14 +344,26 @@ export interface ExpoMessage {
 }
 
 export function dataFor(e: NotifyEvent): PushData {
-  return e.kind === 'announcement'
-    ? { type: PUSH_TYPE_ANNOUNCEMENT, gymId: e.gymId, announcementId: e.announcementId }
-    : { type: PUSH_TYPE_CLASS_CHANGE, gymId: e.gymId, templateId: e.templateId, date: e.date };
+  if (e.kind === 'announcement') return { type: PUSH_TYPE_ANNOUNCEMENT, gymId: e.gymId, announcementId: e.announcementId };
+  if (e.kind === 'trainer') {
+    return {
+      type: e.change === 'requested' ? PUSH_TYPE_TRAINER_REQUEST : PUSH_TYPE_TRAINER_ACCEPTED,
+      gymId: e.gymId,
+      linkId: e.linkId,
+    };
+  }
+  return { type: PUSH_TYPE_CLASS_CHANGE, gymId: e.gymId, templateId: e.templateId, date: e.date };
+}
+
+function channelFor(e: NotifyEvent): string {
+  if (e.kind === 'announcement') return CHANNEL_ANNOUNCEMENTS;
+  if (e.kind === 'trainer') return CHANNEL_TRAINER;
+  return CHANNEL_CLASS_CHANGES;
 }
 
 export function buildMessages(tokens: readonly string[], e: NotifyEvent, content: PushContent): ExpoMessage[] {
   const data = dataFor(e);
-  const channelId = e.kind === 'announcement' ? CHANNEL_ANNOUNCEMENTS : CHANNEL_CLASS_CHANGES;
+  const channelId = channelFor(e);
   return tokens.map((to) => ({ to, ...content, data, sound: 'default', channelId, priority: 'high' }));
 }
 

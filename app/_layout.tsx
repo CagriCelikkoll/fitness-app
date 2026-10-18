@@ -276,6 +276,22 @@ function RootStack() {
         name="classes/template"
         options={{ title: 'Ders' }}
       />
+      <Stack.Screen
+        name="trainer/students"
+        options={{ title: 'Öğrencilerim' }}
+      />
+      <Stack.Screen
+        name="trainer/add"
+        options={{ title: 'Öğrenci ekle' }}
+      />
+      <Stack.Screen
+        name="trainer/consent"
+        options={{ title: 'Hoca isteği' }}
+      />
+      <Stack.Screen
+        name="trainer/mine"
+        options={{ title: 'Hocalarım' }}
+      />
     </Stack>
   );
 }

@@ -4,6 +4,8 @@
  * - announcements INSERT → o salonun üyelerine (yazar hariç)
  * - class_exceptions INSERT / UPDATE / DELETE → o derse katılacağını
  *   söyleyenlere (iptal, değişiklik, geri alma)
+ * - trainer_students INSERT / UPDATE (v3.6a) → yeni istek öğrenciye,
+ *   kabul hocaya (tercih filtresi yok, kişiye özel)
  *
  * Tercihi kapalı olana gitmez; Expo "DeviceNotRegistered" derse token
  * silinir. Kararlar ve metinler `logic.ts`'te (saf, Vitest ile test
@@ -30,6 +32,8 @@ import {
   isUpcomingClass,
   parseWebhook,
   recipientTokens,
+  trainerContent,
+  trainerRecipient,
   type ExpoMessage,
   type NotifyEvent,
   type PrefsRow,
@@ -59,7 +63,7 @@ async function selectIn<T>(
 async function tokensFor(
   db: SupabaseClient,
   userIds: string[],
-  kind: 'announcements' | 'classChanges',
+  kind: 'announcements' | 'classChanges' | 'personal',
   excludeUserId: string | null
 ): Promise<string[]> {
   if (userIds.length === 0) return [];
@@ -71,6 +75,19 @@ async function tokensFor(
 }
 
 async function plan(db: SupabaseClient, event: NotifyEvent): Promise<ExpoMessage[]> {
+  if (event.kind === 'trainer') {
+    const { data, error } = await db
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', [event.trainerId, event.studentId]);
+    if (error) throw error;
+    const nameOf = (id: string) =>
+      ((data ?? []) as { id: string; display_name: string | null }[]).find((p) => p.id === id)?.display_name ?? null;
+    const tokens = await tokensFor(db, [trainerRecipient(event)], 'personal', null);
+    const content = trainerContent(event, { trainerName: nameOf(event.trainerId), studentName: nameOf(event.studentId) });
+    return buildMessages(tokens, event, content);
+  }
+
   if (event.kind === 'announcement') {
     const { data, error } = await db.from('gym_members').select('user_id').eq('gym_id', event.gymId);
     if (error) throw error;

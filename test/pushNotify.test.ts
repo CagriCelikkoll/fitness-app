@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CHANNEL_ANNOUNCEMENTS,
   CHANNEL_CLASS_CHANGES,
+  CHANNEL_TRAINER,
   announcementContent,
   buildMessages,
   chunk,
@@ -213,8 +214,8 @@ describe('Expo mesajları', () => {
   });
 
   it('uygulamanın kurduğu kanallar gönderilenlerle aynı', () => {
-    expect(PUSH_CHANNELS.map((c) => c.id).sort()).toEqual([CHANNEL_ANNOUNCEMENTS, CHANNEL_CLASS_CHANGES].sort());
-    expect(PUSH_CHANNELS.map((c) => c.name)).toEqual(['Duyurular', 'Dersler']);
+    expect(PUSH_CHANNELS.map((c) => c.id).sort()).toEqual([CHANNEL_ANNOUNCEMENTS, CHANNEL_CLASS_CHANGES, CHANNEL_TRAINER].sort());
+    expect(PUSH_CHANNELS.map((c) => c.name)).toEqual(['Duyurular', 'Dersler', 'Hoca']);
   });
 
   it('100’lük paketler', () => {

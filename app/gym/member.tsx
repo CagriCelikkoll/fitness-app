@@ -3,16 +3,20 @@
  * bitiş tarihi (gir / temizle), salondan çıkar (onaylı). Hoca salt okur.
  * Yönetici kendi rolünü düşüremez ve kendini buradan çıkaramaz (ayrılma
  * Ayarlar'da); sunucu da aynı kuralları uygular.
+ *
+ * v3.6a: yöneticiye "Hocası: Duygu Hoca" (salt okunur; bağı yönetici
+ * kuramaz, rıza üyede).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { UserMinus } from 'lucide-react-native';
 
 import { DateInput } from '@/components/DateInput';
 import { useGymMembers } from '@/hooks/useGymMembers';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useTrainerLinks } from '@/hooks/useTrainerLinks';
 import { roleLabel, type GymRole } from '@/lib/auth';
 import { UNNAMED } from '@/lib/classRsvps';
 import { gymNow } from '@/lib/classes';
@@ -27,6 +31,7 @@ import {
   updateMember,
 } from '@/lib/gymAdmin';
 import { getSupabase } from '@/lib/supabase';
+import { trainerTitle, trainersOfStudent } from '@/lib/trainers';
 import { Card, Chip, DangerButton, PrimaryButton, SecondaryButton } from '@/components/ui';
 
 const ROLES: GymRole[] = ['member', 'trainer', 'admin'];
@@ -38,6 +43,12 @@ export default function MemberScreen() {
   const { userId, memberships, refresh: refreshMemberships } = useGymMembership();
   const { members, loaded, replace, remove } = useGymMembers(gymId ?? null);
   const member = members.find((m) => m.userId === targetId) ?? null;
+  const { links, refreshIfStale } = useTrainerLinks();
+  useFocusEffect(
+    useCallback(() => {
+      refreshIfStale();
+    }, [refreshIfStale])
+  );
 
   const [parts, setParts] = useState<DateParts>(EMPTY_PARTS);
   const [busy, setBusy] = useState(false);
@@ -59,6 +70,10 @@ export default function MemberScreen() {
   const editable = canManageGym(gymId, memberships) && canEditMember(member, userId);
   const isMe = member.userId === userId;
   const days = membershipDaysLeft(member.membershipEndsOn, nowMs);
+  // Yalnızca yönetici salondaki bütün bağları görür
+  const trainers = canManageGym(gymId, memberships)
+    ? trainersOfStudent(links.filter((l) => l.gymId === gymId), member.userId)
+    : [];
 
   const anyParts = parts.day !== '' || parts.month !== '' || parts.year !== '';
   const dateKey = anyParts ? partsToDateKey(parts) : null;
@@ -88,7 +103,7 @@ export default function MemberScreen() {
         ? `${name} yönetici olacak: üyeleri, programı ve salon ayarlarını değiştirebilecek.`
         : role === 'trainer'
           ? `${name} hoca olacak: üye listesini ve katılanları görebilecek, duyuru yazabilecek.`
-          : `${name} üye olacak: hoca / yönetici yetkileri kalkacak.`;
+          : `${name} üye olacak: hoca / yönetici yetkileri kalkacak, öğrencileriyle bağı biter.`;
     Alert.alert(`${roleLabel(role)} yapılsın mı?`, text, [
       { text: 'Vazgeç', style: 'cancel' },
       { text: 'Değiştir', onPress: () => void apply({ role }) },
@@ -141,6 +156,11 @@ export default function MemberScreen() {
               ? `Üyelik bitişi: ${formatEndDate(member.membershipEndsOn, nowMs)}${days != null && days < 0 ? ' (bitti)' : ''}`
               : 'Üyelik bitişi girilmemiş'}
           </Text>
+          {trainers.length > 0 && (
+            <Text className="text-muted text-xs">
+              Hocası: {trainers.map((l) => trainerTitle(l.trainerName)).join(', ')}
+            </Text>
+          )}
         </Card>
 
         {editable ? (

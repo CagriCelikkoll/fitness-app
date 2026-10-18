@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
@@ -15,9 +15,11 @@ import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { featuredAnnouncement, unreadCount } from '@/lib/announcements';
 import { useClassSchedule } from '@/hooks/useClassSchedule';
 import { useProfile } from '@/hooks/useProfile';
+import { useTrainerLinks } from '@/hooks/useTrainerLinks';
 import { useColors, useGymTones } from '@/hooks/useTheme';
 import { membershipWarning } from '@/lib/gymAdmin';
 import { markNamePrompted, shouldPromptForName, wasNamePrompted } from '@/lib/profile';
+import { pendingRequestsFor, requestCardText } from '@/lib/trainers';
 import {
   canEditSchedule,
   changeSummary,
@@ -221,6 +223,39 @@ function NamePromptCard() {
 }
 
 /**
+ * Hoca isteği (v3.6a): öğrenciye yanıt bekleyen istek varsa "Duygu Hoca
+ * seni öğrencisi olarak eklemek istiyor." + "Göz at" (izin ekranı). Birden
+ * çok istek varsa en yenisi. Bayrak kapalıyken / salon yokken istek atmaz.
+ */
+function TrainerRequestCard() {
+  const COLORS = useColors();
+  const router = useRouter();
+  const { userId, links, refreshIfStale } = useTrainerLinks();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshIfStale();
+    }, [refreshIfStale])
+  );
+
+  const [request] = pendingRequestsFor(links, userId);
+  if (!request) return null;
+  return (
+    <Card className="gap-3">
+      <View className="flex-row items-center gap-2">
+        <UserRound color={COLORS.accent} size={16} />
+        <Text className="text-fg text-base font-semibold flex-1">Hoca isteği</Text>
+      </View>
+      <Text className="text-muted text-sm leading-5">{requestCardText(request)}</Text>
+      <PrimaryButton
+        label="Göz at"
+        onPress={() => router.push({ pathname: '/trainer/consent', params: { id: request.id } })}
+      />
+    </Card>
+  );
+}
+
+/**
  * Salon duyurusu (v3.2b): sabitlenmiş varsa o, yoksa en yenisi. Okunmamış
  * duyuru varsa nokta. Dokununca duyurular ekranı. Salon üyeliği yoksa,
  * duyuru yoksa ya da bayrak kapalıysa hiç görünmez.
@@ -407,6 +442,7 @@ function HomeContent() {
     >
       <GymRow />
       <NamePromptCard />
+      <TrainerRequestCard />
       <AnnouncementCard />
       <TodayClassesCard />
       <View className="mb-3">
