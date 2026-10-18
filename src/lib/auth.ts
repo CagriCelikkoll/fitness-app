@@ -124,6 +124,9 @@ export type AccountErrorKind =
   | 'trainer_already_linked'
   | 'trainer_link_closed'
   | 'consent_outdated'
+  | 'program_invalid'
+  | 'program_archived'
+  | 'student_not_active'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -159,6 +162,9 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   trainer_already_linked: 'Bu kişiye zaten istek gönderilmiş ya da zaten öğrencin.',
   trainer_link_closed: 'Bu istek artık geçerli değil. Listeyi yenile.',
   consent_outdated: 'İzin metni güncellendi. Uygulamayı güncelleyip tekrar dene.',
+  program_invalid: 'Program kaydedilemedi: gün, egzersiz ya da sayılar sınırların dışında.',
+  program_archived: 'Bu program arşivde. Önce arşivden çıkar.',
+  student_not_active: 'Program yalnızca aktif öğrencilere atanabilir. Listeyi yenile.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -235,6 +241,10 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('trainer_already_linked')) return 'trainer_already_linked';
   if (message.includes('trainer_link_closed')) return 'trainer_link_closed';
   if (message.includes('consent_outdated')) return 'consent_outdated';
+  // Programlar (v3.6b, 0011_programs.sql)
+  if (message.includes('program_invalid')) return 'program_invalid';
+  if (message.includes('program_archived')) return 'program_archived';
+  if (message.includes('student_not_active')) return 'student_not_active';
   // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular v3.2b, ders programı v3.2c)
   if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
   if (code === '23514') return 'invalid_input';

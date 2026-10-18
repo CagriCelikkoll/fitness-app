@@ -3,6 +3,7 @@
  * "Öğrencilerim". Bu salondaki aktif öğrenciler ve yanıt bekleyen
  * istekler; "Öğrenci ekle"; bağı bitirme / isteği geri çekme (onaylı).
  *
+ * Aktif öğrenciye dokununca ayrıntı (v3.6b: atanmış programlar).
  * Satır (`src/components/StudentRow.tsx`) 3.6c'de devam bilgisini (`detail`) alacak şekilde
  * kurulu. Yetkiyi sunucu belirler; rol kontrolü yalnızca görünüm.
  */
@@ -120,6 +121,7 @@ export default function TrainerStudentsScreen() {
                   actionLabel="Bitir"
                   busy={busyId === l.id}
                   onAction={() => confirmEnd(l)}
+                  onPress={() => router.push({ pathname: '/trainer/student', params: { id: l.id } })}
                 />
               ))}
             </LinkSection>

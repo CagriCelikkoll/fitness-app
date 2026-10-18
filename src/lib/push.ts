@@ -25,6 +25,8 @@ import {
   CHANNEL_TRAINER,
   PUSH_TYPE_ANNOUNCEMENT,
   PUSH_TYPE_CLASS_CHANGE,
+  PUSH_TYPE_PROGRAM_ASSIGNED,
+  PUSH_TYPE_PROGRAM_UPDATED,
   PUSH_TYPE_TRAINER_ACCEPTED,
   PUSH_TYPE_TRAINER_REQUEST,
   type PushData,
@@ -43,7 +45,7 @@ export type { PushData };
 export const PUSH_CHANNELS = [
   { id: CHANNEL_ANNOUNCEMENTS, name: 'Duyurular', description: 'Salonundan yeni duyurular' },
   { id: CHANNEL_CLASS_CHANGES, name: 'Dersler', description: 'Katılacağın dersin iptali ya da değişikliği' },
-  { id: CHANNEL_TRAINER, name: 'Hoca', description: 'Hoca istekleri ve kabulleri' },
+  { id: CHANNEL_TRAINER, name: 'Hoca', description: 'Hoca istekleri, kabulleri ve programlar' },
 ] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -68,6 +70,9 @@ export function parsePushData(data: unknown): PushData | null {
   if ((d.type === PUSH_TYPE_TRAINER_REQUEST || d.type === PUSH_TYPE_TRAINER_ACCEPTED) && isText(d.gymId) && isText(d.linkId)) {
     return { type: d.type, gymId: d.gymId, linkId: d.linkId };
   }
+  if ((d.type === PUSH_TYPE_PROGRAM_ASSIGNED || d.type === PUSH_TYPE_PROGRAM_UPDATED) && isText(d.programId)) {
+    return { type: d.type, gymId: typeof d.gymId === 'string' ? d.gymId : '', programId: d.programId };
+  }
   return null;
 }
 
@@ -75,12 +80,14 @@ export type PushTarget =
   | { pathname: '/announcements' }
   | { pathname: '/classes'; params: { date: string; focus: string; gymId: string } }
   | { pathname: '/trainer/consent'; params: { id: string } }
-  | { pathname: '/trainer/students'; params: { gymId: string } };
+  | { pathname: '/trainer/students'; params: { gymId: string } }
+  | { pathname: '/programs/[id]'; params: { id: string } };
 
 /**
  * Dokununca: duyuru → duyurular ekranı (açılınca yenilenir); ders →
  * program ekranında o gün ve o ders (ders hatırlatmasıyla aynı). Hoca
  * isteği → öğrencinin izin ekranı; kabul → hocanın öğrenci listesi (v3.6a).
+ * Program atandı / güncellendi → program ayrıntısı (v3.6b).
  */
 export function pushTarget(data: unknown): PushTarget | null {
   const d = parsePushData(data);
@@ -88,6 +95,9 @@ export function pushTarget(data: unknown): PushTarget | null {
   if (d.type === PUSH_TYPE_ANNOUNCEMENT) return { pathname: '/announcements' };
   if (d.type === PUSH_TYPE_TRAINER_REQUEST) return { pathname: '/trainer/consent', params: { id: d.linkId } };
   if (d.type === PUSH_TYPE_TRAINER_ACCEPTED) return { pathname: '/trainer/students', params: { gymId: d.gymId } };
+  if (d.type === PUSH_TYPE_PROGRAM_ASSIGNED || d.type === PUSH_TYPE_PROGRAM_UPDATED) {
+    return { pathname: '/programs/[id]', params: { id: d.programId } };
+  }
   return { pathname: '/classes', params: { date: d.date, focus: `${d.templateId}:${d.date}`, gymId: d.gymId } };
 }
 

@@ -292,6 +292,30 @@ function RootStack() {
         name="trainer/mine"
         options={{ title: 'Hocalarım' }}
       />
+      <Stack.Screen
+        name="trainer/student"
+        options={{ title: 'Öğrenci' }}
+      />
+      <Stack.Screen
+        name="programs/index"
+        options={{ title: 'Programlar' }}
+      />
+      <Stack.Screen
+        name="programs/[id]"
+        options={{ title: 'Program' }}
+      />
+      <Stack.Screen
+        name="programs/manage"
+        options={{ title: 'Programlarım' }}
+      />
+      <Stack.Screen
+        name="programs/edit"
+        options={{ title: 'Program' }}
+      />
+      <Stack.Screen
+        name="programs/assign"
+        options={{ title: 'Ata' }}
+      />
     </Stack>
   );
 }

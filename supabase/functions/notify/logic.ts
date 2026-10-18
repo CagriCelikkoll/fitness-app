@@ -2,7 +2,8 @@
  * notify Edge Function'ının saf mantığı (v3.3): webhook'tan olayı
  * çıkarma, alıcı seçimi (tercih filtresi, yazar hariç), bildirim metni,
  * Expo Push mesajları ve geçersiz token'lar. v3.6a: hoca isteği (öğrenciye)
- * ve kabulü (hocaya).
+ * ve kabulü (hocaya). v3.6b: program atandı / atanmış program güncellendi
+ * (öğrenciye).
  *
  * Deno ve Node'da aynı çalışır: hiçbir şey içe aktarmaz, ağa çıkmaz.
  * Vitest: test/pushNotify.test.ts. Uygulama tarafındaki karşılığı
@@ -23,12 +24,16 @@ export const PUSH_TYPE_ANNOUNCEMENT = 'announcement';
 export const PUSH_TYPE_CLASS_CHANGE = 'class-change';
 export const PUSH_TYPE_TRAINER_REQUEST = 'trainer-request';
 export const PUSH_TYPE_TRAINER_ACCEPTED = 'trainer-accepted';
+export const PUSH_TYPE_PROGRAM_ASSIGNED = 'program-assigned';
+export const PUSH_TYPE_PROGRAM_UPDATED = 'program-updated';
 
 export type PushData =
   | { type: typeof PUSH_TYPE_ANNOUNCEMENT; gymId: string; announcementId: string }
   | { type: typeof PUSH_TYPE_CLASS_CHANGE; gymId: string; templateId: string; date: string }
   | { type: typeof PUSH_TYPE_TRAINER_REQUEST; gymId: string; linkId: string }
-  | { type: typeof PUSH_TYPE_TRAINER_ACCEPTED; gymId: string; linkId: string };
+  | { type: typeof PUSH_TYPE_TRAINER_ACCEPTED; gymId: string; linkId: string }
+  | { type: typeof PUSH_TYPE_PROGRAM_ASSIGNED; gymId: string; programId: string }
+  | { type: typeof PUSH_TYPE_PROGRAM_UPDATED; gymId: string; programId: string };
 
 /** Salonun saati: sabit UTC+3 (src/lib/classes.ts GYM_UTC_OFFSET_MIN ile aynı) */
 export const GYM_UTC_OFFSET_MIN = 180;
@@ -73,7 +78,22 @@ export interface TrainerEvent {
   studentId: string;
 }
 
-export type NotifyEvent = AnnouncementEvent | ClassChangeEvent | TrainerEvent;
+/**
+ * Program (v3.6b): atandı → o öğrenciye; atanmış program güncellendi
+ * (version arttı) → açık ataması ve aktif bağı olan öğrencilere. Yeni
+ * salon programı bildirilmez.
+ */
+export interface ProgramEvent {
+  kind: 'program';
+  change: 'assigned' | 'updated';
+  programId: string;
+  /** Atamada öğrenci; güncellemede null (alıcılar atamalardan) */
+  studentId: string | null;
+  /** Güncellemede satırdan; atamada programdan okunup doldurulur */
+  gymId: string | null;
+}
+
+export type NotifyEvent = AnnouncementEvent | ClassChangeEvent | TrainerEvent | ProgramEvent;
 
 type Row = Record<string, unknown>;
 
@@ -95,6 +115,8 @@ function exceptionKey(r: Row): string {
  * - class_exceptions UPDATE → yalnızca tür, saat, hoca ya da not değiştiyse
  * - class_exceptions DELETE → iptal / değişiklik geri alındı ("programda")
  * - trainer_students INSERT (pending) → istek; UPDATE pending → active → kabul
+ * - program_assignments INSERT → program atandı
+ * - gym_programs UPDATE, version arttı ve arşivde değil → program güncellendi
  *
  * Başka her şey null (bildirim yok).
  */
@@ -152,6 +174,23 @@ export function parseWebhook(payload: unknown): NotifyEvent | null {
       return { ...base, change: 'accepted' };
     }
     return null;
+  }
+
+  if (payload.table === 'program_assignments') {
+    if (type !== 'INSERT' || !record || record.removed_at != null) return null;
+    const programId = str(record.program_id);
+    const studentId = str(record.student_id);
+    if (!programId || !studentId) return null;
+    return { kind: 'program', change: 'assigned', programId, studentId, gymId: null };
+  }
+
+  if (payload.table === 'gym_programs') {
+    if (type !== 'UPDATE' || !record || !old) return null;
+    const programId = str(record.id);
+    const gymId = str(record.gym_id);
+    if (!programId || !gymId || record.archived_at != null) return null;
+    if (typeof record.version !== 'number' || typeof old.version !== 'number' || record.version <= old.version) return null;
+    return { kind: 'program', change: 'updated', programId, studentId: null, gymId };
   }
   return null;
 }
@@ -325,6 +364,24 @@ export function trainerRecipient(e: TrainerEvent): string {
   return e.change === 'requested' ? e.studentId : e.trainerId;
 }
 
+/** Program bildirimi: atandı "Duygu Hoca sana yeni bir program atadı: Full Body.", güncellendi "Duygu Hoca programını güncelledi." */
+export function programContent(e: ProgramEvent, info: { programName: string; authorName: string | null }): PushContent {
+  const who = trainerTitle(info.authorName);
+  if (e.change === 'assigned') {
+    return { title: 'Yeni program', body: truncate(`${who} sana yeni bir program atadı: ${info.programName.trim()}.`) };
+  }
+  return { title: truncate(info.programName, 80), body: truncate(`${who} programını güncelledi.`) };
+}
+
+/**
+ * Güncelleme bildirimi kime: açık ataması olan ve yazarla bağı hâlâ aktif
+ * öğrenciler (bağı biten öğrenci programı göremiyor).
+ */
+export function programUpdateRecipients(assignedStudentIds: readonly string[], activeStudentIds: readonly string[]): string[] {
+  const active = new Set(activeStudentIds);
+  return [...new Set(assignedStudentIds)].filter((id) => active.has(id));
+}
+
 // ============================================================================
 // Expo Push
 // ============================================================================
@@ -345,6 +402,13 @@ export interface ExpoMessage {
 
 export function dataFor(e: NotifyEvent): PushData {
   if (e.kind === 'announcement') return { type: PUSH_TYPE_ANNOUNCEMENT, gymId: e.gymId, announcementId: e.announcementId };
+  if (e.kind === 'program') {
+    return {
+      type: e.change === 'assigned' ? PUSH_TYPE_PROGRAM_ASSIGNED : PUSH_TYPE_PROGRAM_UPDATED,
+      gymId: e.gymId ?? '',
+      programId: e.programId,
+    };
+  }
   if (e.kind === 'trainer') {
     return {
       type: e.change === 'requested' ? PUSH_TYPE_TRAINER_REQUEST : PUSH_TYPE_TRAINER_ACCEPTED,
@@ -357,7 +421,7 @@ export function dataFor(e: NotifyEvent): PushData {
 
 function channelFor(e: NotifyEvent): string {
   if (e.kind === 'announcement') return CHANNEL_ANNOUNCEMENTS;
-  if (e.kind === 'trainer') return CHANNEL_TRAINER;
+  if (e.kind === 'trainer' || e.kind === 'program') return CHANNEL_TRAINER;
   return CHANNEL_CLASS_CHANGES;
 }
 

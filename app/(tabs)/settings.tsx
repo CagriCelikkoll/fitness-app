@@ -44,6 +44,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
 import {
+  ClipboardList,
   Download,
   GraduationCap,
   LogOut,
@@ -750,6 +751,12 @@ function MembershipCard({
           onPress={() => router.push('/trainer/mine')}
         />
       </View>
+      {/* Programlar (v3.6b; 3.6c'de Salon sekmesine taşınacak) */}
+      <SecondaryButton
+        label="Programlar"
+        icon={ClipboardList}
+        onPress={() => router.push({ pathname: '/programs', params: { gymId: membership.gymId } })}
+      />
       <DangerButton
         label={leaving ? 'Ayrılıyor...' : 'Salondan ayrıl'}
         loading={leaving}

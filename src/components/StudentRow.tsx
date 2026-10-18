@@ -7,6 +7,7 @@ import { ListRow } from '@/components/ui';
 /**
  * Öğrencilerim satırı (v3.6a): ad, alt metin, sağda işlem (Bitir / Geri
  * çek). `detail` 3.6c'de devam bilgisi (son geliş, haftalık gün) için.
+ * `onPress` (v3.6b): öğrenci ayrıntısı.
  */
 export function StudentRow({
   link,
@@ -16,6 +17,7 @@ export function StudentRow({
   actionLabel,
   busy,
   onAction,
+  onPress,
 }: {
   link: Pick<TrainerLink, 'studentName'>;
   subtitle: string;
@@ -24,10 +26,12 @@ export function StudentRow({
   actionLabel: string;
   busy: boolean;
   onAction: () => void;
+  onPress?: () => void;
 }) {
   return (
     <ListRow
       divider={divider}
+      onPress={onPress}
       right={
         <Pressable
           onPress={onAction}
