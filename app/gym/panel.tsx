@@ -6,6 +6,7 @@
  * - Üyeliği 7 gün içinde bitenler (Üyeler'de o filtreyle açılır)
  * - Bugünün dersleri, katılımcı sayılarıyla
  * - QR afişi ve elle giriş
+ * - Geri bildirimler (v3.6d): özet ve liste
  *
  * Yetkiyi sunucu belirliyor (yönetici salondaki bütün ziyaretleri görür).
  */
@@ -13,13 +14,15 @@
 import { useCallback } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { CalendarClock, QrCode, UserPlus } from 'lucide-react-native';
+import { CalendarClock, MessageSquareText, QrCode, UserPlus } from 'lucide-react-native';
 
 import { useClassSchedule } from '@/hooks/useClassSchedule';
+import { useGymFeedback } from '@/hooks/useFeedback';
 import { useGymMembers } from '@/hooks/useGymMembers';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useColors } from '@/hooks/useTheme';
 import { useGymVisits } from '@/hooks/useVisits';
+import { feedbackSummary, summaryText } from '@/lib/feedback';
 import { canManageGym, matchesFilter } from '@/lib/gymAdmin';
 import { dailyCounts, gymTime, insideNow, weekdayShort } from '@/lib/visits';
 import { BarChart } from '@/components/BarChart';
@@ -36,11 +39,14 @@ export default function GymPanelScreen() {
   const { refresh: refreshSchedule } = useClassSchedule();
   const { refresh: refreshVisits } = visits;
   const { refresh: refreshMembers } = members;
+  const feedback = useGymFeedback(gymId ?? null);
+  const { refresh: refreshFeedback } = feedback;
 
   useFocusEffect(
     useCallback(() => {
       void refreshVisits();
-    }, [refreshVisits])
+      void refreshFeedback();
+    }, [refreshVisits, refreshFeedback])
   );
 
   if (!gymId || !canManageGym(gymId, memberships)) {
@@ -66,7 +72,7 @@ export default function GymPanelScreen() {
       refreshControl={
         <RefreshControl
           refreshing={visits.loading && visits.loaded}
-          onRefresh={() => void Promise.all([refreshVisits(), refreshMembers(), refreshSchedule()])}
+          onRefresh={() => void Promise.all([refreshVisits(), refreshMembers(), refreshSchedule(), refreshFeedback()])}
           tintColor={COLORS.accent}
           colors={[COLORS.accent]}
         />
@@ -113,6 +119,20 @@ export default function GymPanelScreen() {
           <View className="flex-row items-center gap-3">
             <CalendarClock color={COLORS.muted} size={17} strokeWidth={1.75} />
             <Text className="text-fg text-base">Üyeliği 7 gün içinde bitenler</Text>
+          </View>
+        </ListRow>
+      </Card>
+
+      <Card flush className="px-4">
+        <ListRow chevron onPress={() => router.push({ pathname: '/gym/feedback', params: { gymId } })}>
+          <View className="flex-row items-center gap-3">
+            <MessageSquareText color={COLORS.muted} size={17} strokeWidth={1.75} />
+            <View className="flex-1">
+              <Text className="text-fg text-base">Geri bildirimler</Text>
+              {feedback.loaded && (
+                <Text className="text-muted text-xs mt-0.5">{summaryText(feedbackSummary(feedback.list, nowMs))}</Text>
+              )}
+            </View>
           </View>
         </ListRow>
       </Card>

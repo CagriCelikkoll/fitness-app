@@ -335,6 +335,22 @@ function RootStack() {
         name="gym/visit"
         options={{ title: 'Elle giriş' }}
       />
+      <Stack.Screen
+        name="feedback/new"
+        options={{ title: 'Öneri / Şikâyet' }}
+      />
+      <Stack.Screen
+        name="feedback/mine"
+        options={{ title: 'Gönderdiklerim' }}
+      />
+      <Stack.Screen
+        name="gym/feedback/index"
+        options={{ title: 'Geri bildirimler' }}
+      />
+      <Stack.Screen
+        name="gym/feedback/[id]"
+        options={{ title: 'Geri bildirim' }}
+      />
     </Stack>
   );
 }

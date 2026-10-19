@@ -164,6 +164,7 @@ export const USER_TABLES = [
   ['trainer_students', 'student_id'],
   ['program_assignments', 'student_id'],
   ['gym_visits', 'user_id'],
+  ['gym_feedback', 'author_id'],
 ] as const;
 
 export async function serverRowCounts(userId: string): Promise<Record<string, number>> {

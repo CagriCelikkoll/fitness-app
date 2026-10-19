@@ -7,6 +7,7 @@
  *    "Çıkış yap"; doluluk ("Şu an salonda ~12 kişi")
  * 3. Bu ay: gelinen gün, ortalama süre, bu hafta; seri; 8 hafta ısı haritası
  * 4. Bugünün dersleri  5. Son duyuru  6. Programlar  7. Hocalarım
+ * 8. Öneri / Şikâyet (v3.6d)
  *
  * Hoca / yönetici için Öğrencilerim; yönetici için Salon paneli. Birden çok
  * salon varsa üstte seçici.
@@ -15,7 +16,16 @@
 import { useCallback, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ClipboardList, GraduationCap, LayoutDashboard, LogOut, QrCode, UserRound } from 'lucide-react-native';
+import {
+  ClipboardList,
+  GraduationCap,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
+  MessageSquarePlus,
+  QrCode,
+  UserRound,
+} from 'lucide-react-native';
 
 import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { useClassSchedule } from '@/hooks/useClassSchedule';
@@ -277,6 +287,30 @@ export default function GymTabScreen() {
               </View>
             </ListRow>
           )}
+        </Card>
+      </View>
+
+      {/* 8. Öneri / Şikâyet (v3.6d) */}
+      <View className="gap-2">
+        <SectionHeader title="Öneri / Şikâyet" variant="label" className="px-1" />
+        <Card className="gap-3">
+          <Text className="text-muted text-sm leading-5">
+            Ekipman, temizlik, dersler ya da başka bir konuda salon yönetimine yaz. İstersen ismin gizli kalır.
+          </Text>
+          <View className="flex-row gap-2">
+            <PrimaryButton
+              label="Yaz"
+              icon={MessageSquarePlus}
+              className="flex-1"
+              onPress={() => router.push({ pathname: '/feedback/new', params: { gymId } })}
+            />
+            <SecondaryButton
+              label="Gönderdiklerim"
+              icon={Inbox}
+              className="flex-1"
+              onPress={() => router.push({ pathname: '/feedback/mine', params: { gymId } })}
+            />
+          </View>
         </Card>
       </View>
     </ScrollView>

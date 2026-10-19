@@ -22,9 +22,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   CHANNEL_ANNOUNCEMENTS,
   CHANNEL_CLASS_CHANGES,
+  CHANNEL_FEEDBACK,
   CHANNEL_TRAINER,
   PUSH_TYPE_ANNOUNCEMENT,
   PUSH_TYPE_CLASS_CHANGE,
+  PUSH_TYPE_FEEDBACK_NEW,
+  PUSH_TYPE_FEEDBACK_REPLY,
   PUSH_TYPE_PROGRAM_ASSIGNED,
   PUSH_TYPE_PROGRAM_UPDATED,
   PUSH_TYPE_TRAINER_ACCEPTED,
@@ -46,6 +49,7 @@ export const PUSH_CHANNELS = [
   { id: CHANNEL_ANNOUNCEMENTS, name: 'Duyurular', description: 'Salonundan yeni duyurular' },
   { id: CHANNEL_CLASS_CHANGES, name: 'Dersler', description: 'Katılacağın dersin iptali ya da değişikliği' },
   { id: CHANNEL_TRAINER, name: 'Hoca', description: 'Hoca istekleri, kabulleri ve programlar' },
+  { id: CHANNEL_FEEDBACK, name: 'Geri bildirim', description: 'Geri bildirimlerinin yanıtları; yöneticiye yeni geri bildirimler' },
 ] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -73,6 +77,11 @@ export function parsePushData(data: unknown): PushData | null {
   if ((d.type === PUSH_TYPE_PROGRAM_ASSIGNED || d.type === PUSH_TYPE_PROGRAM_UPDATED) && isText(d.programId)) {
     return { type: d.type, gymId: typeof d.gymId === 'string' ? d.gymId : '', programId: d.programId };
   }
+  if ((d.type === PUSH_TYPE_FEEDBACK_NEW || d.type === PUSH_TYPE_FEEDBACK_REPLY) && isText(d.gymId) && isText(d.feedbackId)) {
+    return d.type === PUSH_TYPE_FEEDBACK_NEW
+      ? { type: PUSH_TYPE_FEEDBACK_NEW, gymId: d.gymId, feedbackId: d.feedbackId }
+      : { type: PUSH_TYPE_FEEDBACK_REPLY, gymId: d.gymId, feedbackId: d.feedbackId };
+  }
   return null;
 }
 
@@ -81,13 +90,16 @@ export type PushTarget =
   | { pathname: '/classes'; params: { date: string; focus: string; gymId: string } }
   | { pathname: '/trainer/consent'; params: { id: string } }
   | { pathname: '/trainer/students'; params: { gymId: string } }
-  | { pathname: '/programs/[id]'; params: { id: string } };
+  | { pathname: '/programs/[id]'; params: { id: string } }
+  | { pathname: '/gym/feedback/[id]'; params: { id: string; gymId: string } }
+  | { pathname: '/feedback/mine'; params: { gymId: string } };
 
 /**
  * Dokununca: duyuru → duyurular ekranı (açılınca yenilenir); ders →
  * program ekranında o gün ve o ders (ders hatırlatmasıyla aynı). Hoca
  * isteği → öğrencinin izin ekranı; kabul → hocanın öğrenci listesi (v3.6a).
- * Program atandı / güncellendi → program ayrıntısı (v3.6b).
+ * Program atandı / güncellendi → program ayrıntısı (v3.6b). Yeni geri
+ * bildirim → yöneticide ayrıntı; yanıt → yazarın "Gönderdiklerim"i (v3.6d).
  */
 export function pushTarget(data: unknown): PushTarget | null {
   const d = parsePushData(data);
@@ -95,6 +107,8 @@ export function pushTarget(data: unknown): PushTarget | null {
   if (d.type === PUSH_TYPE_ANNOUNCEMENT) return { pathname: '/announcements' };
   if (d.type === PUSH_TYPE_TRAINER_REQUEST) return { pathname: '/trainer/consent', params: { id: d.linkId } };
   if (d.type === PUSH_TYPE_TRAINER_ACCEPTED) return { pathname: '/trainer/students', params: { gymId: d.gymId } };
+  if (d.type === PUSH_TYPE_FEEDBACK_NEW) return { pathname: '/gym/feedback/[id]', params: { id: d.feedbackId, gymId: d.gymId } };
+  if (d.type === PUSH_TYPE_FEEDBACK_REPLY) return { pathname: '/feedback/mine', params: { gymId: d.gymId } };
   if (d.type === PUSH_TYPE_PROGRAM_ASSIGNED || d.type === PUSH_TYPE_PROGRAM_UPDATED) {
     return { pathname: '/programs/[id]', params: { id: d.programId } };
   }

@@ -130,6 +130,8 @@ export type AccountErrorKind =
   | 'checkin_key_invalid'
   | 'checkin_not_member'
   | 'visit_invalid'
+  | 'feedback_invalid'
+  | 'feedback_daily_limit'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -171,6 +173,8 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   checkin_key_invalid: 'Bu QR artık geçersiz, salona sor.',
   checkin_not_member: 'Bu salonun üyesi değilsin.',
   visit_invalid: 'Giriş ve çıkış saatlerini kontrol et.',
+  feedback_invalid: 'Geri bildirim gönderilemedi: kategori ve metni kontrol et.',
+  feedback_daily_limit: 'Bugün en fazla 5 geri bildirim gönderebilirsin. Yarın tekrar dene.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -255,6 +259,9 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('checkin_key_invalid')) return 'checkin_key_invalid';
   if (message.includes('checkin_not_member')) return 'checkin_not_member';
   if (message.includes('visit_invalid')) return 'visit_invalid';
+  // Geri bildirim (v3.6d, 0013_feedback.sql)
+  if (message.includes('feedback_invalid')) return 'feedback_invalid';
+  if (message.includes('feedback_daily_limit')) return 'feedback_daily_limit';
   // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular v3.2b, ders programı v3.2c)
   if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
   if (code === '23514') return 'invalid_input';

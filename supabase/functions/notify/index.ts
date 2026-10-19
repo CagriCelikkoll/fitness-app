@@ -9,6 +9,8 @@
  * - program_assignments INSERT (v3.6b) → program atanan öğrenciye
  * - gym_programs UPDATE (v3.6b) → sürüm arttıysa atanmış aktif
  *   öğrencilere (kişiye özel, tercih filtresi yok)
+ * - gym_feedback INSERT / UPDATE (v3.6d) → yeni kayıt salonun
+ *   yöneticilerine (yazar hariç, metin yok); yanıt / çözüldü yazara
  *
  * Tercihi kapalı olana gitmez; Expo "DeviceNotRegistered" derse token
  * silinir. Kararlar ve metinler `logic.ts`'te (saf, Vitest ile test
@@ -31,6 +33,7 @@ import {
   buildMessages,
   chunk,
   classChangeContent,
+  feedbackContent,
   invalidTokens,
   isUpcomingClass,
   parseWebhook,
@@ -133,6 +136,24 @@ async function planProgram(db: SupabaseClient, event: ProgramEvent): Promise<Exp
 
 async function plan(db: SupabaseClient, event: NotifyEvent): Promise<ExpoMessage[]> {
   if (event.kind === 'program') return planProgram(db, event);
+
+  if (event.kind === 'feedback') {
+    let recipients: string[];
+    if (event.change === 'new') {
+      const { data, error } = await db
+        .from('gym_members')
+        .select('user_id')
+        .eq('gym_id', event.gymId)
+        .eq('role', 'admin');
+      if (error) throw error;
+      recipients = (data ?? []).map((r: { user_id: string }) => r.user_id);
+    } else {
+      recipients = event.authorId ? [event.authorId] : [];
+    }
+    const exclude = event.change === 'new' ? event.authorId : null;
+    const tokens = await tokensFor(db, recipients, 'personal', exclude);
+    return buildMessages(tokens, event, feedbackContent(event));
+  }
 
   if (event.kind === 'trainer') {
     const { data, error } = await db

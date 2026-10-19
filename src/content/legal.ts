@@ -72,9 +72,12 @@ export const PRIVACY_POLICY: LegalDocument = {
     p(
       'Salon girişinde QR okutursan giriş ve çıkış saatlerin kaydedilir; salon yöneticisi ve izin verdiğin hocan görebilir. Diğer üyeler yalnızca salondaki toplam kişi sayısını görür.'
     ),
+    p(
+      "Salona geri bildirim gönderirsen metin ve eklediğin fotoğraf salon yönetimine iletilir. 'İsmim gizli kalsın' seçersen yönetim kim yazdığını görmez."
+    ),
     p('**3. Bilgileri kimler işler**'),
     list(
-      'Supabase Inc.: hesap, eşitlenen antrenmanlar, salon üyeliği, salon girişleri, bildirim bilgileri ve salon logoları; Frankfurt (Avrupa Birliği) sunucuları, yurt dışına aktarım sayılır',
+      'Supabase Inc.: hesap, eşitlenen antrenmanlar, salon üyeliği, salon girişleri, geri bildirimler ve fotoğrafları, bildirim bilgileri ve salon logoları; Frankfurt (Avrupa Birliği) sunucuları, yurt dışına aktarım sayılır',
       "Google: giriş ve doğrulama e-postaları (Gmail); Android'de telefon bildirimleri (Firebase Cloud Messaging)",
       'Expo (650 Industries, Inc., ABD): uygulama güncelleme kontrolü ve telefon bildirimlerinin iletimi',
       'GitHub: egzersiz görselleri'
@@ -84,7 +87,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     list(
       'Bildirimler: dinlenme süresi, ders hatırlatmaları, salon duyuruları ve ders değişiklikleri için',
       'Tam zamanlı alarm (Android): dinlenme süresi bildiriminin zamanında gelmesi için',
-      'Fotoğraf seçme: yalnızca salon yöneticisi logo yüklerken, sistemin fotoğraf seçicisiyle seçtiği tek görsel; uygulama galerine erişmez',
+      'Fotoğraf seçme: salon yöneticisi logo yüklerken ya da sen geri bildirime fotoğraf eklerken, sistemin fotoğraf seçicisiyle seçtiğin tek görsel; uygulama galerine erişmez',
       'Kamera: yalnızca "Salona giriş"e bastığında, salon girişindeki QR kodu okumak için açılır; görüntü kaydedilmez, hiçbir yere gönderilmez'
     ),
     p('Uygulama konum, mikrofon veya rehbere erişmez.'),
