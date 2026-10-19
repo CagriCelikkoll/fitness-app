@@ -9,7 +9,9 @@
  * 4. Bugünün dersleri  5. Son duyuru  6. Programlar  7. Hocalarım
  * 8. Öneri / Şikâyet (v3.6d)
  *
- * Hoca / yönetici için Öğrencilerim; yönetici için Salon paneli. Birden çok
+ * Hoca / yönetici için giriş kartının altında "Hoca araçları" (v3.6e):
+ * Öğrencilerim · Programlarım · Program ata. Üyenin "Programlar" ve
+ * "Hocalarım" bölümleri ayrı kalır. Yönetici için Salon paneli. Birden çok
  * salon varsa üstte seçici.
  */
 
@@ -18,11 +20,13 @@ import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ClipboardList,
+  ClipboardPlus,
   GraduationCap,
   Inbox,
   LayoutDashboard,
   LogOut,
   MessageSquarePlus,
+  NotebookPen,
   QrCode,
   UserRound,
 } from 'lucide-react-native';
@@ -36,8 +40,8 @@ import { useTrainerLinks } from '@/hooks/useTrainerLinks';
 import { checkOutOfGym, useGymVisits } from '@/hooks/useVisits';
 import { roleLabel } from '@/lib/auth';
 import { canManageGym, canViewMembers, membershipDaysLeft, membershipWarning } from '@/lib/gymAdmin';
-import { assignedPrograms, gymPrograms } from '@/lib/programs';
-import { linksAsStudent, sortByName, trainerTitle } from '@/lib/trainers';
+import { assignedPrograms, gymPrograms, managedPrograms } from '@/lib/programs';
+import { linksAsStudent, linksAsTrainer, sortByName, trainerTitle } from '@/lib/trainers';
 import {
   currentVisit,
   formatMinutes,
@@ -140,6 +144,8 @@ export default function GymTabScreen() {
   };
 
   const occupancy = occupancyText(visits.occupancy);
+  const studentCount = linksAsTrainer(trainers.links, userId, gymId).filter((l) => l.status === 'active').length;
+  const programCount = managedPrograms(programs.programs, gymId, userId, memberships).active.length;
 
   return (
     <ScrollView
@@ -197,6 +203,42 @@ export default function GymTabScreen() {
         {visits.error != null && <Text className="text-danger text-xs text-center">{visits.error.message}</Text>}
       </Card>
 
+      {/* Hoca araçları (v3.6e): hoca / yönetici */}
+      {staff && (
+        <View className="gap-2">
+          <SectionHeader title="Hoca araçları" variant="label" className="px-1" />
+          <Card flush className="px-4">
+            <ListRow
+              chevron
+              onPress={() => router.push({ pathname: '/trainer/students', params: { gymId } })}
+              right={trainers.loaded ? <Text className="text-muted text-sm tabular-nums">{studentCount}</Text> : undefined}
+            >
+              <View className="flex-row items-center gap-3">
+                <GraduationCap color={COLORS.muted} size={17} strokeWidth={1.75} />
+                <Text className="text-fg text-base">Öğrencilerim</Text>
+              </View>
+            </ListRow>
+            <ListRow
+              divider
+              chevron
+              onPress={() => router.push({ pathname: '/programs/manage', params: { gymId } })}
+              right={programs.loaded ? <Text className="text-muted text-sm tabular-nums">{programCount}</Text> : undefined}
+            >
+              <View className="flex-row items-center gap-3">
+                <NotebookPen color={COLORS.muted} size={17} strokeWidth={1.75} />
+                <Text className="text-fg text-base">Programlarım</Text>
+              </View>
+            </ListRow>
+            <ListRow divider chevron onPress={() => router.push({ pathname: '/trainer/assign', params: { gymId } })}>
+              <View className="flex-row items-center gap-3">
+                <ClipboardPlus color={COLORS.muted} size={17} strokeWidth={1.75} />
+                <Text className="text-fg text-base">Program ata</Text>
+              </View>
+            </ListRow>
+          </Card>
+        </View>
+      )}
+
       {/* 3. Bu ay */}
       <View className="gap-2">
         <SectionHeader title="Bu ay" variant="label" className="px-1" />
@@ -252,7 +294,7 @@ export default function GymTabScreen() {
         </Card>
       </View>
 
-      {/* 7. Hocalarım (+ hocaya Öğrencilerim, yöneticiye panel) */}
+      {/* 7. Hocalarım (+ yöneticiye panel) */}
       <View className="gap-2">
         <SectionHeader title="Hocalarım" variant="label" className="px-1" />
         <Card flush className="px-4">
@@ -267,18 +309,6 @@ export default function GymTabScreen() {
               <Text className="text-fg text-base">{myTrainers.length > 0 ? 'Hocalarım' : 'Henüz hocan yok'}</Text>
             </View>
           </ListRow>
-          {staff && (
-            <ListRow
-              divider
-              chevron
-              onPress={() => router.push({ pathname: '/trainer/students', params: { gymId } })}
-            >
-              <View className="flex-row items-center gap-3">
-                <GraduationCap color={COLORS.muted} size={17} strokeWidth={1.75} />
-                <Text className="text-fg text-base">Öğrencilerim</Text>
-              </View>
-            </ListRow>
-          )}
           {admin && (
             <ListRow divider chevron onPress={() => router.push({ pathname: '/gym/panel', params: { gymId } })}>
               <View className="flex-row items-center gap-3">

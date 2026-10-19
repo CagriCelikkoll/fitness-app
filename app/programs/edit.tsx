@@ -3,7 +3,12 @@
  *
  * Route: /programs/edit?gymId=…               → yeni program
  *        /programs/edit?gymId=…&template=ppl  → hazır programdan taslak
+ *        /programs/edit?gymId=…&routines=a,b  → rutinlerimden taslak (v3.6e)
  *        /programs/edit?id=…                  → düzenleme
+ *        …&student=…                          → kaydedince bu öğrenci seçili
+ *
+ * Yeni program "Yalnızca öğrencilerim" ile (ya da öğrenciden gelindiyse)
+ * kaydedilince atama ekranı açılır (v3.6e, "Şimdi değil" ile atlanır).
  *
  * Rutin editörünün parçaları: egzersiz seçici (`ExercisePickerModal`),
  * set / tekrar / dinlenme alanları (`NumberField`). Günler (en fazla 7)
@@ -18,6 +23,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react-native';
 
 import type { Exercise } from '@/db/schema';
+import { useDb } from '@/hooks/useDb';
 import { useExerciseLookup } from '@/hooks/useExerciseLookup';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { usePrograms } from '@/hooks/usePrograms';
@@ -30,12 +36,14 @@ import {
   canManageProgram,
   parseRepRange,
   repsText,
+  routinesToDraft,
   saveProgram,
   templateToDraft,
   validateProgram,
   type ProgramPayload,
   type ProgramVisibility,
 } from '@/lib/programs';
+import { loadRoutineSources } from '@/lib/programRoutines';
 import { getSupabase } from '@/lib/supabase';
 import { getTemplate } from '@/lib/workoutTemplates';
 import { ExercisePickerModal } from '@/components/ExercisePickerModal';
@@ -104,7 +112,8 @@ function toPayload(days: DraftDay[]): { payload: ProgramPayload } | { error: str
 export default function ProgramEditorScreen() {
   const COLORS = useColors();
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string; gymId?: string; template?: string }>();
+  const db = useDb();
+  const params = useLocalSearchParams<{ id?: string; gymId?: string; template?: string; routines?: string; student?: string }>();
   const { memberships } = useGymMembership();
   const { userId, programs, loaded, refresh } = usePrograms();
 
@@ -135,6 +144,23 @@ export default function ProgramEditorScreen() {
       return;
     }
     initRef.current = true;
+    if (params.routines) {
+      const ids = params.routines.split(',').filter(Boolean);
+      loadRoutineSources(db, ids)
+        .then((sources) => {
+          const draft = routinesToDraft(sources);
+          setName(draft.name);
+          if (draft.payload.days.length > 0) setDays(toDraftDays(draft.payload));
+          if (draft.skippedCustom > 0) {
+            Alert.alert(
+              'Bazı egzersizler eklenmedi',
+              `Kendi eklediğin ${draft.skippedCustom} egzersiz üyelerin kütüphanesinde yok; taslağa yalnızca uygulamadaki hazır egzersizler geçti.`
+            );
+          }
+        })
+        .catch((e) => console.error('[PROGRAMS] Rutinler okunamadı:', e));
+      return;
+    }
     const template = params.template ? getTemplate(params.template) : undefined;
     if (template) {
       const draft = templateToDraft(template);
@@ -142,7 +168,7 @@ export default function ProgramEditorScreen() {
       setDescription(draft.description);
       setDays(toDraftDays(draft.payload));
     }
-  }, [params.id, params.template, existing]);
+  }, [params.id, params.template, params.routines, existing, db]);
 
   const { byId } = useExerciseLookup(days.flatMap((d) => d.exercises.map((e) => e.exerciseId)));
 
@@ -233,7 +259,13 @@ export default function ProgramEditorScreen() {
     await refresh();
     setSaving(false);
     if (existing) router.back();
-    else router.replace({ pathname: '/programs/[id]', params: { id: result.value } });
+    else if (visibility === 'students' || params.student) {
+      // Hemen öğrencilerine ata (atlanabilir)
+      router.replace({
+        pathname: '/programs/assign',
+        params: { id: result.value, after: 'save', ...(params.student ? { student: params.student } : {}) },
+      });
+    } else router.replace({ pathname: '/programs/[id]', params: { id: result.value } });
   };
 
   if (!allowed || (params.id && !existing)) {
@@ -296,7 +328,7 @@ export default function ProgramEditorScreen() {
               <Text className="text-muted text-xs leading-5">
                 {visibility === 'gym'
                   ? 'Salonun bütün üyeleri görür ve rutinlerine ekleyebilir.'
-                  : 'Yalnızca "Ata" ile seçtiğin aktif öğrencilerin görür.'}
+                  : 'Yalnızca atadığın öğrencilerin görür. Kaydedince öğrencilerini seçersin.'}
               </Text>
             </View>
           </Card>

@@ -1,31 +1,27 @@
 /**
  * Öğrenci ayrıntısı (v3.6b, hoca / yönetici). Öğrencilerim → öğrenciye
- * dokun. Devam (v3.6c: son 8 hafta ısı haritası, ziyaret listesi), atanmış
- * programlar (kaldırma onaylı) ve hocanın henüz atanmamış programlarından
- * atama. Hoca öğrencinin ağırlık, set ve ölçülerini görmez (rıza metni).
+ * dokun. En üstte "Program ata" (v3.6e: `/trainer/assign`, programa
+ * dokununca atanır), atanmış programlar (kaldırma onaylı), devam (v3.6c:
+ * son 8 hafta ısı haritası, ziyaret listesi). Hoca öğrencinin ağırlık, set
+ * ve ölçülerini görmez (rıza metni).
  */
 
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { ClipboardPlus } from 'lucide-react-native';
 
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { usePrograms } from '@/hooks/usePrograms';
 import { useColors } from '@/hooks/useTheme';
 import { useTrainerLinks } from '@/hooks/useTrainerLinks';
 import { useGymVisits } from '@/hooks/useVisits';
-import {
-  assignProgram,
-  canManageProgram,
-  programSummary,
-  unassignProgram,
-  type GymProgram,
-} from '@/lib/programs';
+import { programSummary, studentProgramChoices, unassignProgram, type GymProgram } from '@/lib/programs';
 import { getSupabase } from '@/lib/supabase';
 import { linkDateText, studentLabel } from '@/lib/trainers';
 import { attendanceText, heatmap, studentAttendance, visitRowText } from '@/lib/visits';
 import { VisitHeatmap } from '@/components/VisitHeatmap';
-import { Card, ListRow, SectionHeader } from '@/components/ui';
+import { Card, ListRow, PrimaryButton, SectionHeader } from '@/components/ui';
 
 export default function StudentDetailScreen() {
   const COLORS = useColors();
@@ -58,29 +54,15 @@ export default function StudentDetailScreen() {
     );
   }
 
-  // Bu öğrenciye atanabilecek programlar: bu hocanın (yazar), yönetebildiğim, arşivde olmayan
-  const candidates = programs.filter(
-    (p) =>
-      p.gymId === link.gymId &&
-      p.authorId === link.trainerId &&
-      !p.archivedAt &&
-      canManageProgram(p, userId, memberships)
-  );
-  const assignedIds = new Set(
-    assignments.filter((a) => a.studentId === link.studentId).map((a) => a.programId)
-  );
-  const assigned = candidates.filter((p) => assignedIds.has(p.id));
-  const available = candidates.filter((p) => !assignedIds.has(p.id));
+  const { assigned } = studentProgramChoices(programs, assignments, link, userId, memberships);
   const name = studentLabel(link.studentName);
   const nowMs = Date.now();
   const studentVisits = visits.visits.filter((v) => v.userId === link.studentId);
   const attendance = studentAttendance(studentVisits, nowMs);
 
-  const act = async (p: GymProgram, assign: boolean) => {
+  const remove = async (p: GymProgram) => {
     setBusyId(p.id);
-    const result = assign
-      ? await assignProgram(getSupabase(), p.id, [link.studentId])
-      : await unassignProgram(getSupabase(), p.id, link.studentId);
+    const result = await unassignProgram(getSupabase(), p.id, link.studentId);
     setBusyId(null);
     if (!result.ok) Alert.alert('Yapılamadı', result.error.message);
     await refresh();
@@ -89,25 +71,23 @@ export default function StudentDetailScreen() {
   const confirmRemove = (p: GymProgram) =>
     Alert.alert('Atama kaldırılsın mı?', `${name} "${p.name}" programını artık göremeyecek. Rutinlerine eklediyse rutinleri kalır.`, [
       { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Kaldır', style: 'destructive', onPress: () => void act(p, false) },
+      { text: 'Kaldır', style: 'destructive', onPress: () => void remove(p) },
     ]);
 
-  const row = (p: GymProgram, i: number, label: string, danger: boolean, onAction: () => void) => (
+  const row = (p: GymProgram, i: number) => (
     <ListRow
       key={p.id}
       divider={i > 0}
       onPress={() => router.push({ pathname: '/programs/[id]', params: { id: p.id } })}
       right={
         <Pressable
-          onPress={onAction}
+          onPress={() => confirmRemove(p)}
           disabled={busyId != null}
           accessibilityRole="button"
           hitSlop={8}
           className="px-2 py-1 active:opacity-60"
         >
-          <Text className={`text-sm font-semibold ${busyId === p.id ? 'text-muted' : danger ? 'text-danger' : 'text-accent'}`}>
-            {label}
-          </Text>
+          <Text className={`text-sm font-semibold ${busyId === p.id ? 'text-muted' : 'text-danger'}`}>Kaldır</Text>
         </Pressable>
       }
     >
@@ -136,6 +116,22 @@ export default function StudentDetailScreen() {
         <Text className="text-fg text-2xl font-bold tracking-tight">{name}</Text>
         <Text className="text-muted text-sm">{linkDateText(link, Date.now())}</Text>
       </View>
+      <PrimaryButton
+        label="Program ata"
+        icon={ClipboardPlus}
+        onPress={() => router.push({ pathname: '/trainer/assign', params: { gymId: link.gymId, linkId: link.id } })}
+      />
+
+      <View className="gap-2">
+        <SectionHeader title="Atanmış programlar" variant="label" className="px-1" />
+        {assigned.length === 0 ? (
+          <Text className="text-muted text-sm px-1">Henüz program atanmadı.</Text>
+        ) : (
+          <Card flush className="px-4">
+            {assigned.map((p, i) => row(p, i))}
+          </Card>
+        )}
+      </View>
 
       <View className="gap-2">
         <SectionHeader title="Devam" variant="label" className="px-1" />
@@ -159,32 +155,6 @@ export default function StudentDetailScreen() {
         )}
       </View>
       {error != null && <Text className="text-danger text-sm leading-5">{error.message}</Text>}
-
-      <View className="gap-2">
-        <SectionHeader title="Atanmış programlar" variant="label" className="px-1" />
-        {assigned.length === 0 ? (
-          <Text className="text-muted text-sm px-1">Henüz program atanmadı.</Text>
-        ) : (
-          <Card flush className="px-4">
-            {assigned.map((p, i) => row(p, i, 'Kaldır', true, () => confirmRemove(p)))}
-          </Card>
-        )}
-      </View>
-
-      <View className="gap-2">
-        <SectionHeader title="Program ata" variant="label" className="px-1" />
-        {available.length === 0 ? (
-          <Text className="text-muted text-sm px-1">
-            {candidates.length === 0
-              ? 'Atanabilecek program yok. Programlar → Programlarım\'dan bir program hazırla.'
-              : 'Bütün programların atanmış.'}
-          </Text>
-        ) : (
-          <Card flush className="px-4">
-            {available.map((p, i) => row(p, i, 'Ata', false, () => void act(p, true)))}
-          </Card>
-        )}
-      </View>
     </ScrollView>
   );
 }

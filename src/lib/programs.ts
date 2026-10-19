@@ -20,7 +20,7 @@ import type { AccountResult, GymMembership } from '@/lib/account';
 import { accountError, toAccountError } from '@/lib/auth';
 import type { KeyValueStore } from '@/lib/announcements';
 import { canManageGym, canViewMembers } from '@/lib/gymAdmin';
-import { trainerTitle } from '@/lib/trainers';
+import { dative, trainerTitle, type TrainerLink } from '@/lib/trainers';
 import type { WorkoutTemplate } from '@/lib/workoutTemplates';
 
 /** Sunucudaki program_payload_valid ve tablo kısıtlarıyla aynı */
@@ -289,6 +289,65 @@ export function templateToDraft(template: WorkoutTemplate): { name: string; desc
 }
 
 // ============================================================================
+// Rutinlerimden oluştur (v3.6e)
+// ============================================================================
+
+/** Hocanın cihazındaki bir rutin (yalnızca programa geçecek alanlar) */
+export interface RoutineSource {
+  name: string;
+  exercises: {
+    exerciseId: string;
+    isCustom: boolean;
+    targetSets: number | null;
+    targetReps: string | null;
+    restSeconds: number;
+  }[];
+}
+
+/**
+ * Seçilen rutinler → program taslağı: her rutin bir gün (adı rutinin adı).
+ * Kişisel notlar programa geçmez. Kendi eklenen egzersizler üyelerin
+ * kütüphanesinde olmadığı için atlanır, sayısı döner. Tek rutin seçildiyse
+ * program adı rutinin adı; birden çoksa ad hocaya kalır.
+ */
+export function routinesToDraft(list: readonly RoutineSource[]): {
+  name: string;
+  description: string;
+  payload: ProgramPayload;
+  skippedCustom: number;
+} {
+  const L = PROGRAM_LIMITS;
+  let skippedCustom = 0;
+  const days = list.slice(0, L.daysMax).map((r, i) => {
+    skippedCustom += r.exercises.filter((e) => e.isCustom).length;
+    return {
+      name: r.name.trim().slice(0, L.dayNameMax) || String.fromCharCode(65 + i),
+      exercises: r.exercises
+        .filter((e) => !e.isCustom)
+        .slice(0, L.exercisesMax)
+        .map((e) => {
+          const parsed = parseRepRange(e.targetReps ?? '');
+          const reps = parsed && parsed.max <= L.repsMax ? parsed : { min: 10, max: 10 };
+          return {
+            exerciseId: e.exerciseId,
+            sets: clamp(e.targetSets ?? 3, 1, L.setsMax),
+            repsMin: reps.min,
+            repsMax: reps.max,
+            restSec: clamp(e.restSeconds, 0, L.restMax),
+            notes: null,
+          };
+        }),
+    };
+  });
+  return {
+    name: list.length === 1 ? list[0].name.trim().slice(0, L.nameMax) : '',
+    description: '',
+    payload: { schema: PROGRAM_SCHEMA, days },
+    skippedCustom,
+  };
+}
+
+// ============================================================================
 // Program → yerel rutin planı
 // ============================================================================
 
@@ -468,6 +527,63 @@ export function managedPrograms(
   const list = programs.filter((p) => p.gymId === gymId && canManageProgram(p, userId, memberships));
   const sorted = [...list].sort((a, b) => byDateDesc(a.updatedAt, b.updatedAt));
   return { active: sorted.filter((p) => !p.archivedAt), archived: sorted.filter((p) => p.archivedAt) };
+}
+
+/**
+ * Öğrenciden programa atama (v3.6e): bu bağın hocasının yazdığı, benim
+ * yönetebildiğim, arşivde olmayan programlar (sunucu yalnızca yazarın aktif
+ * öğrencisine atamayı kabul ediyor). Atanmışlar ayrı; ikisi de en yeni üstte.
+ */
+export function studentProgramChoices(
+  programs: readonly GymProgram[],
+  assignments: readonly Pick<ProgramAssignment, 'programId' | 'studentId'>[],
+  link: Pick<TrainerLink, 'gymId' | 'trainerId' | 'studentId'>,
+  userId: string | null,
+  memberships: readonly Pick<GymMembership, 'gymId' | 'role'>[]
+): { assigned: GymProgram[]; available: GymProgram[] } {
+  const candidates = programs
+    .filter(
+      (p) =>
+        p.gymId === link.gymId && p.authorId === link.trainerId && !p.archivedAt && canManageProgram(p, userId, memberships)
+    )
+    .sort((a, b) => byDateDesc(a.updatedAt, b.updatedAt));
+  const assignedIds = new Set(assignments.filter((a) => a.studentId === link.studentId).map((a) => a.programId));
+  return {
+    assigned: candidates.filter((p) => assignedIds.has(p.id)),
+    available: candidates.filter((p) => !assignedIds.has(p.id)),
+  };
+}
+
+/**
+ * "Yalnızca öğrencilerim · 2 öğrenciye atandı": bağı hâlâ aktif olan
+ * öğrencilere açık atamalar (bağı biten öğrenci programı görmüyor).
+ */
+export function assignedCount(
+  program: Pick<GymProgram, 'id' | 'gymId' | 'authorId'>,
+  assignments: readonly Pick<ProgramAssignment, 'programId' | 'studentId'>[],
+  links: readonly Pick<TrainerLink, 'gymId' | 'trainerId' | 'studentId' | 'status'>[]
+): number {
+  return assignments.filter(
+    (a) =>
+      a.programId === program.id &&
+      links.some(
+        (l) => l.status === 'active' && l.gymId === program.gymId && l.trainerId === program.authorId && l.studentId === a.studentId
+      )
+  ).length;
+}
+
+/**
+ * Atama sonrası onay: "Full Body, Ayşe'ye atandı. Ayşe'ye bildirim gitti."
+ * Birden çok öğrencide sayı; adı girilmemiş tek öğrencide "öğrencine".
+ */
+export function assignedMessage(programName: string, studentNames: readonly (string | null)[]): string {
+  const program = programName.trim();
+  if (studentNames.length > 1) {
+    return `${program}, ${studentNames.length} öğrenciye atandı. Öğrencilerine bildirim gitti.`;
+  }
+  const name = studentNames[0]?.trim();
+  if (!name) return `${program}, öğrencine atandı. Öğrencine bildirim gitti.`;
+  return `${program}, ${dative(name)} atandı. ${dative(name)} bildirim gitti.`;
 }
 
 export function visibilityLabel(v: ProgramVisibility): string {

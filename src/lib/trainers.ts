@@ -117,6 +117,26 @@ export function studentLabel(name: string | null | undefined): string {
   return name?.trim() || 'Adı girilmemiş üye';
 }
 
+const BACK_VOWELS = 'aıouâû';
+const FRONT_VOWELS = 'eiöüî';
+
+/**
+ * Özel isme yönelme eki (v3.6e): "Ayşe" → "Ayşe'ye", "Mehmet" → "Mehmet'e",
+ * "Oğuz" → "Oğuz'a", "Ali Kaya" → "Ali Kaya'ya". Son kelimenin son ünlüsüne
+ * göre (büyük ünlü uyumu); ünlüyle bitiyorsa kaynaştırma "y". Özel isimde
+ * ünsüz yumuşaması yok ("Burak'a").
+ */
+export function dative(name: string): string {
+  const n = name.trim();
+  const word = (n.split(/\s+/).pop() ?? '').toLocaleLowerCase('tr');
+  const vowels = [...word].filter((c) => BACK_VOWELS.includes(c) || FRONT_VOWELS.includes(c));
+  const last = vowels[vowels.length - 1];
+  if (!last) return `${n}'e`;
+  const suffix = BACK_VOWELS.includes(last) ? 'a' : 'e';
+  const endsWithVowel = [...word].pop() === last;
+  return `${n}'${endsWithVowel ? 'y' : ''}${suffix}`;
+}
+
 /** Ana sayfadaki istek kartı */
 export function requestCardText(link: Pick<TrainerLink, 'trainerName'>): string {
   return `${trainerTitle(link.trainerName)} seni öğrencisi olarak eklemek istiyor.`;

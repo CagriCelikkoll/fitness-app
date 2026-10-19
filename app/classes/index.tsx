@@ -32,6 +32,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react
 import { useClassSchedule } from '@/hooks/useClassSchedule';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useColors } from '@/hooks/useTheme';
+import { useSheetBottomPadding } from '@/hooks/useSafeBottom';
 import {
   INSTRUCTOR_MAX,
   NOTE_MAX,
@@ -417,6 +418,7 @@ function OccurrenceActions({
   onRemoved: () => void;
 }) {
   const COLORS = useColors();
+  const sheetPadding = useSheetBottomPadding();
   const [view, setView] = useState<'menu' | 'change'>('menu');
   const [draft, setDraft] = useState<ChangeDraft>({ startTime: '', instructorName: '', note: '' });
   const [busy, setBusy] = useState(false);
@@ -478,7 +480,11 @@ function OccurrenceActions({
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <Pressable className="flex-1 bg-black/60 justify-end" onPress={busy ? undefined : onClose}>
           {/* İçerideki basışlar arka plana gidip modalı kapatmasın */}
-          <Pressable onPress={() => {}} className="bg-bg-surface rounded-t-3xl px-5 pt-6 pb-10 gap-4 border-t border-border">
+          <Pressable
+            onPress={() => {}}
+            className="bg-bg-surface rounded-t-3xl px-5 pt-6 gap-4 border-t border-border"
+            style={{ paddingBottom: sheetPadding }}
+          >
             <View>
               <Text className="text-fg text-xl font-semibold tracking-tight">
                 {o.originalStartTime} {o.name}

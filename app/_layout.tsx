@@ -23,6 +23,7 @@ import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { AppThemeProvider, useColors } from '@/hooks/useTheme';
+import { useScreenBottomInset } from '@/hooks/useSafeBottom';
 
 // Dinlenme bildirimi: ön plan işleyicisi + sayaç dinleyicisi. İzin
 // burada istenmiyor, ilk dinlenme başlarken soruluyor.
@@ -166,16 +167,19 @@ export default function RootLayout() {
 
 function RootStack() {
   const COLORS = useColors();
+  // Alt güvenli alan (v3.6e): her yığın ekranının içeriği gezinme
+  // çubuğunun üstünde biter; ekranlar ayrıca alt boşluk eklemez.
+  const bottomInset = useScreenBottomInset();
   return (
     <Stack
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerStyle: { backgroundColor: COLORS.bg },
         headerShadowVisible: false,
         headerTintColor: COLORS.text,
         headerTitleStyle: { fontWeight: '600' },
         headerBackButtonDisplayMode: 'minimal',
-        contentStyle: { backgroundColor: COLORS.bg },
-      }}
+        contentStyle: { backgroundColor: COLORS.bg, paddingBottom: bottomInset(route.name) },
+      })}
     >
       <Stack.Screen
         name="(tabs)"
@@ -317,7 +321,11 @@ function RootStack() {
       />
       <Stack.Screen
         name="programs/assign"
-        options={{ title: 'Ata' }}
+        options={{ title: 'Öğrencilerine ata' }}
+      />
+      <Stack.Screen
+        name="trainer/assign"
+        options={{ title: 'Program ata' }}
       />
       <Stack.Screen
         name="checkin"

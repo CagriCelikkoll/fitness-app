@@ -321,8 +321,7 @@ function StepLayout({
       </ScrollView>
 
       <View
-        className="px-5 pt-3 gap-4 border-t border-border bg-bg"
-        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+        className="px-5 pt-3 pb-4 gap-4 border-t border-border bg-bg"
       >
         <StepDots step={step} />
         {footer}

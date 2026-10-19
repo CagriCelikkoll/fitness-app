@@ -8,6 +8,8 @@
  * - Program rutine eklendikten sonra güncellendiyse "Rutinlerimi güncelle"
  *   (onaylı; geçmiş antrenmanlar etkilenmez).
  * - Hoca / yönetici: Düzenle, Ata, atananlar (kaldırma onaylı), Arşivle.
+ *   v3.6e: "Öğrencilerine ata" ve atananlar en üstte; hocanın kendi
+ *   rutinlerine eklemesi ikincil düğme ("Kendi rutinlerime ekle").
  */
 
 import { useCallback, useState } from 'react';
@@ -224,6 +226,34 @@ export default function ProgramDetailScreen() {
       {offline && <Text className="text-muted text-xs leading-5">Çevrimdışı · son çekilen hali gösteriliyor</Text>}
       {error != null && <Text className="text-danger text-sm leading-5">{error.message}</Text>}
 
+      {manage && program.archivedAt == null && (
+        <View className="gap-3">
+          <PrimaryButton
+            label="Öğrencilerine ata"
+            icon={UserPlus}
+            onPress={() => router.push({ pathname: '/programs/assign', params: { id: program.id } })}
+          />
+          {assigned.length > 0 && (
+            <View className="gap-2">
+              <SectionHeader title={`Atananlar (${assigned.length})`} variant="label" className="px-1" />
+              <Card flush className="px-4">
+                {assigned.map((x, i) => (
+                  <StudentRow
+                    key={x.assignment.id}
+                    link={x.link!}
+                    divider={i > 0}
+                    subtitle="Atandı"
+                    actionLabel="Kaldır"
+                    busy={busy === `unassign:${x.assignment.studentId}`}
+                    onAction={() => confirmUnassign(x.assignment.studentId, x.link!.studentName)}
+                  />
+                ))}
+              </Card>
+            </View>
+          )}
+        </View>
+      )}
+
       {!ready ? (
         <Card>
           <Text className="text-muted text-base leading-6">
@@ -252,13 +282,23 @@ export default function ProgramDetailScreen() {
               />
             </Card>
           ) : null}
-          <PrimaryButton
-            label={busy === 'add' ? 'Ekleniyor...' : myLinks.length > 0 ? 'Yeniden ekle' : 'Rutinlerime ekle'}
-            icon={ListPlus}
-            loading={busy === 'add'}
-            disabled={busy != null || !libraryLoaded}
-            onPress={() => confirmAdd(ready)}
-          />
+          {manage ? (
+            <SecondaryButton
+              label={busy === 'add' ? 'Ekleniyor...' : myLinks.length > 0 ? 'Kendi rutinlerime yeniden ekle' : 'Kendi rutinlerime ekle'}
+              icon={ListPlus}
+              loading={busy === 'add'}
+              disabled={busy != null || !libraryLoaded}
+              onPress={() => confirmAdd(ready)}
+            />
+          ) : (
+            <PrimaryButton
+              label={busy === 'add' ? 'Ekleniyor...' : myLinks.length > 0 ? 'Yeniden ekle' : 'Rutinlerime ekle'}
+              icon={ListPlus}
+              loading={busy === 'add'}
+              disabled={busy != null || !libraryLoaded}
+              onPress={() => confirmAdd(ready)}
+            />
+          )}
           {myLinks.length > 0 && !update && (
             <Text className="text-muted text-xs px-1 -mt-2">Bu program rutinlerinde var ({myLinks.length} rutin).</Text>
           )}
@@ -285,37 +325,11 @@ export default function ProgramDetailScreen() {
       {manage && (
         <View className="gap-3 mt-2">
           <SectionHeader title="Yönet" variant="label" className="px-1" />
-          <View className="flex-row gap-2">
-            <SecondaryButton
-              label="Düzenle"
-              icon={Pencil}
-              className="flex-1"
-              onPress={() => router.push({ pathname: '/programs/edit', params: { id: program.id, gymId: program.gymId } })}
-            />
-            {program.archivedAt == null && (
-              <SecondaryButton
-                label="Ata"
-                icon={UserPlus}
-                className="flex-1"
-                onPress={() => router.push({ pathname: '/programs/assign', params: { id: program.id } })}
-              />
-            )}
-          </View>
-          {assigned.length > 0 && (
-            <Card flush className="px-4">
-              {assigned.map((x, i) => (
-                <StudentRow
-                  key={x.assignment.id}
-                  link={x.link!}
-                  divider={i > 0}
-                  subtitle="Atandı"
-                  actionLabel="Kaldır"
-                  busy={busy === `unassign:${x.assignment.studentId}`}
-                  onAction={() => confirmUnassign(x.assignment.studentId, x.link!.studentName)}
-                />
-              ))}
-            </Card>
-          )}
+          <SecondaryButton
+            label="Düzenle"
+            icon={Pencil}
+            onPress={() => router.push({ pathname: '/programs/edit', params: { id: program.id, gymId: program.gymId } })}
+          />
           <SecondaryButton
             label={program.archivedAt ? 'Arşivden çıkar' : 'Arşivle'}
             icon={program.archivedAt ? ArchiveRestore : Archive}

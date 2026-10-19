@@ -65,8 +65,7 @@ export default function ConsentScreen() {
         </Pressable>
       </ScrollView>
       <View
-        className="px-5 pt-3 gap-3 border-t border-border bg-bg"
-        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+        className="px-5 pt-3 pb-4 gap-3 border-t border-border bg-bg"
       >
         <PrimaryButton
           label="Onayla"

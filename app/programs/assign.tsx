@@ -1,11 +1,15 @@
 /**
- * Programı ata (v3.6b, hoca / yönetici). Programın yazarının bu salondaki
- * aktif öğrencilerinden çoklu seçim; zaten atanmış olanlar işaretli ve
- * seçilemez (kaldırmak program ayrıntısında). Sunucu yalnızca aktif
- * öğrenciye atamayı kabul ediyor.
+ * Öğrencilerine ata (v3.6b, hoca / yönetici): programdan öğrenciye.
+ * Programın yazarının bu salondaki aktif öğrencilerinden çoklu seçim;
+ * zaten atanmış olanlar işaretli ve seçilemez (kaldırmak program
+ * ayrıntısında). Sunucu yalnızca aktif öğrenciye atamayı kabul ediyor.
+ *
+ * v3.6e: yeni program kaydedilince buraya gelinir (`after=save`, "Şimdi
+ * değil" ile atlanır); öğrenciden gelindiyse (`student`) o seçili gelir.
+ * Atayınca onay: "Full Body, Ayşe'ye atandı. Ayşe'ye bildirim gitti."
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Check, GraduationCap, UserPlus } from 'lucide-react-native';
@@ -14,20 +18,33 @@ import { useGymMembership } from '@/hooks/useGymMembership';
 import { usePrograms } from '@/hooks/usePrograms';
 import { useColors } from '@/hooks/useTheme';
 import { useTrainerLinks } from '@/hooks/useTrainerLinks';
-import { assignProgram, canManageProgram } from '@/lib/programs';
+import { assignProgram, assignedMessage, canManageProgram } from '@/lib/programs';
 import { getSupabase } from '@/lib/supabase';
 import { sortByName, studentLabel } from '@/lib/trainers';
-import { Card, EmptyState, PrimaryButton } from '@/components/ui';
+import { Card, EmptyState, PrimaryButton, SecondaryButton } from '@/components/ui';
 
 export default function AssignProgramScreen() {
   const COLORS = useColors();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, after, student } = useLocalSearchParams<{ id: string; after?: string; student?: string }>();
+  const fromSave = after === 'save';
   const { memberships } = useGymMembership();
   const { userId, programs, assignments, refresh } = usePrograms();
   const { links, loaded, refresh: refreshLinks } = useTrainerLinks();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(student ? [student] : []));
   const [saving, setSaving] = useState(false);
+  const program = programs.find((p) => p.id === id) ?? null;
+  const already = new Set(assignments.filter((a) => a.programId === id).map((a) => a.studentId));
+  const alreadyKey = [...already].sort().join(',');
+
+  // Zaten atanmış öğrenci seçili kalmasın (öğrenciden gelindiyse)
+  useEffect(() => {
+    if (!alreadyKey) return;
+    const done = new Set(alreadyKey.split(','));
+    setSelected((prev) => (prev.size > 0 && [...prev].some((s) => done.has(s)) ? new Set([...prev].filter((s) => !done.has(s))) : prev));
+  }, [alreadyKey]);
+
+  const openProgram = () => router.replace({ pathname: '/programs/[id]', params: { id } });
 
   useFocusEffect(
     useCallback(() => {
@@ -36,11 +53,9 @@ export default function AssignProgramScreen() {
     }, [refreshLinks, refresh])
   );
 
-  const program = programs.find((p) => p.id === id) ?? null;
   if (!program || !canManageProgram(program, userId, memberships) || program.archivedAt) {
     return (
       <View className="flex-1 bg-bg items-center justify-center p-6">
-        <Stack.Screen options={{ title: 'Ata' }} />
         <Text className="text-muted text-base text-center">Bu program atanamıyor.</Text>
       </View>
     );
@@ -50,7 +65,7 @@ export default function AssignProgramScreen() {
     links.filter((l) => l.gymId === program.gymId && l.trainerId === program.authorId && l.status === 'active'),
     (l) => l.studentName
   );
-  const already = new Set(assignments.filter((a) => a.programId === program.id).map((a) => a.studentId));
+  const canAddStudent = program.authorId === userId;
 
   const toggle = (studentId: string) =>
     setSelected((prev) => {
@@ -71,22 +86,45 @@ export default function AssignProgramScreen() {
       return;
     }
     await refresh();
-    router.back();
+    const names = students.filter((l) => selected.has(l.studentId)).map((l) => l.studentName);
+    if (fromSave) openProgram();
+    else router.back();
+    Alert.alert('Atandı', assignedMessage(program.name, names));
   };
 
   return (
     <View className="flex-1 bg-bg">
-      <Stack.Screen options={{ title: 'Ata' }} />
+      <Stack.Screen
+        options={{
+          headerRight: fromSave
+            ? () => (
+                <Pressable onPress={openProgram} hitSlop={12} className="mr-2">
+                  <Text className="text-muted font-semibold">Şimdi değil</Text>
+                </Pressable>
+              )
+            : undefined,
+        }}
+      />
       <ScrollView contentContainerClassName="px-5 pt-4 pb-32 gap-4">
+        {fromSave && <Text className="text-fg text-base font-semibold px-1">Program kaydedildi.</Text>}
         <Text className="text-muted text-sm leading-5 px-1">
           "{program.name}" programını seçtiğin öğrenciler görür ve rutinlerine ekleyebilir. Bildirim gider.
         </Text>
         {loaded && students.length === 0 ? (
           <EmptyState
             icon={GraduationCap}
-            title="Aktif öğrenci yok"
-            description="Program yalnızca izin vermiş öğrencilere atanabilir. Öğrencilerim'den istek gönder."
+            title="Henüz öğrencin yok"
+            description="Program yalnızca izin vermiş öğrencilere atanabilir. Önce bir üyeyi öğrencin olarak ekle."
             className="mt-6"
+            action={
+              canAddStudent ? (
+                <SecondaryButton
+                  label="Önce öğrenci ekle"
+                  icon={UserPlus}
+                  onPress={() => router.push({ pathname: '/trainer/add', params: { gymId: program.gymId } })}
+                />
+              ) : undefined
+            }
           />
         ) : (
           <Card flush className="px-4">

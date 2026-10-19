@@ -14,6 +14,7 @@ import { useGymMembership } from '@/hooks/useGymMembership';
 import { useProfile } from '@/hooks/useProfile';
 import { useTrainerLinks } from '@/hooks/useTrainerLinks';
 import { useColors, useGymTones } from '@/hooks/useTheme';
+import { useSheetBottomPadding } from '@/hooks/useSafeBottom';
 import { membershipWarning } from '@/lib/gymAdmin';
 import { markNamePrompted, shouldPromptForName, wasNamePrompted } from '@/lib/profile';
 import { pendingRequestsFor, requestCardText } from '@/lib/trainers';
@@ -554,6 +555,7 @@ function GoalPickerModal({
   onChange: (days: number | null) => void;
   onClose: () => void;
 }) {
+  const sheetPadding = useSheetBottomPadding();
   return (
     <Modal
       visible={visible}
@@ -563,7 +565,11 @@ function GoalPickerModal({
     >
       <Pressable className="flex-1 bg-black/60 justify-end" onPress={onClose}>
         {/* İçerideki basışlar arka plana gidip modalı kapatmasın */}
-        <Pressable onPress={() => {}} className="bg-bg-surface rounded-t-3xl px-5 pt-6 pb-10 gap-5 border-t border-border">
+        <Pressable
+          onPress={() => {}}
+          className="bg-bg-surface rounded-t-3xl px-5 pt-6 gap-5 border-t border-border"
+          style={{ paddingBottom: sheetPadding }}
+        >
           <View>
             <Text className="text-fg text-xl font-semibold tracking-tight">
               Haftalık hedef

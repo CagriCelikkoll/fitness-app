@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { asc, count, eq, inArray } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
 import { exercises, routineExercises, routines } from '@/db/schema';
@@ -14,6 +14,7 @@ import {
   type ProgramPayload,
   type ProgramRoutineLink,
   type RoutinePlan,
+  type RoutineSource,
 } from '@/lib/programs';
 
 /**
@@ -125,4 +126,42 @@ export async function updateProgramRoutines(
 export async function routineIdSet(db: Db): Promise<Set<string>> {
   const rows = await db.select({ id: routines.id }).from(routines);
   return new Set(rows.map((r) => r.id));
+}
+
+/** "Rutinlerimden oluştur" listesi (v3.6e): arşivde olmayan rutinler, adlarına göre */
+export async function listRoutinesForProgram(db: Db): Promise<{ id: string; name: string; exerciseCount: number }[]> {
+  return db
+    .select({ id: routines.id, name: routines.name, exerciseCount: count(routineExercises.id) })
+    .from(routines)
+    .leftJoin(routineExercises, eq(routineExercises.routineId, routines.id))
+    .where(eq(routines.isArchived, false))
+    .groupBy(routines.id)
+    .orderBy(asc(routines.name));
+}
+
+/** Seçilen rutinler (seçim sırasıyla) → `routinesToDraft` girdisi */
+export async function loadRoutineSources(db: Db, routineIds: readonly string[]): Promise<RoutineSource[]> {
+  if (routineIds.length === 0) return [];
+  const heads = await db
+    .select({ id: routines.id, name: routines.name })
+    .from(routines)
+    .where(inArray(routines.id, [...routineIds]));
+  const rows = await db
+    .select({
+      routineId: routineExercises.routineId,
+      exerciseId: routineExercises.exerciseId,
+      isCustom: exercises.isCustom,
+      targetSets: routineExercises.targetSets,
+      targetReps: routineExercises.targetReps,
+      restSeconds: routineExercises.restSeconds,
+    })
+    .from(routineExercises)
+    .innerJoin(exercises, eq(exercises.id, routineExercises.exerciseId))
+    .where(inArray(routineExercises.routineId, [...routineIds]))
+    .orderBy(asc(routineExercises.orderIndex));
+  return routineIds.flatMap((id) => {
+    const head = heads.find((h) => h.id === id);
+    if (!head) return [];
+    return [{ name: head.name, exercises: rows.filter((r) => r.routineId === id) }];
+  });
 }

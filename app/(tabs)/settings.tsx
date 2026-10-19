@@ -48,6 +48,7 @@ import {
   Download,
   GraduationCap,
   LogOut,
+  NotebookPen,
   RefreshCw,
   RotateCcw,
   Settings2,
@@ -751,12 +752,23 @@ function MembershipCard({
           onPress={() => router.push('/trainer/mine')}
         />
       </View>
-      {/* Programlar (v3.6b; 3.6c'de Salon sekmesine taşınacak) */}
-      <SecondaryButton
-        label="Programlar"
-        icon={ClipboardList}
-        onPress={() => router.push({ pathname: '/programs', params: { gymId: membership.gymId } })}
-      />
+      {/* Programlar (v3.6b); hocaya ayrıca Programlarım (v3.6e) */}
+      <View className="flex-row gap-2">
+        <SecondaryButton
+          label="Programlar"
+          icon={ClipboardList}
+          className="flex-1"
+          onPress={() => router.push({ pathname: '/programs', params: { gymId: membership.gymId } })}
+        />
+        {(membership.role === 'admin' || membership.role === 'trainer') && (
+          <SecondaryButton
+            label="Programlarım"
+            icon={NotebookPen}
+            className="flex-1"
+            onPress={() => router.push({ pathname: '/programs/manage', params: { gymId: membership.gymId } })}
+          />
+        )}
+      </View>
       <DangerButton
         label={leaving ? 'Ayrılıyor...' : 'Salondan ayrıl'}
         loading={leaving}

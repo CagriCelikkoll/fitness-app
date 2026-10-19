@@ -1,8 +1,8 @@
 /**
- * Programlar (v3.6b). Ayarlar → Hesap ve salon → salon kartı →
- * "Programlar" (3.6c'de Salon sekmesine taşınacak). İki bölüm:
- * "Hocamın programları" (bana atanmış) ve "Salon programları" (salona
- * açık). Hoca / yönetici için "Programlarım" (oluştur, düzenle, ata).
+ * Programlar (v3.6b). Salon sekmesi → Programlar (ya da Ayarlar'daki salon
+ * kartı). Üyenin gördüğü iki bölüm: "Hocamın programları" (bana atanmış)
+ * ve "Salon programları" (salona açık). Hocanın kendi programları burada
+ * değil, ayrı girişte: Hoca araçları → "Programlarım" (v3.6e).
  *
  * İnternetsizken son çekilen liste (kv-store) gösterilir.
  */
@@ -10,15 +10,14 @@
 import { useCallback, type ReactNode } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { ClipboardList, NotebookPen } from 'lucide-react-native';
+import { ClipboardList } from 'lucide-react-native';
 
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { usePrograms } from '@/hooks/usePrograms';
 import { useColors } from '@/hooks/useTheme';
-import { canViewMembers } from '@/lib/gymAdmin';
 import { assignedPrograms, gymPrograms, type GymProgram } from '@/lib/programs';
 import { ProgramRow } from '@/components/ProgramRow';
-import { Card, EmptyState, SecondaryButton, SectionHeader } from '@/components/ui';
+import { Card, EmptyState, SectionHeader } from '@/components/ui';
 
 export default function ProgramsScreen() {
   const COLORS = useColors();
@@ -37,11 +36,6 @@ export default function ProgramsScreen() {
   const filterGym = gym?.gymId;
   const mine = assignedPrograms(programs, filterGym);
   const salon = gymPrograms(programs, filterGym);
-  const staffGymId = filterGym
-    ? canViewMembers(filterGym, memberships)
-      ? filterGym
-      : null
-    : (memberships.find((m) => canViewMembers(m.gymId, memberships))?.gymId ?? null);
 
   const open = (p: GymProgram) => router.push({ pathname: '/programs/[id]', params: { id: p.id } });
 
@@ -59,13 +53,6 @@ export default function ProgramsScreen() {
       }
     >
       <Stack.Screen options={{ title: 'Programlar' }} />
-      {staffGymId != null && (
-        <SecondaryButton
-          label="Programlarım"
-          icon={NotebookPen}
-          onPress={() => router.push({ pathname: '/programs/manage', params: { gymId: staffGymId } })}
-        />
-      )}
       {offline && <Text className="text-muted text-xs leading-5">Çevrimdışı · son çekilen programlar gösteriliyor</Text>}
       {error != null && <Text className="text-danger text-sm leading-5">{error.message}</Text>}
 
