@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import Svg, { Line, Rect } from 'react-native-svg';
 
 import { formatDecimal } from '@/lib/format';
-import { COLORS } from '@/theme';
+import { useColors } from '@/hooks/useTheme';
 
 export interface BarChartBar {
   key: string;
@@ -39,6 +39,7 @@ export function BarChart({
   endLabel,
   height = 140,
 }: BarChartProps) {
+  const COLORS = useColors();
   const [width, setWidth] = useState(0);
 
   const max = Math.max(0, ...bars.map((b) => b.value));

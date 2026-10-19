@@ -1,7 +1,10 @@
 /**
  * notify Edge Function'ının saf mantığı (v3.3): webhook'tan olayı
  * çıkarma, alıcı seçimi (tercih filtresi, yazar hariç), bildirim metni,
- * Expo Push mesajları ve geçersiz token'lar.
+ * Expo Push mesajları ve geçersiz token'lar. v3.6a: hoca isteği (öğrenciye)
+ * ve kabulü (hocaya). v3.6b: program atandı / atanmış program güncellendi
+ * (öğrenciye). v3.6d: yeni geri bildirim (yöneticilere), yanıt / çözüldü
+ * (yazara).
  *
  * Deno ve Node'da aynı çalışır: hiçbir şey içe aktarmaz, ağa çıkmaz.
  * Vitest: test/pushNotify.test.ts. Uygulama tarafındaki karşılığı
@@ -16,13 +19,27 @@
 /** Android bildirim kanalları; uygulama aynı kimliklerle kuruyor */
 export const CHANNEL_ANNOUNCEMENTS = 'announcements';
 export const CHANNEL_CLASS_CHANGES = 'class-changes';
+export const CHANNEL_TRAINER = 'trainer';
+export const CHANNEL_FEEDBACK = 'feedback';
 
 export const PUSH_TYPE_ANNOUNCEMENT = 'announcement';
 export const PUSH_TYPE_CLASS_CHANGE = 'class-change';
+export const PUSH_TYPE_TRAINER_REQUEST = 'trainer-request';
+export const PUSH_TYPE_TRAINER_ACCEPTED = 'trainer-accepted';
+export const PUSH_TYPE_PROGRAM_ASSIGNED = 'program-assigned';
+export const PUSH_TYPE_PROGRAM_UPDATED = 'program-updated';
+export const PUSH_TYPE_FEEDBACK_NEW = 'feedback-new';
+export const PUSH_TYPE_FEEDBACK_REPLY = 'feedback-reply';
 
 export type PushData =
   | { type: typeof PUSH_TYPE_ANNOUNCEMENT; gymId: string; announcementId: string }
-  | { type: typeof PUSH_TYPE_CLASS_CHANGE; gymId: string; templateId: string; date: string };
+  | { type: typeof PUSH_TYPE_CLASS_CHANGE; gymId: string; templateId: string; date: string }
+  | { type: typeof PUSH_TYPE_TRAINER_REQUEST; gymId: string; linkId: string }
+  | { type: typeof PUSH_TYPE_TRAINER_ACCEPTED; gymId: string; linkId: string }
+  | { type: typeof PUSH_TYPE_PROGRAM_ASSIGNED; gymId: string; programId: string }
+  | { type: typeof PUSH_TYPE_PROGRAM_UPDATED; gymId: string; programId: string }
+  | { type: typeof PUSH_TYPE_FEEDBACK_NEW; gymId: string; feedbackId: string }
+  | { type: typeof PUSH_TYPE_FEEDBACK_REPLY; gymId: string; feedbackId: string };
 
 /** Salonun saati: sabit UTC+3 (src/lib/classes.ts GYM_UTC_OFFSET_MIN ile aynı) */
 export const GYM_UTC_OFFSET_MIN = 180;
@@ -57,7 +74,46 @@ export interface ClassChangeEvent {
   previousStartTime: string | null;
 }
 
-export type NotifyEvent = AnnouncementEvent | ClassChangeEvent;
+/** Hoca–öğrenci (v3.6a): yeni istek → öğrenciye, kabul → hocaya */
+export interface TrainerEvent {
+  kind: 'trainer';
+  change: 'requested' | 'accepted';
+  linkId: string;
+  gymId: string;
+  trainerId: string;
+  studentId: string;
+}
+
+/**
+ * Program (v3.6b): atandı → o öğrenciye; atanmış program güncellendi
+ * (version arttı) → açık ataması ve aktif bağı olan öğrencilere. Yeni
+ * salon programı bildirilmez.
+ */
+export interface ProgramEvent {
+  kind: 'program';
+  change: 'assigned' | 'updated';
+  programId: string;
+  /** Atamada öğrenci; güncellemede null (alıcılar atamalardan) */
+  studentId: string | null;
+  /** Güncellemede satırdan; atamada programdan okunup doldurulur */
+  gymId: string | null;
+}
+
+/**
+ * Geri bildirim (v3.6d): yeni → salonun yöneticilerine (metin yok, yalnızca
+ * kategori); yanıt yazıldı ya da çözüldü → yazara (anonim de olsa).
+ */
+export interface FeedbackEvent {
+  kind: 'feedback';
+  change: 'new' | 'reply';
+  feedbackId: string;
+  gymId: string;
+  category: string;
+  /** Yazar: yeni kayıtta alıcılardan çıkarılır, yanıtta alıcı */
+  authorId: string | null;
+}
+
+export type NotifyEvent = AnnouncementEvent | ClassChangeEvent | TrainerEvent | ProgramEvent | FeedbackEvent;
 
 type Row = Record<string, unknown>;
 
@@ -78,6 +134,11 @@ function exceptionKey(r: Row): string {
  * - class_exceptions INSERT → iptal / değişiklik
  * - class_exceptions UPDATE → yalnızca tür, saat, hoca ya da not değiştiyse
  * - class_exceptions DELETE → iptal / değişiklik geri alındı ("programda")
+ * - trainer_students INSERT (pending) → istek; UPDATE pending → active → kabul
+ * - program_assignments INSERT → program atandı
+ * - gym_programs UPDATE, version arttı ve arşivde değil → program güncellendi
+ * - gym_feedback INSERT → yeni geri bildirim; UPDATE yanıt değişti (boş
+ *   değil) ya da durum "resolved" oldu → yanıt
  *
  * Başka her şey null (bildirim yok).
  */
@@ -121,6 +182,53 @@ export function parseWebhook(payload: unknown): NotifyEvent | null {
       previousStartTime: type === 'UPDATE' && old?.kind === 'changed' ? str(old.start_time) : null,
     };
   }
+
+  if (payload.table === 'trainer_students') {
+    if (!record) return null;
+    const linkId = str(record.id);
+    const gymId = str(record.gym_id);
+    const trainerId = str(record.trainer_id);
+    const studentId = str(record.student_id);
+    if (!linkId || !gymId || !trainerId || !studentId) return null;
+    const base = { kind: 'trainer' as const, linkId, gymId, trainerId, studentId };
+    if (type === 'INSERT' && record.status === 'pending') return { ...base, change: 'requested' };
+    if (type === 'UPDATE' && old?.status === 'pending' && record.status === 'active') {
+      return { ...base, change: 'accepted' };
+    }
+    return null;
+  }
+
+  if (payload.table === 'program_assignments') {
+    if (type !== 'INSERT' || !record || record.removed_at != null) return null;
+    const programId = str(record.program_id);
+    const studentId = str(record.student_id);
+    if (!programId || !studentId) return null;
+    return { kind: 'program', change: 'assigned', programId, studentId, gymId: null };
+  }
+
+  if (payload.table === 'gym_programs') {
+    if (type !== 'UPDATE' || !record || !old) return null;
+    const programId = str(record.id);
+    const gymId = str(record.gym_id);
+    if (!programId || !gymId || record.archived_at != null) return null;
+    if (typeof record.version !== 'number' || typeof old.version !== 'number' || record.version <= old.version) return null;
+    return { kind: 'program', change: 'updated', programId, studentId: null, gymId };
+  }
+
+  if (payload.table === 'gym_feedback') {
+    if (!record) return null;
+    const feedbackId = str(record.id);
+    const gymId = str(record.gym_id);
+    const category = str(record.category) ?? 'other';
+    if (!feedbackId || !gymId) return null;
+    const base = { kind: 'feedback' as const, feedbackId, gymId, category, authorId: str(record.author_id) };
+    if (type === 'INSERT') return { ...base, change: 'new' };
+    if (type !== 'UPDATE' || !old || !base.authorId) return null;
+    const reply = str(record.reply)?.trim() ?? '';
+    const replied = reply !== '' && reply !== (str(old.reply)?.trim() ?? '');
+    const resolved = record.status === 'resolved' && old.status !== 'resolved';
+    return replied || resolved ? { ...base, change: 'reply' } : null;
+  }
   return null;
 }
 
@@ -147,7 +255,8 @@ export interface TokenRow {
 export function recipientTokens(
   candidateUserIds: readonly string[],
   options: {
-    kind: 'announcements' | 'classChanges';
+    /** personal: tercih filtresi yok (yalnızca o kişiye giden hoca bildirimleri) */
+    kind: 'announcements' | 'classChanges' | 'personal';
     excludeUserId?: string | null;
     prefs: readonly PrefsRow[];
     tokens: readonly TokenRow[];
@@ -158,7 +267,12 @@ export function recipientTokens(
   for (const id of candidateUserIds) {
     if (id === options.excludeUserId) continue;
     const p = prefs.get(id);
-    const on = p == null ? true : options.kind === 'announcements' ? p.notify_announcements : p.notify_class_changes;
+    const on =
+      p == null || options.kind === 'personal'
+        ? true
+        : options.kind === 'announcements'
+          ? p.notify_announcements
+          : p.notify_class_changes;
     if (on) allowed.add(id);
   }
   const out = new Set<string>();
@@ -262,6 +376,66 @@ export function isUpcomingClass(e: ClassChangeEvent, template: ClassTemplateInfo
   return Math.max(classStartMs(e.date, time), plannedStart) > nowMs;
 }
 
+/** "Duygu" → "Duygu Hoca" (src/lib/trainers.ts trainerTitle ile aynı; test denetliyor) */
+export function trainerTitle(name: string | null | undefined): string {
+  const n = name?.trim();
+  if (!n) return 'Hocan';
+  return /\bhoca$/i.test(n) ? n : `${n} Hoca`;
+}
+
+/** Hoca bildirimi: istek öğrenciye, kabul hocaya */
+export function trainerContent(
+  e: TrainerEvent,
+  names: { trainerName: string | null; studentName: string | null }
+): PushContent {
+  if (e.change === 'requested') {
+    const who = names.trainerName?.trim() ? trainerTitle(names.trainerName) : 'Bir hoca';
+    return { title: 'Hoca isteği', body: truncate(`${who} seni öğrencisi olarak eklemek istiyor.`) };
+  }
+  const student = names.studentName?.trim() || 'Öğrencin';
+  return { title: 'Yeni öğrenci', body: truncate(`${student} isteğini kabul etti.`) };
+}
+
+/** Bildirimin gideceği kişi */
+export function trainerRecipient(e: TrainerEvent): string {
+  return e.change === 'requested' ? e.studentId : e.trainerId;
+}
+
+/** Program bildirimi: atandı "Duygu Hoca sana yeni bir program atadı: Full Body.", güncellendi "Duygu Hoca programını güncelledi." */
+export function programContent(e: ProgramEvent, info: { programName: string; authorName: string | null }): PushContent {
+  const who = trainerTitle(info.authorName);
+  if (e.change === 'assigned') {
+    return { title: 'Yeni program', body: truncate(`${who} sana yeni bir program atadı: ${info.programName.trim()}.`) };
+  }
+  return { title: truncate(info.programName, 80), body: truncate(`${who} programını güncelledi.`) };
+}
+
+/** Kategori adları (src/lib/feedback.ts FEEDBACK_CATEGORIES ile aynı; test denetliyor) */
+export const FEEDBACK_CATEGORY_LABELS: Record<string, string> = {
+  equipment: 'Ekipman',
+  cleanliness: 'Temizlik',
+  classes: 'Dersler',
+  staff: 'Personel',
+  other: 'Diğer',
+};
+
+/** Geri bildirim: yeni "Yeni geri bildirim: Ekipman." (metin yok); yanıt "Geri bildirimine yanıt geldi." */
+export function feedbackContent(e: FeedbackEvent): PushContent {
+  if (e.change === 'new') {
+    return { title: 'Geri bildirim', body: `Yeni geri bildirim: ${FEEDBACK_CATEGORY_LABELS[e.category] ?? 'Diğer'}.` };
+  }
+  return { title: 'Geri bildirim', body: 'Geri bildirimine yanıt geldi.' };
+}
+
+/**
+ * Güncelleme bildirimi kime: açık ataması olan ve yazarla bağı hâlâ aktif
+ * öğrenciler (bağı biten öğrenci programı göremiyor).
+ */
+export function programUpdateRecipients(assignedStudentIds: readonly string[], activeStudentIds: readonly string[]): string[] {
+  const active = new Set(activeStudentIds);
+  return [...new Set(assignedStudentIds)].filter((id) => active.has(id));
+}
+
 // ============================================================================
 // Expo Push
 // ============================================================================
@@ -281,14 +455,39 @@ export interface ExpoMessage {
 }
 
 export function dataFor(e: NotifyEvent): PushData {
-  return e.kind === 'announcement'
-    ? { type: PUSH_TYPE_ANNOUNCEMENT, gymId: e.gymId, announcementId: e.announcementId }
-    : { type: PUSH_TYPE_CLASS_CHANGE, gymId: e.gymId, templateId: e.templateId, date: e.date };
+  if (e.kind === 'feedback') {
+    return e.change === 'new'
+      ? { type: PUSH_TYPE_FEEDBACK_NEW, gymId: e.gymId, feedbackId: e.feedbackId }
+      : { type: PUSH_TYPE_FEEDBACK_REPLY, gymId: e.gymId, feedbackId: e.feedbackId };
+  }
+  if (e.kind === 'announcement') return { type: PUSH_TYPE_ANNOUNCEMENT, gymId: e.gymId, announcementId: e.announcementId };
+  if (e.kind === 'program') {
+    return {
+      type: e.change === 'assigned' ? PUSH_TYPE_PROGRAM_ASSIGNED : PUSH_TYPE_PROGRAM_UPDATED,
+      gymId: e.gymId ?? '',
+      programId: e.programId,
+    };
+  }
+  if (e.kind === 'trainer') {
+    return {
+      type: e.change === 'requested' ? PUSH_TYPE_TRAINER_REQUEST : PUSH_TYPE_TRAINER_ACCEPTED,
+      gymId: e.gymId,
+      linkId: e.linkId,
+    };
+  }
+  return { type: PUSH_TYPE_CLASS_CHANGE, gymId: e.gymId, templateId: e.templateId, date: e.date };
+}
+
+function channelFor(e: NotifyEvent): string {
+  if (e.kind === 'announcement') return CHANNEL_ANNOUNCEMENTS;
+  if (e.kind === 'trainer' || e.kind === 'program') return CHANNEL_TRAINER;
+  if (e.kind === 'feedback') return CHANNEL_FEEDBACK;
+  return CHANNEL_CLASS_CHANGES;
 }
 
 export function buildMessages(tokens: readonly string[], e: NotifyEvent, content: PushContent): ExpoMessage[] {
   const data = dataFor(e);
-  const channelId = e.kind === 'announcement' ? CHANNEL_ANNOUNCEMENTS : CHANNEL_CLASS_CHANGES;
+  const channelId = channelFor(e);
   return tokens.map((to) => ({ to, ...content, data, sound: 'default', channelId, priority: 'high' }));
 }
 

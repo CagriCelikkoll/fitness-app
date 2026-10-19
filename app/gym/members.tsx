@@ -12,6 +12,7 @@ import { Search, Users } from 'lucide-react-native';
 
 import { useGymMembers } from '@/hooks/useGymMembers';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useColors } from '@/hooks/useTheme';
 import { roleLabel } from '@/lib/auth';
 import {
   MEMBER_FILTERS,
@@ -27,14 +28,17 @@ import {
 import { UNNAMED } from '@/lib/classRsvps';
 import { gymNow } from '@/lib/classes';
 import { Card, Chip, EmptyState, ListRow } from '@/components/ui';
-import { COLORS } from '@/theme';
 
 export default function MembersScreen() {
+  const COLORS = useColors();
   const router = useRouter();
-  const { gymId } = useLocalSearchParams<{ gymId: string }>();
+  // filter: Salon panelinden "7 gün içinde bitenler" ile açılınca (v3.6c)
+  const { gymId, filter: initialFilter } = useLocalSearchParams<{ gymId: string; filter?: string }>();
   const { userId, memberships } = useGymMembership();
   const { members, loaded, loading, error, refresh } = useGymMembers(gymId ?? null);
-  const [filter, setFilter] = useState<MemberFilter>('all');
+  const [filter, setFilter] = useState<MemberFilter>(
+    () => MEMBER_FILTERS.find((f) => f.key === initialFilter)?.key ?? 'all'
+  );
   const [query, setQuery] = useState('');
 
   useFocusEffect(
@@ -82,7 +86,7 @@ export default function MembersScreen() {
                 placeholder="Ada göre ara"
                 placeholderTextColor={COLORS.muted}
                 autoCorrect={false}
-                className="flex-1 text-white text-base px-2 h-11"
+                className="flex-1 text-fg text-base px-2 h-11"
               />
             </View>
             <FlatList
@@ -149,7 +153,7 @@ function MemberRow({
         </View>
       }
     >
-      <Text className={`text-base font-semibold ${m.name ? 'text-white' : 'text-muted'}`} numberOfLines={1}>
+      <Text className={`text-base font-semibold ${m.name ? 'text-fg' : 'text-muted'}`} numberOfLines={1}>
         {m.name ?? UNNAMED}
         {isMe ? ' (sen)' : ''}
       </Text>

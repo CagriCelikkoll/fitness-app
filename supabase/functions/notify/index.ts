@@ -4,6 +4,13 @@
  * - announcements INSERT → o salonun üyelerine (yazar hariç)
  * - class_exceptions INSERT / UPDATE / DELETE → o derse katılacağını
  *   söyleyenlere (iptal, değişiklik, geri alma)
+ * - trainer_students INSERT / UPDATE (v3.6a) → yeni istek öğrenciye,
+ *   kabul hocaya (tercih filtresi yok, kişiye özel)
+ * - program_assignments INSERT (v3.6b) → program atanan öğrenciye
+ * - gym_programs UPDATE (v3.6b) → sürüm arttıysa atanmış aktif
+ *   öğrencilere (kişiye özel, tercih filtresi yok)
+ * - gym_feedback INSERT / UPDATE (v3.6d) → yeni kayıt salonun
+ *   yöneticilerine (yazar hariç, metin yok); yanıt / çözüldü yazara
  *
  * Tercihi kapalı olana gitmez; Expo "DeviceNotRegistered" derse token
  * silinir. Kararlar ve metinler `logic.ts`'te (saf, Vitest ile test
@@ -26,13 +33,19 @@ import {
   buildMessages,
   chunk,
   classChangeContent,
+  feedbackContent,
   invalidTokens,
   isUpcomingClass,
   parseWebhook,
+  programContent,
+  programUpdateRecipients,
   recipientTokens,
+  trainerContent,
+  trainerRecipient,
   type ExpoMessage,
   type NotifyEvent,
   type PrefsRow,
+  type ProgramEvent,
   type TokenRow,
 } from './logic.ts';
 
@@ -59,7 +72,7 @@ async function selectIn<T>(
 async function tokensFor(
   db: SupabaseClient,
   userIds: string[],
-  kind: 'announcements' | 'classChanges',
+  kind: 'announcements' | 'classChanges' | 'personal',
   excludeUserId: string | null
 ): Promise<string[]> {
   if (userIds.length === 0) return [];
@@ -70,7 +83,91 @@ async function tokensFor(
   return recipientTokens(userIds, { kind, excludeUserId, prefs, tokens });
 }
 
+async function planProgram(db: SupabaseClient, event: ProgramEvent): Promise<ExpoMessage[]> {
+  const { data: program, error } = await db
+    .from('gym_programs')
+    .select('id, gym_id, author_id, name, archived_at')
+    .eq('id', event.programId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!program || program.archived_at) return [];
+
+  let authorName: string | null = null;
+  if (program.author_id) {
+    const { data: profile, error: pErr } = await db
+      .from('profiles')
+      .select('display_name')
+      .eq('id', program.author_id)
+      .maybeSingle();
+    if (pErr) throw pErr;
+    authorName = profile?.display_name ?? null;
+  }
+
+  let recipients: string[] = [];
+  if (event.change === 'assigned') {
+    recipients = event.studentId ? [event.studentId] : [];
+  } else if (program.author_id) {
+    const { data: assigned, error: aErr } = await db
+      .from('program_assignments')
+      .select('student_id')
+      .eq('program_id', program.id)
+      .is('removed_at', null);
+    if (aErr) throw aErr;
+    const ids = (assigned ?? []).map((r: { student_id: string }) => r.student_id);
+    if (ids.length === 0) return [];
+    const active = await selectIn<{ student_id: string; trainer_id: string; gym_id: string; status: string }>(
+      db,
+      'trainer_students',
+      'student_id, trainer_id, gym_id, status',
+      'student_id',
+      ids
+    );
+    recipients = programUpdateRecipients(
+      ids,
+      active
+        .filter((l) => l.status === 'active' && l.trainer_id === program.author_id && l.gym_id === program.gym_id)
+        .map((l) => l.student_id)
+    );
+  }
+  const tokens = await tokensFor(db, recipients, 'personal', null);
+  const resolved: ProgramEvent = { ...event, gymId: program.gym_id };
+  return buildMessages(tokens, resolved, programContent(resolved, { programName: program.name, authorName }));
+}
+
 async function plan(db: SupabaseClient, event: NotifyEvent): Promise<ExpoMessage[]> {
+  if (event.kind === 'program') return planProgram(db, event);
+
+  if (event.kind === 'feedback') {
+    let recipients: string[];
+    if (event.change === 'new') {
+      const { data, error } = await db
+        .from('gym_members')
+        .select('user_id')
+        .eq('gym_id', event.gymId)
+        .eq('role', 'admin');
+      if (error) throw error;
+      recipients = (data ?? []).map((r: { user_id: string }) => r.user_id);
+    } else {
+      recipients = event.authorId ? [event.authorId] : [];
+    }
+    const exclude = event.change === 'new' ? event.authorId : null;
+    const tokens = await tokensFor(db, recipients, 'personal', exclude);
+    return buildMessages(tokens, event, feedbackContent(event));
+  }
+
+  if (event.kind === 'trainer') {
+    const { data, error } = await db
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', [event.trainerId, event.studentId]);
+    if (error) throw error;
+    const nameOf = (id: string) =>
+      ((data ?? []) as { id: string; display_name: string | null }[]).find((p) => p.id === id)?.display_name ?? null;
+    const tokens = await tokensFor(db, [trainerRecipient(event)], 'personal', null);
+    const content = trainerContent(event, { trainerName: nameOf(event.trainerId), studentName: nameOf(event.studentId) });
+    return buildMessages(tokens, event, content);
+  }
+
   if (event.kind === 'announcement') {
     const { data, error } = await db.from('gym_members').select('user_id').eq('gym_id', event.gymId);
     if (error) throw error;

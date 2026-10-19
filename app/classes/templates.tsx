@@ -61,7 +61,7 @@ export default function ClassTemplatesScreen() {
 
       {days.map(({ weekday, items }) => (
         <View key={weekday} className="gap-2 mt-2">
-          <Text className="text-white text-sm font-semibold">{WEEKDAY_LONG_TR[weekday - 1]}</Text>
+          <Text className="text-fg text-sm font-semibold">{WEEKDAY_LONG_TR[weekday - 1]}</Text>
           {items.length === 0 ? (
             <Text className="text-muted text-xs">Ders yok</Text>
           ) : (
@@ -74,7 +74,7 @@ export default function ClassTemplatesScreen() {
                   onPress={() => router.push({ pathname: '/classes/template', params: { gymId, id: t.id } })}
                   right={!t.active ? <Text className="text-muted text-xs">Pasif</Text> : undefined}
                 >
-                  <Text className={`text-base font-semibold ${t.active ? 'text-white' : 'text-muted'}`}>
+                  <Text className={`text-base font-semibold ${t.active ? 'text-fg' : 'text-muted'}`}>
                     {t.name}
                   </Text>
                   <Text className="text-muted text-xs mt-0.5 tabular-nums">

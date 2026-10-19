@@ -16,12 +16,13 @@ import { Megaphone, PenSquare, Pin } from 'lucide-react-native';
 
 import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useColors } from '@/hooks/useTheme';
 import { canManage, isUnread, writableGyms, type Announcement } from '@/lib/announcements';
 import { formatAgo } from '@/lib/format';
 import { Card, EmptyState, PrimaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
 export default function AnnouncementsScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const { available, userId, memberships, refresh: refreshMemberships } = useGymMembership();
   const { items, loaded, loading, offline, error, lastSeenAt, refresh, markSeen } = useAnnouncements();
@@ -127,15 +128,16 @@ function AnnouncementItem({
   nowMs: number;
   onEdit?: () => void;
 }) {
+  const COLORS = useColors();
   const edited = Date.parse(item.updatedAt) - Date.parse(item.createdAt) > 60_000;
   return (
     <Card variant={unread ? 'outline' : 'default'} className="gap-2">
       <View className="flex-row items-start gap-2">
         {item.pinned && <Pin color={COLORS.accent} size={16} style={{ marginTop: 3 }} />}
-        <Text className="text-white text-base font-semibold flex-1">{item.title}</Text>
+        <Text className="text-fg text-base font-semibold flex-1">{item.title}</Text>
         {unread && <View className="w-2 h-2 rounded-full bg-accent mt-2" accessibilityLabel="Okunmadı" />}
       </View>
-      <Text className="text-white text-sm leading-5" selectable>
+      <Text className="text-fg text-sm leading-5" selectable>
         {item.body}
       </Text>
       <View className="flex-row items-center justify-between">

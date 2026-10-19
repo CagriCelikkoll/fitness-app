@@ -11,7 +11,7 @@ import { useRef } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
 import { digitsOnly, type DateParts } from '@/lib/format';
-import { COLORS } from '@/theme';
+import { useColors } from '@/hooks/useTheme';
 
 interface DateInputProps {
   label?: string;
@@ -22,6 +22,7 @@ interface DateInputProps {
 }
 
 export function DateInput({ label, value, onChange, error }: DateInputProps) {
+  const COLORS = useColors();
   const monthRef = useRef<TextInput>(null);
   const yearRef = useRef<TextInput>(null);
 
@@ -42,7 +43,7 @@ export function DateInput({ label, value, onChange, error }: DateInputProps) {
     onChange({ ...value, year: digitsOnly(text).slice(0, 4) });
   };
 
-  const inputClass = `bg-bg-elevated text-white text-base tabular-nums h-12 px-3 rounded-xl text-center border ${
+  const inputClass = `bg-bg-elevated text-fg text-base tabular-nums h-12 px-3 rounded-xl text-center border ${
     error ? 'border-danger' : 'border-transparent'
   }`;
 

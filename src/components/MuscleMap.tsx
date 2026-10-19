@@ -2,8 +2,9 @@ import { Text, View } from 'react-native';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { useAppSettings } from '@/hooks/useAppSettings';
+import { useColors } from '@/hooks/useTheme';
+import { withAlpha } from '@/lib/color';
 import { BODY_SLUGS, type MuscleHighlight } from '@/lib/muscleMap';
-import { COLORS } from '@/theme';
 
 /**
  * Ön ve arka vücut görünümü yan yana, kaslar yoğunluğa göre boyalı.
@@ -15,12 +16,12 @@ import { COLORS } from '@/theme';
 
 type MuscleMapVariant = 'exercise' | 'weekly';
 
-/** Vurgu renginin opaklık basamakları (8 haneli hex) */
-const PALETTES: Record<MuscleMapVariant, string[]> = {
+/** Vurgu renginin opaklık basamakları (vurgunun mürekkep tonu, 8 haneli hex) */
+const OPACITIES: Record<MuscleMapVariant, number[]> = {
   // İkincil, birincil
-  exercise: [`${COLORS.accent}66`, COLORS.accent],
+  exercise: [0x66 / 255, 1],
   // Az, orta, yoğun
-  weekly: [`${COLORS.accent}4D`, `${COLORS.accent}A6`, COLORS.accent],
+  weekly: [0x4d / 255, 0xa6 / 255, 1],
 };
 
 const LEGENDS: Record<MuscleMapVariant, string[]> = {
@@ -42,9 +43,10 @@ export function MuscleMap({
   variant = 'exercise',
   size = 'md',
 }: MuscleMapProps) {
+  const COLORS = useColors();
   const { settings } = useAppSettings();
   const gender = settings?.gender === 'female' ? 'female' : 'male';
-  const palette = PALETTES[variant];
+  const palette = OPACITIES[variant].map((a) => (a === 1 ? COLORS.accent : withAlpha(COLORS.accent, a)));
 
   // Vücut modellerindeki her parçanın sabit bir rengi var ve kütüphanenin
   // `defaultFill`'i onu ezmiyor; boş kaslar da tema rengini alsın diye

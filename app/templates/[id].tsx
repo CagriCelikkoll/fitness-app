@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { inArray } from 'drizzle-orm';
 import { Plus } from 'lucide-react-native';
 
@@ -21,7 +20,6 @@ export default function TemplateDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useDb();
-  const insets = useSafeAreaInsets();
 
   const template = getTemplate(id);
   const [info, setInfo] = useState<Map<string, ExerciseInfo>>(new Map());
@@ -125,12 +123,12 @@ export default function TemplateDetailScreen() {
                       divider={idx > 0}
                       chevron={ex != null}
                       right={
-                        <Text className="text-white text-sm font-semibold tabular-nums">
+                        <Text className="text-fg text-sm font-semibold tabular-nums">
                           {e.sets} × {e.reps}
                         </Text>
                       }
                     >
-                      <Text className="text-white text-base" numberOfLines={2}>
+                      <Text className="text-fg text-base" numberOfLines={2}>
                         {ex?.name ?? e.exerciseId}
                       </Text>
                       {ex && ex.muscles.length > 0 && (
@@ -161,8 +159,7 @@ export default function TemplateDetailScreen() {
         </ScrollView>
 
         <View
-          className="px-5 pt-3 border-t border-border bg-bg"
-          style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+          className="px-5 pt-3 pb-4 border-t border-border bg-bg"
         >
           <PrimaryButton
             label="Rutinlerime Ekle"

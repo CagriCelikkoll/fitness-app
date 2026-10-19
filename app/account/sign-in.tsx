@@ -61,10 +61,10 @@ import {
 import { DISPLAY_NAME_MAX, displayNameError, displayNameValue } from '@/lib/profile';
 import { getSupabase } from '@/lib/supabase';
 import { useSession } from '@/hooks/useSession';
+import { useColors } from '@/hooks/useTheme';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
-const INPUT_CLASS = 'bg-bg-elevated text-white text-base px-4 h-12 rounded-xl';
+const INPUT_CLASS = 'bg-bg-elevated text-fg text-base px-4 h-12 rounded-xl';
 
 const TITLES: Record<AuthMode, string> = {
   signIn: 'Giriş yap',
@@ -87,6 +87,7 @@ const SUBMIT_LABELS: Record<AuthMode, string> = {
 };
 
 export default function SignInScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const { available } = useSession();
   const [state, dispatch] = useReducer(authFormReducer, INITIAL_AUTH_FORM);
@@ -238,7 +239,7 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Card className="gap-3">
-          <Text className="text-white text-base leading-6">
+          <Text className="text-fg text-base leading-6">
             Hesap oluşturursan e-posta adresin, salon üyeliğin ve antrenmanların (rutinler,
             setler, notlar) Dinç'in sunucusunda saklanır; telefon değişince geri gelir.
             Vücut ölçülerin yalnızca telefonunda kalır.
@@ -250,7 +251,7 @@ export default function SignInScreen() {
         </Card>
 
         <Card className="gap-4">
-          <Text className="text-white text-lg font-semibold tracking-tight">
+          <Text className="text-fg text-lg font-semibold tracking-tight">
             {TITLES[state.mode]}
           </Text>
 
@@ -288,7 +289,7 @@ export default function SignInScreen() {
             <Text className="text-muted text-sm leading-5">
               {state.info != null && `${state.info} `}
               {OTP_LENGTH} haneli kodu{' '}
-              <Text className="text-white font-semibold">{normalizeEmail(state.email)}</Text>{' '}
+              <Text className="text-fg font-semibold">{normalizeEmail(state.email)}</Text>{' '}
               adresine gönderdik. Adres yanlışsa{' '}
               <Text
                 onPress={state.busy ? undefined : editEmail}
@@ -450,6 +451,7 @@ function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
 
 /** Şifre alanı + göster/gizle düğmesi */
 function PasswordInput(props: Omit<TextInputProps, 'secureTextEntry'>) {
+  const COLORS = useColors();
   const [visible, setVisible] = useState(false);
   const Icon = visible ? EyeOff : Eye;
   return (
@@ -460,7 +462,7 @@ function PasswordInput(props: Omit<TextInputProps, 'secureTextEntry'>) {
         placeholderTextColor={COLORS.muted}
         autoCapitalize="none"
         autoCorrect={false}
-        className="flex-1 text-white text-base px-4 h-12"
+        className="flex-1 text-fg text-base px-4 h-12"
       />
       <Pressable
         onPress={() => setVisible((v) => !v)}

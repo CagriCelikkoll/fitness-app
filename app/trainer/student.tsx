@@ -1,0 +1,160 @@
+/**
+ * Öğrenci ayrıntısı (v3.6b, hoca / yönetici). Öğrencilerim → öğrenciye
+ * dokun. En üstte "Program ata" (v3.6e: `/trainer/assign`, programa
+ * dokununca atanır), atanmış programlar (kaldırma onaylı), devam (v3.6c:
+ * son 8 hafta ısı haritası, ziyaret listesi). Hoca öğrencinin ağırlık, set
+ * ve ölçülerini görmez (rıza metni).
+ */
+
+import { useCallback, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { ClipboardPlus } from 'lucide-react-native';
+
+import { useGymMembership } from '@/hooks/useGymMembership';
+import { usePrograms } from '@/hooks/usePrograms';
+import { useColors } from '@/hooks/useTheme';
+import { useTrainerLinks } from '@/hooks/useTrainerLinks';
+import { useGymVisits } from '@/hooks/useVisits';
+import { programSummary, studentProgramChoices, unassignProgram, type GymProgram } from '@/lib/programs';
+import { getSupabase } from '@/lib/supabase';
+import { linkDateText, studentLabel } from '@/lib/trainers';
+import { attendanceText, heatmap, studentAttendance, visitRowText } from '@/lib/visits';
+import { VisitHeatmap } from '@/components/VisitHeatmap';
+import { Card, ListRow, PrimaryButton, SectionHeader } from '@/components/ui';
+
+export default function StudentDetailScreen() {
+  const COLORS = useColors();
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { memberships } = useGymMembership();
+  const { links, loading: linksLoading, refresh: refreshLinks } = useTrainerLinks();
+  const { userId, programs, assignments, loaded, loading, error, refresh } = usePrograms();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const visits = useGymVisits(links.find((l) => l.id === id)?.gymId ?? null);
+  const { refresh: refreshVisits } = visits;
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshLinks();
+      void refresh();
+      void refreshVisits();
+    }, [refreshLinks, refresh, refreshVisits])
+  );
+
+  const link = links.find((l) => l.id === id && l.status === 'active') ?? null;
+  if (!link) {
+    return (
+      <View className="flex-1 bg-bg items-center justify-center p-6">
+        <Stack.Screen options={{ title: 'Öğrenci' }} />
+        <Text className="text-muted text-base text-center">
+          {linksLoading ? 'Yükleniyor…' : 'Bu kişi artık öğrencin değil.'}
+        </Text>
+      </View>
+    );
+  }
+
+  const { assigned } = studentProgramChoices(programs, assignments, link, userId, memberships);
+  const name = studentLabel(link.studentName);
+  const nowMs = Date.now();
+  const studentVisits = visits.visits.filter((v) => v.userId === link.studentId);
+  const attendance = studentAttendance(studentVisits, nowMs);
+
+  const remove = async (p: GymProgram) => {
+    setBusyId(p.id);
+    const result = await unassignProgram(getSupabase(), p.id, link.studentId);
+    setBusyId(null);
+    if (!result.ok) Alert.alert('Yapılamadı', result.error.message);
+    await refresh();
+  };
+
+  const confirmRemove = (p: GymProgram) =>
+    Alert.alert('Atama kaldırılsın mı?', `${name} "${p.name}" programını artık göremeyecek. Rutinlerine eklediyse rutinleri kalır.`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Kaldır', style: 'destructive', onPress: () => void remove(p) },
+    ]);
+
+  const row = (p: GymProgram, i: number) => (
+    <ListRow
+      key={p.id}
+      divider={i > 0}
+      onPress={() => router.push({ pathname: '/programs/[id]', params: { id: p.id } })}
+      right={
+        <Pressable
+          onPress={() => confirmRemove(p)}
+          disabled={busyId != null}
+          accessibilityRole="button"
+          hitSlop={8}
+          className="px-2 py-1 active:opacity-60"
+        >
+          <Text className={`text-sm font-semibold ${busyId === p.id ? 'text-muted' : 'text-danger'}`}>Kaldır</Text>
+        </Pressable>
+      }
+    >
+      <Text className="text-fg text-base font-semibold" numberOfLines={1}>
+        {p.name}
+      </Text>
+      <Text className="text-muted text-xs mt-0.5">{programSummary(p)}</Text>
+    </ListRow>
+  );
+
+  return (
+    <ScrollView
+      className="flex-1 bg-bg"
+      contentContainerClassName="px-5 pt-4 pb-12 gap-4"
+      refreshControl={
+        <RefreshControl
+          refreshing={loading && loaded}
+          onRefresh={() => void refresh()}
+          tintColor={COLORS.accent}
+          colors={[COLORS.accent]}
+        />
+      }
+    >
+      <Stack.Screen options={{ title: 'Öğrenci' }} />
+      <View className="px-1 gap-1">
+        <Text className="text-fg text-2xl font-bold tracking-tight">{name}</Text>
+        <Text className="text-muted text-sm">{linkDateText(link, Date.now())}</Text>
+      </View>
+      <PrimaryButton
+        label="Program ata"
+        icon={ClipboardPlus}
+        onPress={() => router.push({ pathname: '/trainer/assign', params: { gymId: link.gymId, linkId: link.id } })}
+      />
+
+      <View className="gap-2">
+        <SectionHeader title="Atanmış programlar" variant="label" className="px-1" />
+        {assigned.length === 0 ? (
+          <Text className="text-muted text-sm px-1">Henüz program atanmadı.</Text>
+        ) : (
+          <Card flush className="px-4">
+            {assigned.map((p, i) => row(p, i))}
+          </Card>
+        )}
+      </View>
+
+      <View className="gap-2">
+        <SectionHeader title="Devam" variant="label" className="px-1" />
+        <Card className="gap-3">
+          <Text className={`text-sm ${attendance.inactive ? 'text-warm' : 'text-muted'}`}>{attendanceText(attendance)}</Text>
+          <VisitHeatmap weeks={heatmap(studentVisits, nowMs)} />
+        </Card>
+        {studentVisits.length > 0 && (
+          <Card flush className="px-4">
+            {studentVisits.slice(0, 20).map((v, i) => {
+              const row = visitRowText(v, nowMs);
+              return (
+                <View key={v.id} className={`flex-row items-center py-3 gap-3 ${i > 0 ? 'border-t border-border' : ''}`}>
+                  <Text className="text-fg text-sm flex-1">{row.date}</Text>
+                  <Text className="text-muted text-sm tabular-nums">{row.time}</Text>
+                  <Text className="text-fg text-sm tabular-nums w-24 text-right">{row.duration}</Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
+      </View>
+      {error != null && <Text className="text-danger text-sm leading-5">{error.message}</Text>}
+    </ScrollView>
+  );
+}

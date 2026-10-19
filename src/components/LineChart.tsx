@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { formatDateKey, formatDecimal } from '@/lib/format';
-import { COLORS } from '@/theme';
+import { useColors } from '@/hooks/useTheme';
 
 export interface LineChartPoint {
   /** Tarih: "2026-09-14" (yerel gün) ya da ISO zaman damgası */
@@ -67,6 +67,7 @@ export function LineChart({
   emptyText = 'Grafik için en az iki kayıt gerekli.',
   variant = 'full',
 }: LineChartProps) {
+  const COLORS = useColors();
   const [width, setWidth] = useState(0);
 
   if (variant === 'sparkline') return <Sparkline points={points} />;
@@ -159,6 +160,7 @@ export function LineChart({
 }
 
 function Sparkline({ points }: { points: LineChartPoint[] }) {
+  const COLORS = useColors();
   if (points.length < 2) return null;
 
   const values = points.map((p) => p.y);

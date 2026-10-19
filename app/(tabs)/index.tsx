@@ -1,30 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { CalendarDays, Check, Megaphone, Pin, Play, Scale, Target, UserRound } from 'lucide-react-native';
+import { Play, Scale, Target, UserRound } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
 import { useSessionRecovery } from '@/hooks/useSessionRecovery';
 import { runConsentLaunchCheck, useHealthConsent } from '@/hooks/useHealthConsent';
 import { useGymMembership } from '@/hooks/useGymMembership';
-import { useAnnouncements } from '@/hooks/useAnnouncements';
-import { featuredAnnouncement, unreadCount } from '@/lib/announcements';
-import { useClassSchedule } from '@/hooks/useClassSchedule';
 import { useProfile } from '@/hooks/useProfile';
-import { isGymColor, membershipWarning } from '@/lib/gymAdmin';
+import { useTrainerLinks } from '@/hooks/useTrainerLinks';
+import { useColors, useGymTones } from '@/hooks/useTheme';
+import { useSheetBottomPadding } from '@/hooks/useSafeBottom';
+import { membershipWarning } from '@/lib/gymAdmin';
 import { markNamePrompted, shouldPromptForName, wasNamePrompted } from '@/lib/profile';
-import {
-  canEditSchedule,
-  changeSummary,
-  isPast,
-  scheduleForGym,
-  todaySummary,
-  type ClassOccurrence,
-} from '@/lib/classes';
+import { pendingRequestsFor, requestCardText } from '@/lib/trainers';
 import { roleLabel } from '@/lib/auth';
 import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -33,13 +26,12 @@ import {
   markOnboardingDone,
   shouldShowOnboarding,
 } from '@/lib/onboarding';
-import { formatAgo, formatDaysAgo, formatDecimal } from '@/lib/format';
+import { formatDaysAgo, formatDecimal } from '@/lib/format';
 import {
   goalStreak,
   workoutDayKeys,
   workoutDaysThisWeek,
 } from '@/lib/workoutCalendar';
-import { COLORS } from '@/theme';
 import {
   Card,
   ListRow,
@@ -51,6 +43,7 @@ import { GoalRing } from '@/components/GoalRing';
 import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
 import { WorkoutCalendar } from '@/components/WorkoutCalendar';
 import { GymLogo } from '@/components/GymLogo';
+import { AnnouncementAlert } from '@/components/GymCards';
 
 /**
  * Karşılama kararı uygulama açılışı başına bir kez verilir; sekmeler
@@ -119,25 +112,27 @@ export default function HomeScreen() {
 }
 
 /**
- * v3.0: salon üyesiyse en üstte küçük salon satırı (ad + rol). Bayrak
+ * v3.0: salon üyesiyse en üstte küçük salon satırı (ad + rol); dokununca
+ * Salon sekmesi (v3.6c). Bayrak
  * kapalıysa / giriş yoksa / üyelik yoksa hiçbir şey çizmez, istek atmaz.
  */
 function GymRow() {
+  const COLORS = useColors();
   const { primary } = useGymMembership();
+  // Salon rengi (v3.2d): yönetici seçer; yoksa uygulama vurgusu. Temaya göre ton (v3.5)
+  const tones = useGymTones(primary?.primaryColor);
   if (!primary) return null;
-  // Salon rengi (v3.2d): yönetici seçer; yoksa uygulama vurgusu
-  const color = isGymColor(primary.primaryColor) ? primary.primaryColor : COLORS.accent;
   const warning = membershipWarning(primary.membershipEndsOn, Date.now());
   return (
     <View className="gap-2 -mb-1">
-      <Link href="/(tabs)/settings" asChild>
+      <Link href="/(tabs)/gym" asChild>
         <Pressable
           className="flex-row items-center self-start bg-bg-surface border rounded-full pl-1 pr-3 py-1 active:opacity-70"
-          style={{ borderColor: color }}
+          style={{ borderColor: tones.ink }}
         >
           {/* Logo (v3.3); yoksa adın baş harfi salon renginde */}
-          <GymLogo name={primary.gymName} logoUrl={primary.logoUrl} color={color} size={22} />
-          <Text className="text-white text-xs font-semibold ml-2" numberOfLines={1}>
+          <GymLogo name={primary.gymName} logoUrl={primary.logoUrl} gymColor={primary.primaryColor} size={22} />
+          <Text className="text-fg text-xs font-semibold ml-2" numberOfLines={1}>
             {primary.gymName}
           </Text>
           <Text className="text-muted text-xs ml-1.5">· {roleLabel(primary.role)}</Text>
@@ -160,6 +155,7 @@ let namePromptShownFor: string | null = null;
  * ile hemen kapanır; ad sonra Ayarlar → Hesap ve salon → Adın'dan girilir.
  */
 function NamePromptCard() {
+  const COLORS = useColors();
   const router = useRouter();
   const { primary, userId } = useGymMembership();
   const { displayName, loaded } = useProfile();
@@ -198,7 +194,7 @@ function NamePromptCard() {
     <Card className="gap-3">
       <View className="flex-row items-center gap-2">
         <UserRound color={COLORS.accent} size={16} />
-        <Text className="text-white text-base font-semibold flex-1">Adını ekle</Text>
+        <Text className="text-fg text-base font-semibold flex-1">Adını ekle</Text>
       </View>
       <Text className="text-muted text-sm leading-5">
         Hocaların seni tanısın diye adını yaz. Yalnızca salonunun hocaları ve yöneticisi görür.
@@ -219,126 +215,40 @@ function NamePromptCard() {
 }
 
 /**
- * Salon duyurusu (v3.2b): sabitlenmiş varsa o, yoksa en yenisi. Okunmamış
- * duyuru varsa nokta. Dokununca duyurular ekranı. Salon üyeliği yoksa,
- * duyuru yoksa ya da bayrak kapalıysa hiç görünmez.
+ * Hoca isteği (v3.6a): öğrenciye yanıt bekleyen istek varsa "Duygu Hoca
+ * seni öğrencisi olarak eklemek istiyor." + "Göz at" (izin ekranı). Birden
+ * çok istek varsa en yenisi. Bayrak kapalıyken / salon yokken istek atmaz.
  */
-function AnnouncementCard() {
-  const { primary } = useGymMembership();
-  const { items, lastSeenAt } = useAnnouncements();
-  const featured = featuredAnnouncement(items);
-  if (!primary || !featured) return null;
-  const unread = unreadCount(items, lastSeenAt) > 0;
-  return (
-    <Link href="/announcements" asChild>
-      <Card className="gap-1.5">
-        <View className="flex-row items-center gap-2">
-          {featured.pinned ? (
-            <Pin color={COLORS.accent} size={14} />
-          ) : (
-            <Megaphone color={COLORS.accent} size={14} />
-          )}
-          <Text className="text-white text-base font-semibold flex-1" numberOfLines={1}>
-            {featured.title}
-          </Text>
-          {unread && <View className="w-2 h-2 rounded-full bg-accent" accessibilityLabel="Okunmamış duyuru var" />}
-        </View>
-        <Text className="text-muted text-sm leading-5" numberOfLines={2}>
-          {featured.body}
-        </Text>
-        <Text className="text-muted text-xs">
-          {[featured.authorName, formatAgo(featured.createdAt, Date.now())].filter(Boolean).join(' · ')}
-        </Text>
-      </Card>
-    </Link>
-  );
-}
+function TrainerRequestCard() {
+  const COLORS = useColors();
+  const router = useRouter();
+  const { userId, links, refreshIfStale } = useTrainerLinks();
 
-/**
- * Bugünün dersleri (v3.2c): saat sırasıyla saat, ders, hoca; iptal üstü
- * çizili, değişiklik notlu; katıldığı derste ✓. Bugün ders yoksa yarının ilk dersi. Dokununca
- * program ekranı. Salonun programı yoksa görünmez (yöneticiye
- * "Programı oluştur").
- */
-function TodayClassesCard() {
-  const { primary, memberships } = useGymMembership();
-  const { templates, exceptions, attendance } = useClassSchedule();
-  if (!primary) return null;
-  const schedule = scheduleForGym({ templates, exceptions }, primary.gymId);
-  if (schedule.templates.length === 0) {
-    if (!canEditSchedule(primary.gymId, memberships)) return null;
-    return (
-      <Link href="/classes" asChild>
-        <Card className="flex-row items-center gap-2">
-          <CalendarDays color={COLORS.accent} size={14} />
-          <Text className="text-muted text-sm flex-1">Ders programı yok · Programı oluştur →</Text>
-        </Card>
-      </Link>
-    );
-  }
-  const nowMs = Date.now();
-  const summary = todaySummary(schedule, nowMs);
-  return (
-    <Link href="/classes" asChild>
-      <Card className="gap-2">
-        <View className="flex-row items-center gap-2">
-          <CalendarDays color={COLORS.accent} size={14} />
-          <Text className="text-white text-base font-semibold flex-1">Bugün</Text>
-          <Text className="text-muted text-xs">Program →</Text>
-        </View>
-        {summary.kind === 'today' ? (
-          summary.items.map((o) => (
-            <TodayClassRow
-              key={o.key}
-              occurrence={o}
-              past={isPast(o, nowMs)}
-              joined={attendance.mine.includes(o.key)}
-            />
-          ))
-        ) : summary.kind === 'tomorrow' ? (
-          <Text className="text-muted text-sm">
-            Bugün ders yok · Yarın {summary.first.startTime} {summary.first.name}
-          </Text>
-        ) : (
-          <Text className="text-muted text-sm">Bugün ve yarın ders yok</Text>
-        )}
-      </Card>
-    </Link>
+  useFocusEffect(
+    useCallback(() => {
+      refreshIfStale();
+    }, [refreshIfStale])
   );
-}
 
-function TodayClassRow({
-  occurrence: o,
-  past,
-  joined,
-}: {
-  occurrence: ClassOccurrence;
-  past: boolean;
-  joined: boolean;
-}) {
-  const cancelled = o.status === 'cancelled';
-  const change = changeSummary(o);
+  const [request] = pendingRequestsFor(links, userId);
+  if (!request) return null;
   return (
-    <View className={past || cancelled ? 'opacity-50' : ''}>
-      <View className="flex-row items-center gap-3">
-        <Text className={`text-white text-sm font-semibold tabular-nums w-12 ${cancelled ? 'line-through' : ''}`}>
-          {o.startTime}
-        </Text>
-        <Text className={`text-white text-sm flex-shrink ${cancelled ? 'line-through' : ''}`} numberOfLines={1}>
-          {o.name}
-        </Text>
-        <Text className="text-muted text-sm flex-1" numberOfLines={1}>
-          {o.instructorName}
-        </Text>
-        {cancelled && <Text className="text-danger text-xs font-semibold">İptal</Text>}
-        {joined && !cancelled && <Check color={COLORS.accent} size={14} accessibilityLabel="Katılıyorsun" />}
+    <Card className="gap-3">
+      <View className="flex-row items-center gap-2">
+        <UserRound color={COLORS.accent} size={16} />
+        <Text className="text-fg text-base font-semibold flex-1">Hoca isteği</Text>
       </View>
-      {change != null && <Text className="text-accent text-xs ml-[60px] mt-0.5">{change}</Text>}
-    </View>
+      <Text className="text-muted text-sm leading-5">{requestCardText(request)}</Text>
+      <PrimaryButton
+        label="Göz at"
+        onPress={() => router.push({ pathname: '/trainer/consent', params: { id: request.id } })}
+      />
+    </Card>
   );
 }
 
 function HomeContent() {
+  const COLORS = useColors();
   const db = useDb();
   const router = useRouter();
   const consent = useHealthConsent();
@@ -401,10 +311,11 @@ function HomeContent() {
     >
       <GymRow />
       <NamePromptCard />
-      <AnnouncementCard />
-      <TodayClassesCard />
+      <TrainerRequestCard />
+      {/* Duyuru kartı ve dersler Salon sekmesinde (v3.6c); burada yalnızca okunmamış uyarısı */}
+      <AnnouncementAlert />
       <View className="mb-3">
-        <Text className="text-white text-4xl font-bold tracking-tight">
+        <Text className="text-fg text-4xl font-bold tracking-tight">
           Hoş geldin 💪
         </Text>
         <Text className="text-muted text-sm mt-2">
@@ -476,7 +387,7 @@ function HomeContent() {
               <Play color={COLORS.accentFg} size={20} fill={COLORS.accentFg} />
             </View>
             <View className="flex-1 ml-4">
-              <Text className="text-white text-xl font-semibold tracking-tight">
+              <Text className="text-fg text-xl font-semibold tracking-tight">
                 Antrenmana Başla
               </Text>
               <Text className="text-muted text-sm mt-0.5">
@@ -514,7 +425,7 @@ function HomeContent() {
               asChild
             >
               <ListRow divider={idx > 0} chevron>
-                <Text className="text-white text-base font-semibold">
+                <Text className="text-fg text-base font-semibold">
                   {session.name}
                 </Text>
                 <Text className="text-muted text-xs mt-1 tabular-nums">
@@ -550,6 +461,7 @@ function GoalCard({
   streak: number;
   onPress: () => void;
 }) {
+  const COLORS = useColors();
   // Hedef okunmadan "belirle" daveti göstermeyelim — boş kart
   if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
 
@@ -559,7 +471,7 @@ function GoalCard({
         <View className="w-12 h-12 rounded-full bg-accent items-center justify-center">
           <Target color={COLORS.accentFg} size={22} />
         </View>
-        <Text className="text-white text-base font-semibold text-center mt-3">
+        <Text className="text-fg text-base font-semibold text-center mt-3">
           Haftalık hedef belirle
         </Text>
         <Text className="text-muted text-xs text-center mt-1">
@@ -577,7 +489,7 @@ function GoalCard({
     >
       <GoalRing done={done} goal={goal} />
       {streak >= 2 && (
-        <Text className="text-white text-xs font-medium mt-3">
+        <Text className="text-fg text-xs font-medium mt-3">
           🔥 {streak} haftalık seri
         </Text>
       )}
@@ -592,6 +504,7 @@ function WeightCard({
   loaded: boolean;
   latest?: { date: string; weightKg: number | null };
 }) {
+  const COLORS = useColors();
   if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
 
   if (latest?.weightKg == null) {
@@ -601,7 +514,7 @@ function WeightCard({
           <View className="w-12 h-12 rounded-full bg-bg-elevated border border-border items-center justify-center">
             <Scale color={COLORS.text} size={22} />
           </View>
-          <Text className="text-white text-base font-semibold text-center mt-3">
+          <Text className="text-fg text-base font-semibold text-center mt-3">
             Kilonu ekle
           </Text>
           <Text className="text-muted text-xs text-center mt-1">
@@ -617,7 +530,7 @@ function WeightCard({
       <Card className={BENTO_CARD_CLASS}>
         <Text className="text-muted text-xs tracking-widest">GÜNCEL KİLO</Text>
         <View className="flex-row items-baseline mt-2">
-          <Text className="text-white text-4xl font-bold tracking-tight tabular-nums">
+          <Text className="text-fg text-4xl font-bold tracking-tight tabular-nums">
             {formatDecimal(latest.weightKg)}
           </Text>
           <Text className="text-muted text-base ml-1">kg</Text>
@@ -642,6 +555,7 @@ function GoalPickerModal({
   onChange: (days: number | null) => void;
   onClose: () => void;
 }) {
+  const sheetPadding = useSheetBottomPadding();
   return (
     <Modal
       visible={visible}
@@ -651,9 +565,13 @@ function GoalPickerModal({
     >
       <Pressable className="flex-1 bg-black/60 justify-end" onPress={onClose}>
         {/* İçerideki basışlar arka plana gidip modalı kapatmasın */}
-        <Pressable onPress={() => {}} className="bg-bg-surface rounded-t-3xl px-5 pt-6 pb-10 gap-5 border-t border-border">
+        <Pressable
+          onPress={() => {}}
+          className="bg-bg-surface rounded-t-3xl px-5 pt-6 gap-5 border-t border-border"
+          style={{ paddingBottom: sheetPadding }}
+        >
           <View>
-            <Text className="text-white text-xl font-semibold tracking-tight">
+            <Text className="text-fg text-xl font-semibold tracking-tight">
               Haftalık hedef
             </Text>
             <Text className="text-muted text-sm mt-1">

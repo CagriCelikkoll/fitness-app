@@ -1,12 +1,15 @@
 /**
  * Yasal metin ekranı: /legal/privacy (Gizlilik Politikası),
  * /legal/kvkk (KVKK Aydınlatma Metni). Metinler `src/content/legal.ts`.
+ * Gizlilik özetinin altında yayındaki tam metne ve hesap silme sayfasına
+ * bağlantı (v3.4).
  */
 
 import { ScrollView, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 
 import { LEGAL_DOCUMENTS, type LegalDocId } from '@/content/legal';
+import { LegalLink } from '@/components/LegalLink';
 import { LegalText } from '@/components/LegalText';
 
 function isLegalDocId(value: string | undefined): value is LegalDocId {
@@ -20,7 +23,7 @@ export default function LegalScreen() {
     return (
       <View className="flex-1 bg-bg items-center justify-center p-6">
         <Stack.Screen options={{ title: 'Metin' }} />
-        <Text className="text-white text-base">Metin bulunamadı.</Text>
+        <Text className="text-fg text-base">Metin bulunamadı.</Text>
       </View>
     );
   }
@@ -30,6 +33,12 @@ export default function LegalScreen() {
     <ScrollView className="flex-1 bg-bg" contentContainerClassName="px-5 pt-4 pb-12">
       <Stack.Screen options={{ title: document.title }} />
       <LegalText blocks={document.blocks} />
+      {doc === 'privacy' && (
+        <View className="mt-6 gap-2">
+          <LegalLink to="privacy" label="Tam metni oku (web sayfası) →" />
+          <LegalLink to="accountDeletion" label="Hesap silme sayfası →" />
+        </View>
+      )}
     </ScrollView>
   );
 }

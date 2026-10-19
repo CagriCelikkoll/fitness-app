@@ -119,6 +119,19 @@ export type AccountErrorKind =
   | 'class_cancelled'
   | 'class_started'
   | 'class_not_scheduled'
+  | 'student_not_member'
+  | 'trainer_self'
+  | 'trainer_already_linked'
+  | 'trainer_link_closed'
+  | 'consent_outdated'
+  | 'program_invalid'
+  | 'program_archived'
+  | 'student_not_active'
+  | 'checkin_key_invalid'
+  | 'checkin_not_member'
+  | 'visit_invalid'
+  | 'feedback_invalid'
+  | 'feedback_daily_limit'
   | 'unknown';
 
 export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
@@ -149,6 +162,19 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   class_cancelled: 'Bu ders iptal edildi.',
   class_started: 'Ders başladı; katılım artık değiştirilemiyor.',
   class_not_scheduled: 'Bu ders programda yok. Programı yenileyip tekrar dene.',
+  student_not_member: 'Bu kişi salonun üyesi değil.',
+  trainer_self: 'Kendini öğrenci olarak ekleyemezsin.',
+  trainer_already_linked: 'Bu kişiye zaten istek gönderilmiş ya da zaten öğrencin.',
+  trainer_link_closed: 'Bu istek artık geçerli değil. Listeyi yenile.',
+  consent_outdated: 'İzin metni güncellendi. Uygulamayı güncelleyip tekrar dene.',
+  program_invalid: 'Program kaydedilemedi: gün, egzersiz ya da sayılar sınırların dışında.',
+  program_archived: 'Bu program arşivde. Önce arşivden çıkar.',
+  student_not_active: 'Program yalnızca aktif öğrencilere atanabilir. Listeyi yenile.',
+  checkin_key_invalid: 'Bu QR artık geçersiz, salona sor.',
+  checkin_not_member: 'Bu salonun üyesi değilsin.',
+  visit_invalid: 'Giriş ve çıkış saatlerini kontrol et.',
+  feedback_invalid: 'Geri bildirim gönderilemedi: kategori ve metni kontrol et.',
+  feedback_daily_limit: 'Bugün en fazla 5 geri bildirim gönderebilirsin. Yarın tekrar dene.',
   unknown: 'Bir şeyler ters gitti. Tekrar dene.',
 };
 
@@ -219,6 +245,23 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (message.includes('class_cancelled')) return 'class_cancelled';
   if (message.includes('class_started')) return 'class_started';
   if (message.includes('class_not_scheduled')) return 'class_not_scheduled';
+  // Hoca–öğrenci (v3.6a, 0010_trainers.sql)
+  if (message.includes('student_not_member')) return 'student_not_member';
+  if (message.includes('trainer_self')) return 'trainer_self';
+  if (message.includes('trainer_already_linked')) return 'trainer_already_linked';
+  if (message.includes('trainer_link_closed')) return 'trainer_link_closed';
+  if (message.includes('consent_outdated')) return 'consent_outdated';
+  // Programlar (v3.6b, 0011_programs.sql)
+  if (message.includes('program_invalid')) return 'program_invalid';
+  if (message.includes('program_archived')) return 'program_archived';
+  if (message.includes('student_not_active')) return 'student_not_active';
+  // Salon girişi (v3.6c, 0012_visits.sql)
+  if (message.includes('checkin_key_invalid')) return 'checkin_key_invalid';
+  if (message.includes('checkin_not_member')) return 'checkin_not_member';
+  if (message.includes('visit_invalid')) return 'visit_invalid';
+  // Geri bildirim (v3.6d, 0013_feedback.sql)
+  if (message.includes('feedback_invalid')) return 'feedback_invalid';
+  if (message.includes('feedback_daily_limit')) return 'feedback_daily_limit';
   // PostgREST: RLS / yetki reddi ve CHECK kısıtı (duyurular v3.2b, ders programı v3.2c)
   if (code === '42501' || /row-level security|permission denied/i.test(message)) return 'forbidden';
   if (code === '23514') return 'invalid_input';

@@ -55,12 +55,13 @@ import {
   type ProgressionSuggestion,
 } from '@/lib/progression';
 import { useProgressionSetting } from '@/hooks/useProgressionSetting';
+import { useColors } from '@/hooks/useTheme';
 import { RestTimer } from '@/components/RestTimer';
 import { NoteEditor } from '@/components/NoteEditor';
-import { COLORS, DISABLED_ICON } from '@/theme';
 import { SecondaryButton } from '@/components/ui';
 
 export default function ActiveSessionScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
 
@@ -109,6 +110,7 @@ export default function ActiveSessionScreen() {
 }
 
 function SessionContent({ sessionId }: { sessionId: string }) {
+  const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
 
@@ -345,7 +347,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
   if (seData.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-6">
-        <Text className="text-white">Bu seansta egzersiz yok.</Text>
+        <Text className="text-fg">Bu seansta egzersiz yok.</Text>
       </View>
     );
   }
@@ -364,7 +366,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
           className="w-12 h-12 rounded-full items-center justify-center bg-bg-surface active:bg-bg-elevated"
         >
           <ChevronLeft
-            color={safeIndex === 0 ? DISABLED_ICON : COLORS.text}
+            color={safeIndex === 0 ? COLORS.disabledIcon : COLORS.text}
             size={26}
           />
         </Pressable>
@@ -391,7 +393,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
               </View>
             )}
             <Text
-              className="text-white text-xl font-semibold tracking-tight shrink"
+              className="text-fg text-xl font-semibold tracking-tight shrink"
               numberOfLines={1}
             >
               {current.exercise.nameTr ?? current.exercise.name}
@@ -415,7 +417,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
         >
           <ChevronRight
             color={
-              safeIndex === seData.length - 1 ? DISABLED_ICON : COLORS.text
+              safeIndex === seData.length - 1 ? COLORS.disabledIcon : COLORS.text
             }
             size={26}
           />
@@ -448,7 +450,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
                     {supersets[memberIndex]?.label}
                   </Text>
                   <Text
-                    className={`text-xs shrink ${active ? 'text-accent-fg font-semibold' : 'text-white'}`}
+                    className={`text-xs shrink ${active ? 'text-accent-fg font-semibold' : 'text-fg'}`}
                     numberOfLines={1}
                   >
                     {r.exercise.nameTr ?? r.exercise.name}
@@ -519,6 +521,7 @@ function ExerciseSetEditor({
   initialNote,
   onSetCompleted,
 }: ExerciseSetEditorProps) {
+  const COLORS = useColors();
   const db = useDb();
 
   // Titreşim tercihi burada okunup SetRow'a geçiliyor; her set satırı
@@ -696,7 +699,7 @@ function ExerciseSetEditor({
             Son antrenman ({formatDate(lastSession.sessionDate)})
           </Text>
           {lastSession.sets.length > 0 && (
-            <Text className="text-white text-sm mt-1.5 tabular-nums">
+            <Text className="text-fg text-sm mt-1.5 tabular-nums">
               {lastSession.sets
                 .map((s) => formatSetSummary(s.weightKg, s.reps, s.rir))
                 .join('  •  ')}
@@ -756,7 +759,7 @@ function ExerciseSetEditor({
         className="min-h-[52px] border border-dashed border-border rounded-2xl items-center flex-row justify-center mt-1 active:bg-bg-surface"
       >
         <Plus color={COLORS.text} size={18} />
-        <Text className="text-white text-base font-semibold ml-2">Set Ekle</Text>
+        <Text className="text-fg text-base font-semibold ml-2">Set Ekle</Text>
       </Pressable>
 
       {/* Hareket notu. key: başka harekete geçince alan yeniden kurulsun,
@@ -797,6 +800,7 @@ function SetRow({
   isRecordCompletion,
   onSetCompleted,
 }: SetRowProps) {
+  const COLORS = useColors();
   const db = useDb();
   const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
 
@@ -910,10 +914,10 @@ function SetRow({
     <View>
     <View
       className={`flex-row items-center min-h-[60px] px-2 py-2 rounded-2xl ${
-        set.isCompleted ? 'bg-accent/10' : ''
+        set.isCompleted ? 'bg-success/10' : ''
       }`}
     >
-      <Text className="text-white text-lg font-semibold tabular-nums w-9">
+      <Text className="text-fg text-lg font-semibold tabular-nums w-9">
         {set.setNumber}
       </Text>
       <View className="flex-1 items-center">
@@ -924,8 +928,8 @@ function SetRow({
           {previousLabel}
         </Text>
         {isRecord && (
-          <View className="bg-accent rounded-full px-2 py-0.5 mt-1">
-            <Text className="text-accent-fg text-[11px] font-semibold">
+          <View className="bg-pr rounded-full px-2 py-0.5 mt-1">
+            <Text className="text-pr-fg text-[11px] font-semibold">
               🏆 Rekor
             </Text>
           </View>
@@ -951,7 +955,7 @@ function SetRow({
         keyboardType="decimal-pad"
         editable={!set.isCompleted}
         className={`w-20 h-12 text-center text-lg font-semibold tabular-nums px-2 rounded-xl ${
-          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-white'
+          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-fg'
         }`}
       />
       <TextInput
@@ -963,17 +967,17 @@ function SetRow({
         maxLength={MAX_REP_DIGITS}
         editable={!set.isCompleted}
         className={`w-16 h-12 text-center text-lg font-semibold tabular-nums px-2 rounded-xl ml-2 ${
-          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-white'
+          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-fg'
         }`}
       />
       <Pressable onPress={toggleComplete} hitSlop={6} className="ml-2">
         <View
           className={`w-12 h-12 rounded-xl items-center justify-center ${
-            set.isCompleted ? 'bg-accent' : 'bg-bg-elevated border border-border'
+            set.isCompleted ? 'bg-success' : 'bg-bg-elevated border border-border'
           }`}
         >
           <Check
-            color={set.isCompleted ? COLORS.accentFg : COLORS.muted}
+            color={set.isCompleted ? COLORS.successFg : COLORS.muted}
             size={20}
             strokeWidth={3}
           />
@@ -1080,7 +1084,7 @@ function ProgressionHint({
   return (
     <View className="mt-2.5 pt-2.5 border-t border-border">
       <View className="flex-row items-center">
-        <Text className="text-white text-sm flex-1">
+        <Text className="text-fg text-sm flex-1">
           💡 Bugün{' '}
           <Text className="font-semibold tabular-nums">{suggestion.headline}</Text>{' '}
           dene

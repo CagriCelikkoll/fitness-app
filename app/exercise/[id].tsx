@@ -4,11 +4,12 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq } from 'drizzle-orm';
 
 import { useDb } from '@/hooks/useDb';
+import { useColors } from '@/hooks/useTheme';
 import { exercises } from '@/db/schema';
-import { COLORS } from '@/theme';
 import { ExerciseDetailContent } from '@/components/ExerciseDetailContent';
 
 export default function ExerciseDetailScreen() {
+  const COLORS = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useDb();
 

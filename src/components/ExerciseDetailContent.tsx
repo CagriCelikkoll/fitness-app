@@ -21,6 +21,7 @@ import { Image } from 'expo-image';
 import { Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useColors } from '@/hooks/useTheme';
 import type { Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseImageUrls } from '@/lib/exerciseImage';
 import {
@@ -56,7 +57,6 @@ import {
 } from '@/components/ui';
 import { LineChart } from '@/components/LineChart';
 import { MuscleMap } from '@/components/MuscleMap';
-import { COLORS } from '@/theme';
 
 interface ExerciseDetailContentProps {
   exercise: Exercise;
@@ -96,7 +96,7 @@ export function ExerciseDetailContent({
   return (
     <>
       <View className="mb-2">
-        <Text className="text-white text-4xl font-bold tracking-tight">
+        <Text className="text-fg text-4xl font-bold tracking-tight">
           {displayName}
         </Text>
         {exercise.nameTr && exercise.nameTr !== exercise.name && (
@@ -138,7 +138,7 @@ export function ExerciseDetailContent({
             <Text className="text-muted text-xs uppercase tracking-widest">
               Birincil
             </Text>
-            <Text className="text-white text-base mt-1">
+            <Text className="text-fg text-base mt-1">
               {primaryMuscles.join(', ')}
             </Text>
           </View>
@@ -148,7 +148,7 @@ export function ExerciseDetailContent({
             <Text className="text-muted text-xs uppercase tracking-widest">
               İkincil
             </Text>
-            <Text className="text-white text-base mt-1">
+            <Text className="text-fg text-base mt-1">
               {secondaryMuscles.join(', ')}
             </Text>
           </View>
@@ -167,7 +167,7 @@ export function ExerciseDetailContent({
               <Text className="text-muted font-semibold tabular-nums w-7">
                 {idx + 1}.
               </Text>
-              <Text className="text-white text-base leading-6 flex-1">
+              <Text className="text-fg text-base leading-6 flex-1">
                 {step}
               </Text>
             </View>
@@ -214,6 +214,7 @@ const CROSSFADE_MS = 250;
  * Yalnızca detay içeriğinde kullanılıyor; liste küçük resimleri sabit.
  */
 function ExerciseImages({ urls }: { urls: string[] }) {
+  const COLORS = useColors();
   const canAnimate = urls.length >= 2;
 
   // null: henüz okunmadı. Okunana kadar eski görünüm.
@@ -444,7 +445,7 @@ function ExerciseProgressSection({ exerciseId }: { exerciseId: string }) {
             key={p.sessionId}
             divider={idx > 0}
             right={
-              <Text className="text-white text-base font-semibold tabular-nums">
+              <Text className="text-fg text-base font-semibold tabular-nums">
                 {formatBestSet(p.bestSet)}
               </Text>
             }

@@ -2,14 +2,15 @@ import { ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
 
-import { COLORS } from '@/theme';
 import { Card, SectionHeader } from '@/components/ui';
+import { useColors } from '@/hooks/useTheme';
 import {
   templateExerciseCount,
   WORKOUT_TEMPLATES,
 } from '@/lib/workoutTemplates';
 
 export default function TemplatesScreen() {
+  const COLORS = useColors();
   return (
     <ScrollView
       className="flex-1 bg-bg"
@@ -29,7 +30,7 @@ export default function TemplatesScreen() {
           <Card>
             <View className="flex-row items-start">
               <View className="flex-1 mr-3">
-                <Text className="text-white text-xl font-semibold tracking-tight">
+                <Text className="text-fg text-xl font-semibold tracking-tight">
                   {t.name}
                 </Text>
                 <Text className="text-muted text-sm mt-1 leading-5">

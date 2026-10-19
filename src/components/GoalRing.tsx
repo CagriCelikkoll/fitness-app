@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { useColors } from '@/hooks/useTheme';
 
-import { COLORS } from '@/theme';
 
 const STROKE = 9;
 
@@ -18,6 +18,7 @@ export function GoalRing({
   goal: number;
   size?: number;
 }) {
+  const COLORS = useColors();
   const radius = (size - STROKE) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress = goal > 0 ? Math.min(done / goal, 1) : 0;
@@ -57,7 +58,7 @@ export function GoalRing({
       <View className="absolute inset-0 items-center justify-center">
         <Text
           className={`text-2xl font-bold tabular-nums ${
-            complete ? 'text-accent' : 'text-white'
+            complete ? 'text-accent' : 'text-fg'
           }`}
         >
           {done} / {goal}

@@ -178,9 +178,9 @@ describe('Salon ayarları', () => {
     expect(gymNameError('x'.repeat(41))).toMatch(/en fazla 40/);
   });
 
-  it('8 hazır renk, tekil, #RRGGBB (sunucu kısıtıyla aynı biçim)', () => {
-    expect(GYM_COLORS).toHaveLength(8);
-    expect(new Set(GYM_COLORS.map((c) => c.hex)).size).toBe(8);
+  it('9 hazır renk (v3.5: Fuşya), tekil, #RRGGBB (sunucu kısıtıyla aynı biçim)', () => {
+    expect(GYM_COLORS).toHaveLength(9);
+    expect(new Set(GYM_COLORS.map((c) => c.hex)).size).toBe(9);
     for (const c of GYM_COLORS) expect(c.hex).toMatch(/^#[0-9A-F]{6}$/);
     expect(isGymColor('#D7FF3E')).toBe(true);
     expect(isGymColor('#123456')).toBe(false);

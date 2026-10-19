@@ -26,6 +26,7 @@ import { Trash2 } from 'lucide-react-native';
 
 import { useAnnouncements } from '@/hooks/useAnnouncements';
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { useColors } from '@/hooks/useTheme';
 import {
   BODY_MAX,
   TITLE_MAX,
@@ -42,11 +43,11 @@ import {
 } from '@/lib/announcements';
 import { getSupabase } from '@/lib/supabase';
 import { Card, Chip, DangerButton, PrimaryButton } from '@/components/ui';
-import { COLORS } from '@/theme';
 
-const INPUT_CLASS = 'bg-bg-elevated text-white text-base px-4 rounded-xl';
+const INPUT_CLASS = 'bg-bg-elevated text-fg text-base px-4 rounded-xl';
 
 export default function EditAnnouncementScreen() {
+  const COLORS = useColors();
   const router = useRouter();
   const navigation = useNavigation();
   // Ders programından (v3.2c): yeni duyuru önceden doldurulmuş gelebilir
@@ -212,14 +213,14 @@ export default function EditAnnouncementScreen() {
           {pinAllowed && (
             <View className="flex-row items-center justify-between">
               <View className="flex-1 pr-3">
-                <Text className="text-white text-base">Sabitle</Text>
+                <Text className="text-fg text-base">Sabitle</Text>
                 <Text className="text-muted text-xs mt-0.5">Listede ve ana sayfada en üstte durur.</Text>
               </View>
               <Switch
                 value={draft.pinned}
                 onValueChange={(v) => setDraft((d) => ({ ...d, pinned: v }))}
                 disabled={busy}
-                trackColor={{ true: COLORS.accent }}
+                trackColor={{ true: COLORS.accentFill }}
               />
             </View>
           )}

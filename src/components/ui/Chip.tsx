@@ -15,7 +15,7 @@ export function Chip({ label, active = false, onPress, size = 'md' }: ChipProps)
   const text = (
     <Text
       className={`${size === 'md' ? 'text-sm' : 'text-xs'} font-medium ${
-        active ? 'text-accent-fg' : 'text-white'
+        active ? 'text-accent-fg' : 'text-fg'
       }`}
     >
       {label}
