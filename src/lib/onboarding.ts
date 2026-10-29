@@ -8,7 +8,8 @@
  * bellek içi bir taklitle denenebilsin.
  */
 
-import { getTemplate, type WorkoutTemplate } from '@/lib/workoutTemplates';
+import type { DaysPerWeek } from '@/lib/programRecommendation';
+import type { WorkoutTemplate } from '@/lib/workoutTemplates';
 import { setWeeklyGoal, type RemovableKeyValueStore } from '@/lib/weeklyGoal';
 
 /** kv-store'daki anahtar. Değiştirme: mevcut cihazlarda bayrak kaybolur. */
@@ -47,31 +48,26 @@ export function shouldShowOnboarding({
   return routineCount === 0 && sessionCount === 0;
 }
 
-/** "Haftada kaç gün?" sorusunun seçenekleri */
-export type TrainingDaysChoice = 2 | 3 | 4 | 'custom';
+/**
+ * "Haftada kaç gün?" sorusunun seçenekleri (v3.8: 2–6 gün). Öneri hedefe
+ * ve güne göre `programRecommendation.ts`'te.
+ */
+export type TrainingDaysChoice = DaysPerWeek | 'custom';
 
 export const TRAINING_DAYS_OPTIONS: { value: TrainingDaysChoice; label: string }[] = [
   { value: 2, label: '2 gün' },
   { value: 3, label: '3 gün' },
   { value: 4, label: '4 gün' },
+  { value: 5, label: '5 gün' },
+  { value: 6, label: '6 gün' },
   { value: 'custom', label: 'Kendi programımı kuracağım' },
 ];
 
-const TEMPLATE_BY_DAYS: Record<2 | 3 | 4, string> = {
-  2: 'ant-post',
-  3: 'ppl',
-  4: 'split4',
-};
-
-/** Seçime önerilen hazır programın id'si; kendi programını kuracaksa null */
-export function templateIdForDays(choice: TrainingDaysChoice): string | null {
-  return choice === 'custom' ? null : TEMPLATE_BY_DAYS[choice];
-}
-
 /**
- * Karşılamada "Bu programı ekle"ye basılınca eklenen programın gün
- * sayısını haftalık hedef yapar. Sadece seçim yapıp program eklemeyen ya
- * da "Kendi programımı kuracağım"ı seçen kullanıcı için çağrılmaz:
+ * Karşılamada "Bu programı ekle"ye basılınca önerinin haftalık gün
+ * sayısını (A / B / A → 3) haftalık hedef yapar. Sadece seçim yapıp
+ * program eklemeyen ya da "Kendi programımı kuracağım"ı seçen kullanıcı
+ * için çağrılmaz:
  * karşılama Ayarlar'dan yeniden açılsa da mevcut hedef korunur.
  */
 export async function saveGoalForAddedTemplate(
@@ -79,10 +75,4 @@ export async function saveGoalForAddedTemplate(
   template: Pick<WorkoutTemplate, 'dayCount'>
 ): Promise<void> {
   await setWeeklyGoal(store, template.dayCount);
-}
-
-/** Önerilen program; kendi programını kuracaksa ya da id bulunamazsa undefined */
-export function suggestedTemplate(choice: TrainingDaysChoice) {
-  const id = templateIdForDays(choice);
-  return id == null ? undefined : getTemplate(id);
 }

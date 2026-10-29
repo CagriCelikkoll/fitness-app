@@ -17,6 +17,7 @@ import { Check, ChevronLeft, ChevronRight, Info, Plus, X } from 'lucide-react-na
 import * as Haptics from 'expo-haptics';
 
 import { useDb } from '@/hooks/useDb';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
 import {
   exercises as exercisesTable,
@@ -228,7 +229,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
     try {
       const result = afterSetCompleted({
         exercises: seData.map((r) => ({
-          name: r.exercise.nameTr ?? r.exercise.name,
+          name: exerciseDisplayName(r.exercise),
           supersetGroup: r.se.supersetGroup,
           sets: (groupSets ?? []).filter((s) => s.sessionExerciseId === r.se.id),
         })),
@@ -396,7 +397,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
               className="text-fg text-xl font-semibold tracking-tight shrink"
               numberOfLines={1}
             >
-              {current.exercise.nameTr ?? current.exercise.name}
+              {exerciseDisplayName(current.exercise)}
             </Text>
             <Info
               color={COLORS.muted}
@@ -453,7 +454,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
                     className={`text-xs shrink ${active ? 'text-accent-fg font-semibold' : 'text-fg'}`}
                     numberOfLines={1}
                   >
-                    {r.exercise.nameTr ?? r.exercise.name}
+                    {exerciseDisplayName(r.exercise)}
                   </Text>
                 </Pressable>
               );

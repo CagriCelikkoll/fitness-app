@@ -6,7 +6,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  addSelectionLabel,
+  discardSelectionMessage,
   missingSelectionIds,
+  pendingSelectionCount,
+  pickerBackAction,
+  selectionOrder,
   resolveSelection,
   selectionFromIds,
   toggleInSelection,
@@ -84,5 +89,47 @@ describe('resolveSelection', () => {
   it('bulunamayan (silinmiş) id atlanıyor', () => {
     const sel = selectionFromIds<Item>(['gone', 'bench']);
     expect(resolveSelection(sel, [bench])).toEqual([bench]);
+  });
+});
+
+describe('seçim sırası ve geri onayı (v3.8)', () => {
+  it('sıra numarası seçim sırasıyla; çıkarılınca sonrakiler kayar', () => {
+    let sel = pick([squat, bench, row]);
+    expect([...selectionOrder(sel)]).toEqual([
+      ['squat', 1],
+      ['bench', 2],
+      ['row', 3],
+    ]);
+    sel = toggleInSelection(sel, bench, false);
+    expect([...selectionOrder(sel)]).toEqual([
+      ['squat', 1],
+      ['row', 2],
+    ]);
+    // onay bu sırayla
+    expect(resolveSelection(sel).map((i) => i.id)).toEqual(['squat', 'row']);
+  });
+
+  it('seçim yokken geri hemen kapatır', () => {
+    expect(pickerBackAction(new Map())).toBe('close');
+    // seçip geri bırakınca da
+    expect(pickerBackAction(toggleInSelection(pick([bench]), bench, false))).toBe('close');
+  });
+
+  it('seçim varken geri onay sorar', () => {
+    expect(pickerBackAction(pick([bench]))).toBe('confirm');
+    expect(pendingSelectionCount(pick([bench, squat, row]))).toBe(3);
+  });
+
+  it('açılışta zaten seçili olanlar eklenmemiş sayılmaz', () => {
+    const initial = selectionFromIds<Item>(['bench']);
+    expect(pickerBackAction(initial, ['bench'])).toBe('close');
+    const more = toggleInSelection(initial, squat, false);
+    expect(pendingSelectionCount(more, ['bench'])).toBe(1);
+    expect(pickerBackAction(more, ['bench'])).toBe('confirm');
+  });
+
+  it('metinler', () => {
+    expect(addSelectionLabel(6)).toBe('6 egzersizi ekle');
+    expect(discardSelectionMessage(6)).toBe('Seçtiğin 6 egzersiz eklenmeden çıkılsın mı?');
   });
 });

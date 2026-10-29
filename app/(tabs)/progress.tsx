@@ -23,6 +23,7 @@ import { desc, eq } from 'drizzle-orm';
 import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { useHealthConsent } from '@/hooks/useHealthConsent';
 import { useColors } from '@/hooks/useTheme';
 import { ConsentCard } from '@/components/ConsentCard';
@@ -604,7 +605,7 @@ function RecordsCard() {
               }
             >
               <Text className="text-fg text-base" numberOfLines={1}>
-                {r.nameTr ?? r.name}
+                {exerciseDisplayName({ id: r.exerciseId, name: r.name, nameTr: r.nameTr })}
               </Text>
             </ListRow>
           </Link>

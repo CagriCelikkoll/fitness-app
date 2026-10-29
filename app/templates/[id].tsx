@@ -5,6 +5,7 @@ import { inArray } from 'drizzle-orm';
 import { Plus } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { exercises } from '@/db/schema';
 import { Card, ListRow, PrimaryButton, SectionHeader } from '@/components/ui';
 import { applyTemplate } from '@/lib/applyTemplate';
@@ -49,7 +50,7 @@ export default function TemplateDetailScreen() {
             rows.map((r) => [
               r.id,
               {
-                name: r.nameTr ?? r.name,
+                name: exerciseDisplayName(r),
                 muscles: muscleLabels(r.primaryMuscles),
               },
             ])

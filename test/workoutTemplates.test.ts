@@ -32,12 +32,13 @@ const exerciseById = new Map(freeExerciseDb.map((e) => [e.id, e]));
 
 describe('şablon verisi', () => {
   it('her exerciseId exercises.json içinde var ve kuvvet hareketi', () => {
+    // hip thrust katalogda "powerlifting"
     for (const t of WORKOUT_TEMPLATES) {
       for (const day of t.days) {
         for (const e of day.exercises) {
           const found = exerciseById.get(e.exerciseId);
           expect(found, `${t.id} / ${day.name}: ${e.exerciseId}`).toBeDefined();
-          expect(found?.category).toBe('strength');
+          expect(['strength', 'powerlifting']).toContain(found?.category);
         }
       }
     }
@@ -66,7 +67,7 @@ describe('şablon verisi', () => {
   it('beklenen hareket sayıları', () => {
     expect(templateExerciseCount(getTemplate('ppl')!)).toBe(18);
     expect(templateExerciseCount(getTemplate('split4')!)).toBe(20);
-    expect(templateExerciseCount(getTemplate('ant-post')!)).toBe(15);
+    expect(templateExerciseCount(getTemplate('ant-post')!)).toBe(14);
   });
 
   it('dinlenme kuralı: 5-8 → 180, 8-10 → 120, 10+ → 90', () => {
@@ -177,7 +178,7 @@ describe('applyTemplate', () => {
       .from(routines)
       .where(inArray(routines.id, second));
     expect(secondNames.map((r) => r.name).sort()).toEqual(
-      ['A/P — Anterior (2)', 'A/P — Posterior (2)'].sort()
+      ['Ön/Arka — Ön zincir (2)', 'Ön/Arka — Arka zincir (2)'].sort()
     );
   });
 

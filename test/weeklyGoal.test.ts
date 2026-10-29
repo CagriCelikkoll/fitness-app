@@ -13,7 +13,8 @@ import {
   setWeeklyGoal,
   type RemovableKeyValueStore,
 } from '@/lib/weeklyGoal';
-import { saveGoalForAddedTemplate, suggestedTemplate } from '@/lib/onboarding';
+import { saveGoalForAddedTemplate } from '@/lib/onboarding';
+import { DAY_OPTIONS, recommendProgram } from '@/lib/programRecommendation';
 
 function memoryStore(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -70,23 +71,23 @@ describe('haftalık hedef deposu', () => {
 // çağrılmıyor (app/onboarding.tsx); burada eklenen programın etkisi test
 // ediliyor.
 describe('karşılamadan hedef', () => {
-  it('eklenen programın gün sayısı hedef oluyor (2/3/4 gün önerileri)', async () => {
-    for (const days of [2, 3, 4] as const) {
-      const template = suggestedTemplate(days);
-      expect(template, `${days} gün`).toBeDefined();
-      const { store } = memoryStore();
-      await saveGoalForAddedTemplate(store, template!);
-      expect(await getWeeklyGoal(store)).toBe(days);
+  it('önerinin haftalık gün sayısı hedef oluyor (A / B / A → 3)', async () => {
+    for (const goal of ['fast', 'steady'] as const) {
+      for (const days of DAY_OPTIONS) {
+        const { main } = recommendProgram(goal, days);
+        const { store } = memoryStore();
+        await saveGoalForAddedTemplate(store, { dayCount: main.daysPerWeek });
+        // Formu koru + 6 gün: 4 gün önerilir, hedef 4
+        expect(await getWeeklyGoal(store), `${goal} ${days}`).toBe(
+          goal === 'steady' && days === 6 ? 4 : days
+        );
+      }
     }
   });
 
   it('program eklenince mevcut hedefin üzerine yazıyor', async () => {
     const { store } = memoryStore({ [WEEKLY_GOAL_KEY]: '5' });
-    await saveGoalForAddedTemplate(store, suggestedTemplate(3)!);
+    await saveGoalForAddedTemplate(store, { dayCount: recommendProgram('fast', 3).main.daysPerWeek });
     expect(await getWeeklyGoal(store)).toBe(3);
-  });
-
-  it('"kendi programım" için önerilen program yok, hedefe yazılacak bir şey yok', () => {
-    expect(suggestedTemplate('custom')).toBeUndefined();
   });
 });

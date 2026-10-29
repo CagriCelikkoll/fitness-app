@@ -35,6 +35,7 @@ import {
 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { FALLBACK_REST_SECONDS, useAppSettings } from '@/hooks/useAppSettings';
 import { useColors } from '@/hooks/useTheme';
 import {
@@ -151,7 +152,7 @@ export default function RoutineEditorScreen() {
         const loaded: DraftExercise[] = rows.map((r) => ({
             id: r.re.id,
             exerciseId: r.re.exerciseId,
-            name: r.exercise.nameTr ?? r.exercise.name,
+            name: exerciseDisplayName(r.exercise),
             category: r.exercise.category,
             targetSets: r.re.targetSets != null ? String(r.re.targetSets) : '',
             targetReps: r.re.targetReps ?? '',
@@ -198,7 +199,7 @@ export default function RoutineEditorScreen() {
     const newDrafts: DraftExercise[] = selected.map((ex) => ({
       id: newId(),
       exerciseId: ex.id,
-      name: ex.nameTr ?? ex.name,
+      name: exerciseDisplayName(ex),
       category: ex.category,
       targetSets: ex.category === 'cardio' ? '' : '3',
       targetReps: ex.category === 'cardio' ? '' : '10',

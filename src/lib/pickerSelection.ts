@@ -59,3 +59,48 @@ export function resolveSelection<T extends { id: string }>(
   }
   return result;
 }
+
+/**
+ * Seçim sırası numaraları (1, 2, 3…), id → sıra. Listede rozet olarak
+ * gösteriliyor; onay da bu sırayla dönüyor (`resolveSelection`).
+ */
+export function selectionOrder<T extends { id: string }>(
+  selection: PickerSelection<T>
+): Map<string, number> {
+  return new Map([...selection.keys()].map((id, i) => [id, i + 1]));
+}
+
+/**
+ * Henüz eklenmemiş seçimlerin sayısı: açılışta zaten seçili gelenler
+ * (`initiallySelectedIds`) sayılmaz.
+ */
+export function pendingSelectionCount<T extends { id: string }>(
+  selection: PickerSelection<T>,
+  initiallySelectedIds: readonly string[] = []
+): number {
+  const initial = new Set(initiallySelectedIds);
+  let count = 0;
+  for (const id of selection.keys()) if (!initial.has(id)) count++;
+  return count;
+}
+
+/**
+ * Geri (donanım tuşu, hareket, üstteki kapat) ne yapsın (v3.8): eklenmemiş
+ * seçim varsa onay sor ("Seçimler eklenmedi"), yoksa hemen kapat.
+ */
+export function pickerBackAction<T extends { id: string }>(
+  selection: PickerSelection<T>,
+  initiallySelectedIds: readonly string[] = []
+): 'confirm' | 'close' {
+  return pendingSelectionCount(selection, initiallySelectedIds) > 0 ? 'confirm' : 'close';
+}
+
+/** Alttaki sabit düğme: "6 egzersizi ekle" */
+export function addSelectionLabel(count: number): string {
+  return `${count} egzersizi ekle`;
+}
+
+/** Geri onayının metni */
+export function discardSelectionMessage(count: number): string {
+  return `Seçtiğin ${count} egzersiz eklenmeden çıkılsın mı?`;
+}

@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { inArray } from 'drizzle-orm';
 import { Check, ChevronLeft, Info, Search, X } from 'lucide-react-native';
 
@@ -20,22 +19,31 @@ import { imageFrameClass } from '@/theme';
 import { exercises, type Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
 import {
-  exerciseListCondition,
-  exerciseListOrder,
-} from '@/lib/exerciseFilter';
-import {
   EXERCISE_FILTER_OPTIONS,
   categoryLabel,
   muscleLabels,
 } from '@/lib/exerciseTaxonomy';
 import {
+  OTHER_EXERCISES_TITLE,
+  exerciseDisplayName,
+  exerciseOriginalName,
+  showOtherLabel,
+  type ExerciseListItem,
+} from '@/lib/exerciseCatalog';
+import { useExerciseList } from '@/hooks/useExerciseList';
+import {
+  addSelectionLabel,
+  discardSelectionMessage,
   missingSelectionIds,
+  pendingSelectionCount,
+  pickerBackAction,
   resolveSelection,
   selectionFromIds,
+  selectionOrder,
   toggleInSelection,
   type PickerSelection,
 } from '@/lib/pickerSelection';
-import { Chip, PrimaryButton, SecondaryButton } from '@/components/ui';
+import { Chip, DangerButton, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { ExerciseDetailContent } from '@/components/ExerciseDetailContent';
 
 interface Props {
@@ -73,6 +81,18 @@ export function ExercisePickerModal({
   const [previewExercise, setPreviewExercise] = useState<Exercise | null>(
     null
   );
+  // "Seçimler eklenmedi" onayı (v3.8): ayrı Alert yerine aynı Modal'da
+  // katman — Android Alert'te yıkıcı düğme kırmızı olmuyor.
+  const [confirmingExit, setConfirmingExit] = useState(false);
+  // v3.8: varsayılan liste core; extra "Diğer egzersizleri göster" ile
+  const [showExtra, setShowExtra] = useState(false);
+
+  const { items, refreshUsed } = useExerciseList({
+    filterId,
+    search,
+    showExtra,
+    extraUsedIds: initiallySelectedIds,
+  });
 
   // Modal her açıldığında seçimleri sıfırla — kapatıp tekrar açınca
   // önceki seçimler yapışık kalmasın.
@@ -81,24 +101,14 @@ export function ExercisePickerModal({
       setSelected(selectionFromIds(initiallySelectedIds));
       setSearch('');
       setPreviewExercise(null);
+      setConfirmingExit(false);
+      setShowExtra(false);
+      refreshUsed();
     }
     // initiallySelectedIds referansı her render'da değişebileceği için
     // bağımlılığa sadece visible koyuyoruz (açılış anındaki değer yeterli).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
-
-  const query = useMemo(() => {
-    const option =
-      EXERCISE_FILTER_OPTIONS.find((o) => o.id === filterId) ??
-      EXERCISE_FILTER_OPTIONS[0]!;
-    return db
-      .select()
-      .from(exercises)
-      .where(exerciseListCondition(option.filter, search))
-      .orderBy(...exerciseListOrder(option.filter));
-  }, [db, filterId, search]);
-
-  const { data } = useLiveQuery(query, [filterId, search]);
 
   const toggleSelection = (exercise: Exercise) => {
     setSelected((prev) => toggleInSelection(prev, exercise, singleSelect));
@@ -126,8 +136,34 @@ export function ExercisePickerModal({
         return;
       }
     }
+    setConfirmingExit(false);
     onConfirm(resolveSelection(selected, loaded));
     setSelected(selectionFromIds(initiallySelectedIds));
+  };
+
+  const pendingCount = pendingSelectionCount(selected, initiallySelectedIds);
+  const order = useMemo(() => selectionOrder(selected), [selected]);
+
+  /** Üstteki kapat ve geri: eklenmemiş seçim varsa önce onay */
+  const requestClose = () => {
+    if (pickerBackAction(selected, initiallySelectedIds) === 'confirm') {
+      setConfirmingExit(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const discardAndClose = () => {
+    setConfirmingExit(false);
+    onClose();
+  };
+
+  // Android geri tuşu / hareketi: önce onay katmanı, sonra önizleme
+  // kapansın; seçiciyi en son kapatır
+  const handleBack = () => {
+    if (confirmingExit) setConfirmingExit(false);
+    else if (previewExercise) setPreviewExercise(null);
+    else requestClose();
   };
 
   return (
@@ -135,8 +171,7 @@ export function ExercisePickerModal({
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      // Android geri tuşu önizlemede listeye döndürsün, seçiciyi kapatmasın
-      onRequestClose={previewExercise ? () => setPreviewExercise(null) : onClose}
+      onRequestClose={handleBack}
     >
       <SafeAreaView className="flex-1 bg-bg">
         {previewExercise && (
@@ -157,8 +192,9 @@ export function ExercisePickerModal({
           {/* Header */}
           <View className="flex-row items-center justify-between px-3 py-3 border-b border-border">
             <Pressable
-              onPress={onClose}
+              onPress={requestClose}
               hitSlop={6}
+              accessibilityLabel="Kapat"
               className="w-11 h-11 items-center justify-center rounded-full active:bg-bg-elevated"
             >
               <X color={COLORS.text} size={22} />
@@ -226,16 +262,24 @@ export function ExercisePickerModal({
 
           {/* Liste */}
           <FlatList
-            data={data ?? []}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <PickerRow
-                exercise={item}
-                selected={selected.has(item.id)}
-                onToggle={() => toggleSelection(item)}
-                onPreview={() => setPreviewExercise(item)}
-              />
-            )}
+            data={items ?? []}
+            keyExtractor={listItemKey}
+            renderItem={({ item }) =>
+              item.kind === 'exercise' ? (
+                <PickerRow
+                  exercise={item.exercise}
+                  order={order.get(item.exercise.id) ?? null}
+                  onToggle={() => toggleSelection(item.exercise)}
+                  onPreview={() => setPreviewExercise(item.exercise)}
+                />
+              ) : item.kind === 'otherHeader' ? (
+                <OtherHeader />
+              ) : (
+                <ShowOtherButton count={item.count} onPress={() => setShowExtra(true)} />
+              )
+            }
+            extraData={order}
+            keyboardShouldPersistTaps="handled"
             contentContainerClassName="px-5 pt-1 pb-8"
             ItemSeparatorComponent={() => <View className="h-2" />}
             ListEmptyComponent={
@@ -244,7 +288,28 @@ export function ExercisePickerModal({
               </Text>
             }
           />
+
+          {/* Sabit ekleme düğmesi (v3.8): üstteki küçük düğme gözden
+              kaçıyordu. SafeAreaView alt kenarı gezinme çubuğunun üstünde. */}
+          {selected.size > 0 && (
+            <View className="px-5 pt-3 pb-3 border-t border-border bg-bg">
+              <PrimaryButton
+                label={addSelectionLabel(selected.size)}
+                icon={Check}
+                onPress={() => void handleConfirm()}
+              />
+            </View>
+          )}
         </View>
+
+        {confirmingExit && (
+          <DiscardConfirm
+            count={pendingCount}
+            onAdd={() => void handleConfirm()}
+            onDiscard={discardAndClose}
+            onCancel={() => setConfirmingExit(false)}
+          />
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -276,7 +341,7 @@ function PreviewView({
           className="text-fg text-lg font-semibold tracking-tight flex-1 px-2"
           numberOfLines={1}
         >
-          {exercise.nameTr ?? exercise.name}
+          {exerciseDisplayName(exercise)}
         </Text>
       </View>
 
@@ -299,14 +364,54 @@ function PreviewView({
   );
 }
 
+/**
+ * "Seçimler eklenmedi": eklenmemiş seçim varken geri. Aynı Modal içinde
+ * katman (iç içe Modal yok).
+ */
+function DiscardConfirm({
+  count,
+  onAdd,
+  onDiscard,
+  onCancel,
+}: {
+  count: number;
+  onAdd: () => void;
+  onDiscard: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Pressable
+      className="absolute inset-0 bg-black/60 justify-center px-6"
+      onPress={onCancel}
+      accessibilityViewIsModal
+    >
+      <Pressable
+        onPress={() => {}}
+        className="bg-bg-surface rounded-3xl p-5 gap-3 border border-border"
+      >
+        <Text className="text-fg text-lg font-bold tracking-tight">
+          Seçimler eklenmedi
+        </Text>
+        <Text className="text-muted text-base leading-6 mb-1">
+          {discardSelectionMessage(count)}
+        </Text>
+        <PrimaryButton label="Ekle ve çık" icon={Check} onPress={onAdd} />
+        <DangerButton label="Çıkış yap" solid onPress={onDiscard} />
+        <SecondaryButton label="Vazgeç" onPress={onCancel} />
+      </Pressable>
+    </Pressable>
+  );
+}
+
 function PickerRow({
   exercise,
-  selected,
+  order,
   onToggle,
   onPreview,
 }: {
   exercise: Exercise;
-  selected: boolean;
+  /** Seçim sırası (1, 2, 3…); seçili değilse null */
+  order: number | null;
   onToggle: () => void;
   /** ⓘ: seçimi değiştirmeden önizlemeyi açar */
   onPreview: () => void;
@@ -315,35 +420,52 @@ function PickerRow({
   const { scheme } = useTheme();
   const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
   const muscles = muscleLabels(exercise.primaryMuscles);
-  const displayName = exercise.nameTr ?? exercise.name;
+  const displayName = exerciseDisplayName(exercise);
+  const originalName = exerciseOriginalName(exercise);
+  const selected = order != null;
 
   return (
     <Pressable
       onPress={onToggle}
-      className={`flex-row items-center bg-bg-surface rounded-3xl p-3 border ${
-        selected ? 'border-accent' : 'border-border'
+      accessibilityState={{ selected }}
+      accessibilityLabel={selected ? `${displayName}, ${order}. seçim` : displayName}
+      className={`flex-row items-center rounded-3xl p-3 border ${
+        selected ? 'bg-accent/10 border-accent' : 'bg-bg-surface border-border'
       }`}
     >
-      <View
-        className={`w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center ${imageFrameClass(scheme)}`}
-      >
-        {coverUrl ? (
-          <Image
-            source={{ uri: coverUrl }}
-            style={{ width: 56, height: 56 }}
-            contentFit="cover"
-            cachePolicy={EXERCISE_IMAGE_CACHE}
-          />
-        ) : (
-          <Text className="text-muted text-xs">
-            {exercise.category === 'cardio' ? '🏃' : '💪'}
-          </Text>
+      {/* Görsel + tik (seçiliyse köşede) */}
+      <View>
+        <View
+          className={`w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center ${imageFrameClass(scheme)}`}
+        >
+          {coverUrl ? (
+            <Image
+              source={{ uri: coverUrl }}
+              style={{ width: 56, height: 56 }}
+              contentFit="cover"
+              cachePolicy={EXERCISE_IMAGE_CACHE}
+            />
+          ) : (
+            <Text className="text-muted text-xs">
+              {exercise.category === 'cardio' ? '🏃' : '💪'}
+            </Text>
+          )}
+        </View>
+        {selected && (
+          <View className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent items-center justify-center border-2 border-bg-surface">
+            <Check color={COLORS.accentFg} size={11} strokeWidth={3.5} />
+          </View>
         )}
       </View>
       <View className="flex-1 ml-4">
         <Text className="text-fg text-base font-semibold" numberOfLines={1}>
           {displayName}
         </Text>
+        {originalName != null && (
+          <Text className="text-muted text-xs" numberOfLines={1}>
+            {originalName}
+          </Text>
+        )}
         <Text className="text-muted text-xs mt-1" numberOfLines={1}>
           {muscles.join(', ') || categoryLabel(exercise.category)}
         </Text>
@@ -356,15 +478,44 @@ function PickerRow({
       >
         <Info color={COLORS.muted} size={20} strokeWidth={1.75} />
       </Pressable>
+      {/* Seçim sırası: egzersizler bu sırayla eklenir */}
       <View
         className={`w-7 h-7 rounded-full items-center justify-center mr-1 ${
           selected ? 'bg-accent' : 'border-2 border-border'
         }`}
       >
         {selected && (
-          <Check color={COLORS.accentFg} size={15} strokeWidth={3} />
+          <Text className="text-accent-fg text-sm font-bold tabular-nums">
+            {order}
+          </Text>
         )}
       </View>
+    </Pressable>
+  );
+}
+
+function listItemKey(item: ExerciseListItem<Exercise>): string {
+  return item.kind === 'exercise' ? item.exercise.id : item.kind;
+}
+
+/** Aramada ya da açılınca extra hareketlerin başlığı (v3.8) */
+export function OtherHeader() {
+  return (
+    <Text className="text-muted text-xs font-semibold uppercase tracking-widest px-1 pt-4 pb-1">
+      {OTHER_EXERCISES_TITLE}
+    </Text>
+  );
+}
+
+/** Listenin altında "Diğer egzersizleri göster (N)" */
+export function ShowOtherButton({ count, onPress }: { count: number; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      className="items-center py-4 rounded-2xl active:bg-bg-elevated"
+    >
+      <Text className="text-accent text-sm font-semibold">{showOtherLabel(count)}</Text>
     </Pressable>
   );
 }

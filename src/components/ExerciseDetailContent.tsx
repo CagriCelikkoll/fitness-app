@@ -21,6 +21,7 @@ import { Image } from 'expo-image';
 import { Play } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { exerciseDisplayName, exerciseOriginalName } from '@/lib/exerciseCatalog';
 import { useColors } from '@/hooks/useTheme';
 import type { Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseImageUrls } from '@/lib/exerciseImage';
@@ -85,7 +86,8 @@ export function ExerciseDetailContent({
   const instructions = showOriginal
     ? parseInstructions(exercise.instructions)
     : resolved.steps;
-  const displayName = exercise.nameTr ?? exercise.name;
+  const displayName = exerciseDisplayName(exercise);
+  const originalName = exerciseOriginalName(exercise);
 
   const openVideo = () => {
     Linking.openURL(youtubeSearchUrl(exercise.name)).catch((err) => {
@@ -99,8 +101,8 @@ export function ExerciseDetailContent({
         <Text className="text-fg text-4xl font-bold tracking-tight">
           {displayName}
         </Text>
-        {exercise.nameTr && exercise.nameTr !== exercise.name && (
-          <Text className="text-muted text-sm mt-2">{exercise.name}</Text>
+        {originalName != null && (
+          <Text className="text-muted text-sm mt-2">{originalName}</Text>
         )}
       </View>
 

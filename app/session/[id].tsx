@@ -21,6 +21,7 @@ import { asc, eq } from 'drizzle-orm';
 import { Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { useColors } from '@/hooks/useTheme';
 import {
   cardioSegments,
@@ -295,7 +296,7 @@ function ExerciseDetailCard({
         </Text>
       )}
       <Text className="text-fg text-xl font-semibold tracking-tight">
-        {group.exercise.nameTr ?? group.exercise.name}
+        {exerciseDisplayName(group.exercise)}
       </Text>
 
       {group.sets.length === 0 ? (
@@ -386,7 +387,7 @@ function CardioRow({
   return (
     <View className="border-t border-border pt-3 first:border-t-0 first:pt-0">
       <Text className="text-fg text-base font-semibold">
-        {exercise.nameTr ?? exercise.name}
+        {exerciseDisplayName(exercise)}
       </Text>
       <View className="flex-row gap-4 mt-1">
         <Text className="text-muted text-xs">
