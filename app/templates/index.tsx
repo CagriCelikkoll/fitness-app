@@ -1,8 +1,8 @@
 import { ScrollView, Text, View } from 'react-native';
-import { Link } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
+import { Link, useRouter } from 'expo-router';
+import { ChevronRight, Sparkles } from 'lucide-react-native';
 
-import { Card, SectionHeader } from '@/components/ui';
+import { Card, PrimaryButton, SectionHeader } from '@/components/ui';
 import { useColors } from '@/hooks/useTheme';
 import {
   templateExerciseCount,
@@ -11,11 +11,19 @@ import {
 
 export default function TemplatesScreen() {
   const COLORS = useColors();
+  const router = useRouter();
   return (
     <ScrollView
       className="flex-1 bg-bg"
       contentContainerClassName="px-5 pt-4 gap-3 pb-12"
     >
+      {/* v3.8: mevcut kullanıcılar öneriye buradan ulaşıyor */}
+      <PrimaryButton
+        label="Bana program öner"
+        icon={Sparkles}
+        onPress={() => router.push('/templates/recommend')}
+        className="mb-2"
+      />
       <SectionHeader
         variant="label"
         title="Programı seç, rutinlerine eklensin"

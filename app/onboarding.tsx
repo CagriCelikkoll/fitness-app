@@ -5,7 +5,9 @@
  * 2. Gizlilik — yasal metin bağlantıları ve vücut ölçüsü açık rızası
  *    (kutu boş gelir; işaretsiz "Devam" declined yazar, akış sürer)
  * 3. Profil — boy/doğum tarihi/cinsiyet (Ayarlar'daki formun aynısı)
- * 4. Program — haftalık gün sayısına göre hazır program önerisi
+ * 4. Program — önce hedef (hızlı gelişim / formu koru), sonra haftalık gün
+ *    sayısı (2–6); `ProgramRecommender` (v3.8, Hazır Programlar'daki
+ *    "Bana program öner" ile aynı)
  * 5. İpuçları — ✓ ile onaylama ve yedek alma
  *
  * Tek ekran, adım durumu içeride: adımlar seçilen programı paylaşıyor ve
@@ -21,7 +23,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Pressable,
   ScrollView,
@@ -37,7 +38,6 @@ import {
   Check,
   Dumbbell,
   History,
-  Plus,
   TrendingUp,
   Upload,
   type LucideIcon,
@@ -46,24 +46,13 @@ import {
 import { useDb } from '@/hooks/useDb';
 import { useBackupRestore } from '@/hooks/useBackupRestore';
 import { appSettings, type AppSettings } from '@/db/schema';
-import { applyTemplate } from '@/lib/applyTemplate';
-import {
-  TRAINING_DAYS_OPTIONS,
-  markOnboardingDone,
-  saveGoalForAddedTemplate,
-  suggestedTemplate,
-  type TrainingDaysChoice,
-} from '@/lib/onboarding';
+import { markOnboardingDone } from '@/lib/onboarding';
+import { ProgramRecommender, useProgramRecommender } from '@/components/ProgramRecommender';
 import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { ConsentCard } from '@/components/ConsentCard';
 import { setHealthConsent } from '@/hooks/useHealthConsent';
 import { useColors } from '@/hooks/useTheme';
-import {
-  Card,
-  Chip,
-  PrimaryButton,
-  SecondaryButton,
-} from '@/components/ui';
+import { Card, PrimaryButton } from '@/components/ui';
 
 const STEP_COUNT = 5;
 
@@ -77,9 +66,8 @@ export default function OnboardingScreen() {
   );
 
   const [step, setStep] = useState(0);
-  const [choice, setChoice] = useState<TrainingDaysChoice | null>(null);
-  const [addedTemplateIds, setAddedTemplateIds] = useState<string[]>([]);
-  const [adding, setAdding] = useState(false);
+  // Adımlar arasında gezinince seçimler kalsın diye durum burada
+  const recommender = useProgramRecommender();
   const [finishing, setFinishing] = useState(false);
 
   const next = () => setStep((s) => Math.min(s + 1, STEP_COUNT - 1));
@@ -111,26 +99,6 @@ export default function OnboardingScreen() {
     // Ayarlar'dan açıldıysa sekmelere geri döner, ilk açılışta (sekmeler
     // yığında yok) bu ekranın yerine geçer.
     router.dismissTo('/workout');
-  };
-
-  const addTemplate = async () => {
-    const template = choice != null ? suggestedTemplate(choice) : undefined;
-    if (!template) return;
-    setAdding(true);
-    try {
-      await applyTemplate(db, template);
-      setAddedTemplateIds((ids) => [...ids, template.id]);
-      // Hedef seçimde değil, program eklenince yazılır. Hata programın
-      // eklenmesini geri almasın; sadece loglanır.
-      saveGoalForAddedTemplate(Storage, template).catch((err) =>
-        console.error('[ONBOARDING] Haftalık hedef kaydedilemedi:', err)
-      );
-    } catch (err) {
-      console.error('[ONBOARDING] Program eklenemedi:', err);
-      Alert.alert('Hata', String(err));
-    } finally {
-      setAdding(false);
-    }
   };
 
   // Eski uygulamadan yedekle geçen kullanıcı karşılamayı atlayıp verisine
@@ -242,13 +210,7 @@ export default function OnboardingScreen() {
         {...layout}
         footer={<PrimaryButton label="Devam" onPress={next} />}
       >
-        <ProgramStep
-          choice={choice}
-          onChoose={setChoice}
-          addedTemplateIds={addedTemplateIds}
-          adding={adding}
-          onAdd={() => void addTemplate()}
-        />
+        <ProgramRecommender {...recommender} />
       </StepLayout>
     );
   }
@@ -484,84 +446,6 @@ function ProfileStep({
         <ProfileFields form={form} />
       </Card>
     </StepLayout>
-  );
-}
-
-// ============================================================================
-// 4) Program
-// ============================================================================
-
-function ProgramStep({
-  choice,
-  onChoose,
-  addedTemplateIds,
-  adding,
-  onAdd,
-}: {
-  choice: TrainingDaysChoice | null;
-  onChoose: (choice: TrainingDaysChoice) => void;
-  addedTemplateIds: string[];
-  adding: boolean;
-  onAdd: () => void;
-}) {
-  const COLORS = useColors();
-  const template = choice != null ? suggestedTemplate(choice) : undefined;
-  const added = template != null && addedTemplateIds.includes(template.id);
-
-  return (
-    <>
-      <StepTitle title="Haftada kaç gün antrenman yapmayı düşünüyorsun?" />
-      <View className="flex-row flex-wrap gap-2">
-        {TRAINING_DAYS_OPTIONS.map((opt) => (
-          <Chip
-            key={String(opt.value)}
-            label={opt.label}
-            active={choice === opt.value}
-            onPress={() => onChoose(opt.value)}
-          />
-        ))}
-      </View>
-
-      {choice === 'custom' && (
-        <Card>
-          <Text className="text-fg text-base leading-6">
-            Antrenman sekmesinden kendi rutinlerini oluşturabilirsin. Hazır
-            programlara da istediğin zaman oradan göz atabilirsin.
-          </Text>
-        </Card>
-      )}
-
-      {template && (
-        <Card className="gap-3">
-          <Text className="text-muted text-xs tracking-widest">ÖNERİLEN PROGRAM</Text>
-          <Text className="text-fg text-xl font-semibold tracking-tight">
-            {template.name}
-          </Text>
-          <Text className="text-fg text-sm">
-            {template.days.map((d, i) => `${i + 1}. ${d.name}`).join('  ·  ')}
-          </Text>
-          <Text className="text-muted text-sm leading-5">
-            {template.description}
-          </Text>
-          {added ? (
-            <View className="flex-row items-center gap-2 mt-1">
-              <Check color={COLORS.accent} size={18} strokeWidth={3} />
-              <Text className="text-accent text-sm font-semibold">
-                {template.dayCount} rutin Antrenman sekmesine eklendi
-              </Text>
-            </View>
-          ) : (
-            <SecondaryButton
-              label="Bu programı ekle"
-              icon={Plus}
-              loading={adding}
-              onPress={onAdd}
-              className="mt-1"
-            />
-          )}
-        </Card>
-      )}
-    </>
   );
 }
 

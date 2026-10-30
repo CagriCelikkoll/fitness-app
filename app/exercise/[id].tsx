@@ -4,6 +4,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq } from 'drizzle-orm';
 
 import { useDb } from '@/hooks/useDb';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { useColors } from '@/hooks/useTheme';
 import { exercises } from '@/db/schema';
 import { ExerciseDetailContent } from '@/components/ExerciseDetailContent';
@@ -38,7 +39,7 @@ export default function ExerciseDetailScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: exercise.nameTr ?? exercise.name }} />
+      <Stack.Screen options={{ title: exerciseDisplayName(exercise) }} />
       <ScrollView
         className="flex-1 bg-bg"
         contentContainerClassName="px-5 pt-4 gap-3 pb-10"

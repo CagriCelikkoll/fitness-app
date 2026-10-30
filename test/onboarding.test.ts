@@ -15,11 +15,9 @@ import {
   isOnboardingDone,
   markOnboardingDone,
   shouldShowOnboarding,
-  suggestedTemplate,
-  templateIdForDays,
   type KeyValueStore,
 } from '@/lib/onboarding';
-import { WORKOUT_TEMPLATES } from '@/lib/workoutTemplates';
+import { DAY_OPTIONS } from '@/lib/programRecommendation';
 
 function memoryStore(initial: Record<string, string> = {}): KeyValueStore & {
   data: Map<string, string>;
@@ -60,27 +58,18 @@ describe('shouldShowOnboarding', () => {
   });
 });
 
-describe('gün → program eşlemesi', () => {
-  it('2 → ant-post, 3 → ppl, 4 → split4, kendi programı → null', () => {
-    expect(templateIdForDays(2)).toBe('ant-post');
-    expect(templateIdForDays(3)).toBe('ppl');
-    expect(templateIdForDays(4)).toBe('split4');
-    expect(templateIdForDays('custom')).toBeNull();
-  });
-
-  it('önerilen her şablon id WORKOUT_TEMPLATES içinde var', () => {
-    const ids = new Set(WORKOUT_TEMPLATES.map((t) => t.id));
-    for (const opt of TRAINING_DAYS_OPTIONS) {
-      const id = templateIdForDays(opt.value);
-      if (id != null) expect(ids.has(id), id).toBe(true);
-    }
-  });
-
-  it('önerilen programın gün sayısı seçimle aynı', () => {
-    for (const days of [2, 3, 4] as const) {
-      expect(suggestedTemplate(days)?.dayCount).toBe(days);
-    }
-    expect(suggestedTemplate('custom')).toBeUndefined();
+// Gün × hedef → program eşlemesi test/programRecommendation.test.ts'te
+describe('gün seçenekleri (v3.8)', () => {
+  it('2–6 gün ve "kendi programım"', () => {
+    expect(TRAINING_DAYS_OPTIONS.map((o) => o.value)).toEqual([...DAY_OPTIONS, 'custom']);
+    expect(TRAINING_DAYS_OPTIONS.map((o) => o.label)).toEqual([
+      '2 gün',
+      '3 gün',
+      '4 gün',
+      '5 gün',
+      '6 gün',
+      'Kendi programımı kuracağım',
+    ]);
   });
 });
 

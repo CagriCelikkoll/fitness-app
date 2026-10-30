@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -8,20 +8,16 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { Search, X } from 'lucide-react-native';
 
-import { useDb } from '@/hooks/useDb';
+import { useExerciseList } from '@/hooks/useExerciseList';
 import { useColors, useTheme } from '@/hooks/useTheme';
 import { imageFrameClass } from '@/theme';
-import { exercises, type Exercise } from '@/db/schema';
+import { type Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
-import {
-  exerciseListCondition,
-  exerciseListOrder,
-} from '@/lib/exerciseFilter';
+import { exerciseDisplayName, exerciseOriginalName } from '@/lib/exerciseCatalog';
 import {
   EXERCISE_FILTER_OPTIONS,
   categoryLabel,
@@ -29,28 +25,23 @@ import {
   muscleLabels,
 } from '@/lib/exerciseTaxonomy';
 import { Chip } from '@/components/ui';
+import { OtherHeader, ShowOtherButton } from '@/components/ExercisePickerModal';
 
 export default function ExercisesScreen() {
   const COLORS = useColors();
-  const db = useDb();
-
   const [search, setSearch] = useState('');
   const [filterId, setFilterId] = useState('all');
+  // v3.8: varsayılan liste core; extra "Diğer egzersizleri göster" ile
+  const [showExtra, setShowExtra] = useState(false);
 
-  // useLiveQuery — DB değişikliklerini reaktif olarak takip eder.
-  // Kullanıcı yeni custom egzersiz eklediğinde anında listede çıkar.
-  const baseQuery = useMemo(() => {
-    const option =
-      EXERCISE_FILTER_OPTIONS.find((o) => o.id === filterId) ??
-      EXERCISE_FILTER_OPTIONS[0]!;
-    return db
-      .select()
-      .from(exercises)
-      .where(exerciseListCondition(option.filter, search))
-      .orderBy(...exerciseListOrder(option.filter));
-  }, [db, filterId, search]);
-
-  const { data, error } = useLiveQuery(baseQuery, [filterId, search]);
+  // Liste canlı (yeni özel egzersiz anında çıkar); kullanılanlar odakta
+  const { items: data, error, refreshUsed } = useExerciseList({ filterId, search, showExtra });
+  useFocusEffect(
+    useCallback(() => {
+      refreshUsed();
+    }, [refreshUsed])
+  );
+  const shownCount = data?.filter((i) => i.kind === 'exercise').length ?? 0;
 
   if (error) {
     return (
@@ -114,8 +105,16 @@ export default function ExercisesScreen() {
       ) : (
         <FlatList
           data={data}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ExerciseRow exercise={item} />}
+          keyExtractor={(item) => (item.kind === 'exercise' ? item.exercise.id : item.kind)}
+          renderItem={({ item }) =>
+            item.kind === 'exercise' ? (
+              <ExerciseRow exercise={item.exercise} />
+            ) : item.kind === 'otherHeader' ? (
+              <OtherHeader />
+            ) : (
+              <ShowOtherButton count={item.count} onPress={() => setShowExtra(true)} />
+            )
+          }
           contentContainerClassName="px-5 pb-12"
           ItemSeparatorComponent={() => <View className="h-2" />}
         />
@@ -125,7 +124,7 @@ export default function ExercisesScreen() {
       {data && data.length > 0 && (
         <View className="absolute bottom-0 left-0 right-0 bg-bg/90 border-t border-border px-5 py-1.5">
           <Text className="text-muted/70 text-[11px] tracking-wide text-center tabular-nums">
-            {data.length} egzersiz gösteriliyor
+            {shownCount} egzersiz gösteriliyor
           </Text>
         </View>
       )}
@@ -137,7 +136,8 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
   const { scheme } = useTheme();
   const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
   const muscles = muscleLabels(exercise.primaryMuscles);
-  const displayName = exercise.nameTr ?? exercise.name;
+  const displayName = exerciseDisplayName(exercise);
+  const originalName = exerciseOriginalName(exercise);
 
   return (
     <Link href={`/exercise/${exercise.id}`} asChild>
@@ -162,14 +162,16 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
           <Text className="text-fg text-base font-semibold" numberOfLines={1}>
             {displayName}
           </Text>
-          <Text className="text-muted text-xs mt-1" numberOfLines={1}>
-            {muscles.join(', ') || categoryLabel(exercise.category)}
-          </Text>
-          {exercise.equipment && (
-            <Text className="text-muted/70 text-xs mt-0.5" numberOfLines={1}>
-              {equipmentLabel(exercise.equipment)}
+          {originalName != null && (
+            <Text className="text-muted text-xs" numberOfLines={1}>
+              {originalName}
             </Text>
           )}
+          <Text className="text-muted text-xs mt-1" numberOfLines={1}>
+            {[muscles.join(', ') || categoryLabel(exercise.category), exercise.equipment && equipmentLabel(exercise.equipment)]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
         </View>
       </Pressable>
     </Link>

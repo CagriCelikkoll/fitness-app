@@ -69,7 +69,8 @@ describe('form', () => {
   });
 
   it('sunucudaki sınırlar ve kategoriler aynı', () => {
-    const sql = readFileSync(path.join(ROOT, 'supabase/migrations/0013_feedback.sql'), 'utf8');
+    // Satır sonu git ayarına göre CRLF olabilir (core.autocrlf)
+    const sql = readFileSync(path.join(ROOT, 'supabase/migrations/0013_feedback.sql'), 'utf8').replace(/\r\n/g, '\n');
     expect(sql).toContain('char_length(btrim(body)) between 5 and 1000');
     expect(sql).toContain(">= 5 then\n    raise exception 'feedback_daily_limit'");
     for (const c of FEEDBACK_CATEGORIES) expect(sql).toContain(`'${c.key}'`);

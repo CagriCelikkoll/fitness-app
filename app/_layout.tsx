@@ -205,6 +205,10 @@ function RootStack() {
         options={{ title: 'Program' }}
       />
       <Stack.Screen
+        name="templates/recommend"
+        options={{ title: 'Program önerisi' }}
+      />
+      <Stack.Screen
         name="metrics/[date]"
         options={{ title: 'Ölçüm', presentation: 'modal' }}
       />

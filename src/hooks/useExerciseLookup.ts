@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { inArray } from 'drizzle-orm';
 
 import { exercises } from '@/db/schema';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { useDb } from '@/hooks/useDb';
 
 export interface ExerciseInfo {
@@ -47,7 +48,7 @@ export function useExerciseLookup(ids: readonly string[]): { byId: Map<string, E
         byId: new Map(
           rows.map((r) => [
             r.id,
-            { id: r.id, name: r.nameTr ?? r.name, imagePaths: r.imagePaths, category: r.category, isCustom: r.isCustom },
+            { id: r.id, name: exerciseDisplayName(r), imagePaths: r.imagePaths, category: r.category, isCustom: r.isCustom },
           ])
         ),
       });

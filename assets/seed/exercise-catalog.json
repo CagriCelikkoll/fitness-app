@@ -1,0 +1,1182 @@
+{
+  "Barbell_Bench_Press_-_Medium_Grip": {
+    "tier": "core",
+    "tr": "Bench press (barbell)",
+    "aliases": [
+      "göğüs press",
+      "düz bench"
+    ]
+  },
+  "Barbell_Incline_Bench_Press_-_Medium_Grip": {
+    "tier": "core",
+    "tr": "Incline bench press (barbell)",
+    "aliases": [
+      "eğimli bench",
+      "üst göğüs"
+    ]
+  },
+  "Decline_Barbell_Bench_Press": {
+    "tier": "core",
+    "tr": "Decline bench press (barbell)",
+    "aliases": [
+      "alt göğüs"
+    ]
+  },
+  "Dumbbell_Bench_Press": {
+    "tier": "core",
+    "tr": "Dambıl bench press",
+    "aliases": [
+      "dumbbell press",
+      "db press"
+    ]
+  },
+  "Incline_Dumbbell_Press": {
+    "tier": "core",
+    "tr": "Incline dambıl press",
+    "aliases": [
+      "eğimli dambıl press",
+      "üst göğüs"
+    ]
+  },
+  "Decline_Dumbbell_Bench_Press": {
+    "tier": "core",
+    "tr": "Decline dambıl press",
+    "aliases": [
+      "alt göğüs"
+    ]
+  },
+  "Hammer_Grip_Incline_DB_Bench_Press": {
+    "tier": "core",
+    "tr": "Nötr tutuş incline dambıl press"
+  },
+  "Smith_Machine_Bench_Press": {
+    "tier": "core",
+    "tr": "Smith bench press"
+  },
+  "Smith_Machine_Incline_Bench_Press": {
+    "tier": "core",
+    "tr": "Smith incline press"
+  },
+  "Machine_Bench_Press": {
+    "tier": "core",
+    "tr": "Makinede göğüs press (oturarak)",
+    "aliases": [
+      "chest press",
+      "göğüs makinesi"
+    ]
+  },
+  "Leverage_Chest_Press": {
+    "tier": "core",
+    "tr": "Göğüs press makinesi",
+    "aliases": [
+      "chest press",
+      "chest press machine",
+      "göğüs makinesi"
+    ]
+  },
+  "Leverage_Incline_Chest_Press": {
+    "tier": "core",
+    "tr": "Incline göğüs press makinesi",
+    "aliases": [
+      "incline chest press",
+      "üst göğüs makinesi"
+    ]
+  },
+  "Cable_Chest_Press": {
+    "tier": "core",
+    "tr": "Kabloda göğüs press"
+  },
+  "Butterfly": {
+    "tier": "core",
+    "tr": "Pec deck (butterfly)",
+    "aliases": [
+      "pec deck",
+      "peck deck",
+      "kelebek",
+      "fly makinesi"
+    ]
+  },
+  "Dumbbell_Flyes": {
+    "tier": "core",
+    "tr": "Dambıl fly (düz sehpa)",
+    "aliases": [
+      "dambıl açış",
+      "chest fly"
+    ]
+  },
+  "Incline_Dumbbell_Flyes": {
+    "tier": "core",
+    "tr": "Incline dambıl fly",
+    "aliases": [
+      "eğimli açış"
+    ]
+  },
+  "Cable_Crossover": {
+    "tier": "core",
+    "tr": "Kablo crossover",
+    "aliases": [
+      "crossover",
+      "kablo açış"
+    ]
+  },
+  "Low_Cable_Crossover": {
+    "tier": "core",
+    "tr": "Alttan kablo crossover",
+    "aliases": [
+      "crossover",
+      "kablo açış"
+    ]
+  },
+  "Incline_Cable_Flye": {
+    "tier": "core",
+    "tr": "Incline kablo fly"
+  },
+  "Dips_-_Chest_Version": {
+    "tier": "core",
+    "tr": "Paralel bar dips (göğüs)",
+    "aliases": [
+      "dips",
+      "paralel"
+    ]
+  },
+  "Pushups": {
+    "tier": "core",
+    "tr": "Şınav",
+    "aliases": [
+      "push up",
+      "push-up"
+    ]
+  },
+  "Incline_Push-Up": {
+    "tier": "core",
+    "tr": "Eğimli şınav (eller yüksekte)"
+  },
+  "Push-Ups_With_Feet_Elevated": {
+    "tier": "core",
+    "tr": "Ayaklar yüksekte şınav"
+  },
+  "Straight-Arm_Dumbbell_Pullover": {
+    "tier": "core",
+    "tr": "Dambıl pullover"
+  },
+  "Pullups": {
+    "tier": "core",
+    "tr": "Barfiks",
+    "aliases": [
+      "pull up",
+      "pull-up"
+    ]
+  },
+  "Chin-Up": {
+    "tier": "core",
+    "tr": "Ters tutuş barfiks (chin-up)",
+    "aliases": [
+      "chin up",
+      "chinup"
+    ]
+  },
+  "Band_Assisted_Pull-Up": {
+    "tier": "core",
+    "tr": "Lastik destekli barfiks",
+    "aliases": [
+      "assisted pull-up",
+      "destekli barfiks"
+    ]
+  },
+  "Wide-Grip_Lat_Pulldown": {
+    "tier": "core",
+    "tr": "Lat pulldown (geniş tutuş)",
+    "aliases": [
+      "lat çekiş",
+      "sırt çekiş",
+      "önden çekiş",
+      "lat pull down"
+    ]
+  },
+  "Close-Grip_Front_Lat_Pulldown": {
+    "tier": "core",
+    "tr": "Dar tutuş lat pulldown",
+    "aliases": [
+      "lat çekiş",
+      "sırt çekiş"
+    ]
+  },
+  "Underhand_Cable_Pulldowns": {
+    "tier": "core",
+    "tr": "Ters tutuş lat pulldown",
+    "aliases": [
+      "lat çekiş",
+      "sırt çekiş"
+    ]
+  },
+  "V-Bar_Pulldown": {
+    "tier": "core",
+    "tr": "V-bar lat pulldown",
+    "aliases": [
+      "lat çekiş",
+      "sırt çekiş"
+    ]
+  },
+  "Straight-Arm_Pulldown": {
+    "tier": "core",
+    "tr": "Düz kol pulldown",
+    "aliases": [
+      "kablo pullover"
+    ]
+  },
+  "Seated_Cable_Rows": {
+    "tier": "core",
+    "tr": "Oturarak kablo row",
+    "aliases": [
+      "seated row",
+      "cable row",
+      "kablo kürek",
+      "oturarak çekiş"
+    ]
+  },
+  "Bent_Over_Barbell_Row": {
+    "tier": "core",
+    "tr": "Barbell row (eğilerek)",
+    "aliases": [
+      "barbell row",
+      "kürek çekiş",
+      "eğilerek kürek"
+    ]
+  },
+  "Reverse_Grip_Bent-Over_Rows": {
+    "tier": "core",
+    "tr": "Ters tutuş barbell row"
+  },
+  "One-Arm_Dumbbell_Row": {
+    "tier": "core",
+    "tr": "Tek kol dambıl row",
+    "aliases": [
+      "dumbbell row",
+      "tek kol kürek"
+    ]
+  },
+  "Bent_Over_Two-Dumbbell_Row": {
+    "tier": "core",
+    "tr": "Çift dambıl row",
+    "aliases": [
+      "dumbbell row",
+      "kürek çekiş"
+    ]
+  },
+  "Dumbbell_Incline_Row": {
+    "tier": "core",
+    "tr": "Incline sehpada dambıl row"
+  },
+  "T-Bar_Row_with_Handle": {
+    "tier": "core",
+    "tr": "T-bar row",
+    "aliases": [
+      "t bar"
+    ]
+  },
+  "Lying_T-Bar_Row": {
+    "tier": "core",
+    "tr": "Göğüs destekli T-bar row (makine)"
+  },
+  "Leverage_High_Row": {
+    "tier": "core",
+    "tr": "High row makinesi",
+    "aliases": [
+      "row machine",
+      "sırt makinesi"
+    ]
+  },
+  "Leverage_Iso_Row": {
+    "tier": "core",
+    "tr": "Row makinesi",
+    "aliases": [
+      "row machine",
+      "sırt makinesi"
+    ]
+  },
+  "Inverted_Row": {
+    "tier": "core",
+    "tr": "Inverted row"
+  },
+  "Barbell_Deadlift": {
+    "tier": "core",
+    "tr": "Deadlift",
+    "aliases": [
+      "ölü kaldırma"
+    ]
+  },
+  "Rack_Pulls": {
+    "tier": "core",
+    "tr": "Rack pull"
+  },
+  "Hyperextensions_Back_Extensions": {
+    "tier": "core",
+    "tr": "Back extension",
+    "aliases": [
+      "hiperekstansiyon",
+      "hyperextension",
+      "bel"
+    ]
+  },
+  "Barbell_Shoulder_Press": {
+    "tier": "core",
+    "tr": "Barbell omuz press (oturarak)",
+    "aliases": [
+      "ohp",
+      "overhead press",
+      "omuz press"
+    ]
+  },
+  "Standing_Military_Press": {
+    "tier": "core",
+    "tr": "Military press (ayakta)",
+    "aliases": [
+      "ohp",
+      "overhead press",
+      "omuz press"
+    ]
+  },
+  "Dumbbell_Shoulder_Press": {
+    "tier": "core",
+    "tr": "Dambıl omuz press",
+    "aliases": [
+      "omuz press"
+    ]
+  },
+  "Seated_Dumbbell_Press": {
+    "tier": "core",
+    "tr": "Oturarak dambıl omuz press",
+    "aliases": [
+      "omuz press"
+    ]
+  },
+  "Arnold_Dumbbell_Press": {
+    "tier": "core",
+    "tr": "Arnold press"
+  },
+  "Machine_Shoulder_Military_Press": {
+    "tier": "core",
+    "tr": "Omuz press makinesi",
+    "aliases": [
+      "shoulder press machine",
+      "omuz makinesi"
+    ]
+  },
+  "Smith_Machine_Overhead_Shoulder_Press": {
+    "tier": "core",
+    "tr": "Smith omuz press"
+  },
+  "Side_Lateral_Raise": {
+    "tier": "core",
+    "tr": "Lateral raise (yana açış)",
+    "aliases": [
+      "yana kaldırma",
+      "yan omuz"
+    ]
+  },
+  "Seated_Side_Lateral_Raise": {
+    "tier": "core",
+    "tr": "Oturarak lateral raise",
+    "aliases": [
+      "yana kaldırma",
+      "yan omuz"
+    ]
+  },
+  "Cable_Seated_Lateral_Raise": {
+    "tier": "core",
+    "tr": "Kabloda lateral raise",
+    "aliases": [
+      "yana kaldırma",
+      "yan omuz"
+    ]
+  },
+  "Front_Dumbbell_Raise": {
+    "tier": "core",
+    "tr": "Front raise (dambıl)",
+    "aliases": [
+      "ön omuz kaldırma",
+      "önden kaldırma"
+    ]
+  },
+  "Front_Two-Dumbbell_Raise": {
+    "tier": "core",
+    "tr": "Çift dambıl front raise",
+    "aliases": [
+      "ön omuz kaldırma",
+      "önden kaldırma"
+    ]
+  },
+  "Front_Cable_Raise": {
+    "tier": "core",
+    "tr": "Kabloda front raise",
+    "aliases": [
+      "ön omuz kaldırma",
+      "önden kaldırma"
+    ]
+  },
+  "Front_Plate_Raise": {
+    "tier": "core",
+    "tr": "Plakayla front raise",
+    "aliases": [
+      "ön omuz kaldırma",
+      "önden kaldırma"
+    ]
+  },
+  "Reverse_Flyes": {
+    "tier": "core",
+    "tr": "Ters fly (arka omuz, dambıl)",
+    "aliases": [
+      "rear delt",
+      "arka omuz"
+    ]
+  },
+  "Reverse_Machine_Flyes": {
+    "tier": "core",
+    "tr": "Ters pec deck (arka omuz)",
+    "aliases": [
+      "reverse pec deck",
+      "rear delt",
+      "arka omuz"
+    ]
+  },
+  "Cable_Rear_Delt_Fly": {
+    "tier": "core",
+    "tr": "Kabloda arka omuz fly",
+    "aliases": [
+      "rear delt",
+      "arka omuz"
+    ]
+  },
+  "Seated_Bent-Over_Rear_Delt_Raise": {
+    "tier": "core",
+    "tr": "Oturarak eğilip arka omuz kaldırma",
+    "aliases": [
+      "rear delt",
+      "arka omuz"
+    ]
+  },
+  "Face_Pull": {
+    "tier": "core",
+    "tr": "Face pull",
+    "aliases": [
+      "yüze çekiş",
+      "arka omuz"
+    ]
+  },
+  "Upright_Barbell_Row": {
+    "tier": "core",
+    "tr": "Upright row (barbell)",
+    "aliases": [
+      "dik çekiş",
+      "çeneye çekiş"
+    ]
+  },
+  "Standing_Dumbbell_Upright_Row": {
+    "tier": "core",
+    "tr": "Dambıl upright row",
+    "aliases": [
+      "dik çekiş",
+      "çeneye çekiş"
+    ]
+  },
+  "External_Rotation_with_Cable": {
+    "tier": "core",
+    "tr": "Kabloda dış rotasyon"
+  },
+  "Barbell_Shrug": {
+    "tier": "core",
+    "tr": "Barbell shrug",
+    "aliases": [
+      "omuz silkme",
+      "trapez"
+    ]
+  },
+  "Dumbbell_Shrug": {
+    "tier": "core",
+    "tr": "Dambıl shrug",
+    "aliases": [
+      "omuz silkme",
+      "trapez"
+    ]
+  },
+  "Barbell_Curl": {
+    "tier": "core",
+    "tr": "Barbell curl",
+    "aliases": [
+      "pazı",
+      "biceps"
+    ]
+  },
+  "EZ-Bar_Curl": {
+    "tier": "core",
+    "tr": "EZ bar curl",
+    "aliases": [
+      "pazı",
+      "biceps"
+    ]
+  },
+  "Dumbbell_Bicep_Curl": {
+    "tier": "core",
+    "tr": "Dambıl biceps curl",
+    "aliases": [
+      "pazı",
+      "dumbbell curl"
+    ]
+  },
+  "Dumbbell_Alternate_Bicep_Curl": {
+    "tier": "core",
+    "tr": "Dönüşümlü dambıl curl",
+    "aliases": [
+      "pazı",
+      "dumbbell curl"
+    ]
+  },
+  "Hammer_Curls": {
+    "tier": "core",
+    "tr": "Hammer curl",
+    "aliases": [
+      "çekiç curl"
+    ]
+  },
+  "Alternate_Hammer_Curl": {
+    "tier": "core",
+    "tr": "Dönüşümlü hammer curl",
+    "aliases": [
+      "çekiç curl"
+    ]
+  },
+  "Cable_Hammer_Curls_-_Rope_Attachment": {
+    "tier": "core",
+    "tr": "Halatla kablo hammer curl"
+  },
+  "Incline_Dumbbell_Curl": {
+    "tier": "core",
+    "tr": "Incline dambıl curl"
+  },
+  "Concentration_Curls": {
+    "tier": "core",
+    "tr": "Concentration curl",
+    "aliases": [
+      "konsantrasyon curl",
+      "pazı"
+    ]
+  },
+  "Preacher_Curl": {
+    "tier": "core",
+    "tr": "Preacher curl (barbell / EZ)",
+    "aliases": [
+      "scott curl"
+    ]
+  },
+  "One_Arm_Dumbbell_Preacher_Curl": {
+    "tier": "core",
+    "tr": "Tek kol dambıl preacher curl",
+    "aliases": [
+      "scott curl"
+    ]
+  },
+  "Machine_Preacher_Curls": {
+    "tier": "core",
+    "tr": "Preacher curl makinesi",
+    "aliases": [
+      "scott curl"
+    ]
+  },
+  "Machine_Bicep_Curl": {
+    "tier": "core",
+    "tr": "Biceps curl makinesi"
+  },
+  "Standing_Biceps_Cable_Curl": {
+    "tier": "core",
+    "tr": "Kabloda biceps curl"
+  },
+  "Spider_Curl": {
+    "tier": "core",
+    "tr": "Spider curl"
+  },
+  "Reverse_Barbell_Curl": {
+    "tier": "core",
+    "tr": "Ters tutuş barbell curl"
+  },
+  "Triceps_Pushdown": {
+    "tier": "core",
+    "tr": "Triceps pushdown (düz bar)",
+    "aliases": [
+      "pushdown",
+      "arka kol"
+    ]
+  },
+  "Triceps_Pushdown_-_Rope_Attachment": {
+    "tier": "core",
+    "tr": "Halatla triceps pushdown",
+    "aliases": [
+      "rope pushdown",
+      "halat pushdown",
+      "arka kol"
+    ]
+  },
+  "Triceps_Pushdown_-_V-Bar_Attachment": {
+    "tier": "core",
+    "tr": "V-bar triceps pushdown",
+    "aliases": [
+      "pushdown",
+      "arka kol"
+    ]
+  },
+  "Cable_One_Arm_Tricep_Extension": {
+    "tier": "core",
+    "tr": "Tek kol kablo triceps extension"
+  },
+  "Triceps_Overhead_Extension_with_Rope": {
+    "tier": "core",
+    "tr": "Halatla baş üstü triceps extension",
+    "aliases": [
+      "kablo french press",
+      "arka kol"
+    ]
+  },
+  "EZ-Bar_Skullcrusher": {
+    "tier": "core",
+    "tr": "Skull crusher (EZ bar)",
+    "aliases": [
+      "french press",
+      "alına indirme"
+    ]
+  },
+  "Lying_Triceps_Press": {
+    "tier": "core",
+    "tr": "Lying triceps press",
+    "aliases": [
+      "french press"
+    ]
+  },
+  "Lying_Dumbbell_Tricep_Extension": {
+    "tier": "core",
+    "tr": "Yatarak dambıl triceps extension"
+  },
+  "Standing_Dumbbell_Triceps_Extension": {
+    "tier": "core",
+    "tr": "Baş üstü dambıl triceps extension",
+    "aliases": [
+      "dambıl french press"
+    ]
+  },
+  "Seated_Triceps_Press": {
+    "tier": "core",
+    "tr": "Oturarak baş üstü triceps press"
+  },
+  "Tricep_Dumbbell_Kickback": {
+    "tier": "core",
+    "tr": "Triceps kickback",
+    "aliases": [
+      "arka kol"
+    ]
+  },
+  "Close-Grip_Barbell_Bench_Press": {
+    "tier": "core",
+    "tr": "Dar tutuş bench press"
+  },
+  "Dips_-_Triceps_Version": {
+    "tier": "core",
+    "tr": "Paralel bar dips (triceps)"
+  },
+  "Bench_Dips": {
+    "tier": "core",
+    "tr": "Sehpa dips"
+  },
+  "Dip_Machine": {
+    "tier": "core",
+    "tr": "Dips makinesi"
+  },
+  "Machine_Triceps_Extension": {
+    "tier": "core",
+    "tr": "Triceps extension makinesi"
+  },
+  "Push-Ups_-_Close_Triceps_Position": {
+    "tier": "core",
+    "tr": "Dar şınav"
+  },
+  "Seated_Palm-Up_Barbell_Wrist_Curl": {
+    "tier": "core",
+    "tr": "Barbell bilek curl"
+  },
+  "Seated_Dumbbell_Palms-Up_Wrist_Curl": {
+    "tier": "core",
+    "tr": "Dambıl bilek curl"
+  },
+  "Wrist_Roller": {
+    "tier": "core",
+    "tr": "Bilek sarma (wrist roller)"
+  },
+  "Barbell_Squat": {
+    "tier": "core",
+    "tr": "Squat (barbell)",
+    "aliases": [
+      "back squat",
+      "çömelme"
+    ]
+  },
+  "Front_Barbell_Squat": {
+    "tier": "core",
+    "tr": "Front squat",
+    "aliases": [
+      "önden squat"
+    ]
+  },
+  "Box_Squat": {
+    "tier": "core",
+    "tr": "Box squat"
+  },
+  "Goblet_Squat": {
+    "tier": "core",
+    "tr": "Goblet squat"
+  },
+  "Dumbbell_Squat": {
+    "tier": "core",
+    "tr": "Dambıl squat"
+  },
+  "Smith_Machine_Squat": {
+    "tier": "core",
+    "tr": "Smith squat"
+  },
+  "Hack_Squat": {
+    "tier": "core",
+    "tr": "Hack squat makinesi",
+    "aliases": [
+      "hack squat machine"
+    ]
+  },
+  "Leg_Press": {
+    "tier": "core",
+    "tr": "Leg press",
+    "aliases": [
+      "bacak press"
+    ]
+  },
+  "Leg_Extensions": {
+    "tier": "core",
+    "tr": "Leg extension",
+    "aliases": [
+      "leg extension",
+      "ön bacak makinesi",
+      "quadriceps makinesi"
+    ]
+  },
+  "Barbell_Lunge": {
+    "tier": "core",
+    "tr": "Barbell lunge",
+    "aliases": [
+      "hamle"
+    ]
+  },
+  "Dumbbell_Lunges": {
+    "tier": "core",
+    "tr": "Dambıl lunge",
+    "aliases": [
+      "hamle"
+    ]
+  },
+  "Dumbbell_Rear_Lunge": {
+    "tier": "core",
+    "tr": "Geri lunge (dambıl)",
+    "aliases": [
+      "hamle",
+      "reverse lunge"
+    ]
+  },
+  "Barbell_Walking_Lunge": {
+    "tier": "core",
+    "tr": "Yürüyen lunge (barbell)",
+    "aliases": [
+      "hamle",
+      "walking lunge"
+    ]
+  },
+  "Bodyweight_Walking_Lunge": {
+    "tier": "core",
+    "tr": "Yürüyen lunge",
+    "aliases": [
+      "hamle",
+      "walking lunge"
+    ]
+  },
+  "Split_Squat_with_Dumbbells": {
+    "tier": "core",
+    "tr": "Bulgarian split squat (dambıl)",
+    "aliases": [
+      "bulgarian split squat",
+      "bulgar squat",
+      "rear foot elevated"
+    ]
+  },
+  "Smith_Single-Leg_Split_Squat": {
+    "tier": "core",
+    "tr": "Smith Bulgarian split squat",
+    "aliases": [
+      "bulgarian split squat",
+      "bulgar squat"
+    ]
+  },
+  "Dumbbell_Step_Ups": {
+    "tier": "core",
+    "tr": "Step-up (dambıl)",
+    "aliases": [
+      "basamak çıkma"
+    ]
+  },
+  "Bodyweight_Squat": {
+    "tier": "core",
+    "tr": "Vücut ağırlığıyla squat"
+  },
+  "Plie_Dumbbell_Squat": {
+    "tier": "core",
+    "tr": "Sumo squat (dambıl)"
+  },
+  "Trap_Bar_Deadlift": {
+    "tier": "core",
+    "tr": "Trap bar deadlift"
+  },
+  "Romanian_Deadlift": {
+    "tier": "core",
+    "tr": "Romanian deadlift (RDL)",
+    "aliases": [
+      "rdl",
+      "romen deadlift"
+    ]
+  },
+  "Stiff-Legged_Dumbbell_Deadlift": {
+    "tier": "core",
+    "tr": "Dambıl RDL / stiff-leg deadlift",
+    "aliases": [
+      "rdl",
+      "romen deadlift"
+    ]
+  },
+  "Stiff-Legged_Barbell_Deadlift": {
+    "tier": "core",
+    "tr": "Stiff-leg deadlift (barbell)",
+    "aliases": [
+      "düz bacak deadlift"
+    ]
+  },
+  "Smith_Machine_Stiff-Legged_Deadlift": {
+    "tier": "core",
+    "tr": "Smith RDL",
+    "aliases": [
+      "rdl",
+      "romen deadlift"
+    ]
+  },
+  "Sumo_Deadlift": {
+    "tier": "core",
+    "tr": "Sumo deadlift"
+  },
+  "Good_Morning": {
+    "tier": "core",
+    "tr": "Good morning"
+  },
+  "Lying_Leg_Curls": {
+    "tier": "core",
+    "tr": "Yatarak leg curl",
+    "aliases": [
+      "arka bacak makinesi",
+      "hamstring curl"
+    ]
+  },
+  "Seated_Leg_Curl": {
+    "tier": "core",
+    "tr": "Oturarak leg curl",
+    "aliases": [
+      "arka bacak makinesi",
+      "hamstring curl"
+    ]
+  },
+  "Standing_Leg_Curl": {
+    "tier": "core",
+    "tr": "Ayakta leg curl",
+    "aliases": [
+      "arka bacak makinesi",
+      "hamstring curl"
+    ]
+  },
+  "Kettlebell_One-Legged_Deadlift": {
+    "tier": "core",
+    "tr": "Tek bacak deadlift (kettlebell)"
+  },
+  "One-Arm_Kettlebell_Swings": {
+    "tier": "core",
+    "tr": "Kettlebell swing",
+    "aliases": [
+      "swing"
+    ]
+  },
+  "Barbell_Hip_Thrust": {
+    "tier": "core",
+    "tr": "Hip thrust (barbell)",
+    "aliases": [
+      "kalça itme"
+    ]
+  },
+  "Barbell_Glute_Bridge": {
+    "tier": "core",
+    "tr": "Glute bridge (barbell)",
+    "aliases": [
+      "kalça köprüsü"
+    ]
+  },
+  "Butt_Lift_Bridge": {
+    "tier": "core",
+    "tr": "Glute bridge",
+    "aliases": [
+      "kalça köprüsü"
+    ]
+  },
+  "Single_Leg_Glute_Bridge": {
+    "tier": "core",
+    "tr": "Tek bacak glute bridge",
+    "aliases": [
+      "kalça köprüsü"
+    ]
+  },
+  "One-Legged_Cable_Kickback": {
+    "tier": "core",
+    "tr": "Kabloda kalça kickback",
+    "aliases": [
+      "glute kickback"
+    ]
+  },
+  "Pull_Through": {
+    "tier": "core",
+    "tr": "Kablo pull-through"
+  },
+  "Thigh_Abductor": {
+    "tier": "core",
+    "tr": "Abductor makinesi (dış bacak)",
+    "aliases": [
+      "abduction",
+      "kalça açma makinesi"
+    ]
+  },
+  "Thigh_Adductor": {
+    "tier": "core",
+    "tr": "Adductor makinesi (iç bacak)",
+    "aliases": [
+      "adduction",
+      "iç bacak makinesi"
+    ]
+  },
+  "Cable_Hip_Adduction": {
+    "tier": "core",
+    "tr": "Kabloda iç bacak"
+  },
+  "Standing_Calf_Raises": {
+    "tier": "core",
+    "tr": "Ayakta calf raise (makine)",
+    "aliases": [
+      "baldır"
+    ]
+  },
+  "Seated_Calf_Raise": {
+    "tier": "core",
+    "tr": "Oturarak calf raise",
+    "aliases": [
+      "baldır"
+    ]
+  },
+  "Calf_Press_On_The_Leg_Press_Machine": {
+    "tier": "core",
+    "tr": "Leg press'te calf press",
+    "aliases": [
+      "baldır"
+    ]
+  },
+  "Smith_Machine_Calf_Raise": {
+    "tier": "core",
+    "tr": "Smith calf raise",
+    "aliases": [
+      "baldır"
+    ]
+  },
+  "Standing_Dumbbell_Calf_Raise": {
+    "tier": "core",
+    "tr": "Dambıl calf raise",
+    "aliases": [
+      "baldır"
+    ]
+  },
+  "Crunches": {
+    "tier": "core",
+    "tr": "Crunch (mekik)",
+    "aliases": [
+      "karın"
+    ]
+  },
+  "Sit-Up": {
+    "tier": "core",
+    "tr": "Sit-up"
+  },
+  "Decline_Crunch": {
+    "tier": "core",
+    "tr": "Decline mekik",
+    "aliases": [
+      "karın"
+    ]
+  },
+  "Reverse_Crunch": {
+    "tier": "core",
+    "tr": "Ters mekik",
+    "aliases": [
+      "karın"
+    ]
+  },
+  "Cable_Crunch": {
+    "tier": "core",
+    "tr": "Kablo crunch",
+    "aliases": [
+      "kablo mekik",
+      "karın"
+    ]
+  },
+  "Ab_Crunch_Machine": {
+    "tier": "core",
+    "tr": "Karın makinesi",
+    "aliases": [
+      "mekik makinesi",
+      "karın"
+    ]
+  },
+  "Hanging_Leg_Raise": {
+    "tier": "core",
+    "tr": "Asılı bacak kaldırma",
+    "aliases": [
+      "karın"
+    ]
+  },
+  "Knee_Hip_Raise_On_Parallel_Bars": {
+    "tier": "core",
+    "tr": "Paralelde diz kaldırma"
+  },
+  "Flat_Bench_Lying_Leg_Raise": {
+    "tier": "core",
+    "tr": "Sehpada bacak kaldırma"
+  },
+  "Plank": {
+    "tier": "core",
+    "tr": "Plank"
+  },
+  "Side_Bridge": {
+    "tier": "core",
+    "tr": "Yan plank"
+  },
+  "Russian_Twist": {
+    "tier": "core",
+    "tr": "Russian twist"
+  },
+  "Ab_Roller": {
+    "tier": "core",
+    "tr": "Ab roller (tekerlek)",
+    "aliases": [
+      "ab wheel"
+    ]
+  },
+  "Dead_Bug": {
+    "tier": "core",
+    "tr": "Dead bug"
+  },
+  "Dumbbell_Side_Bend": {
+    "tier": "core",
+    "tr": "Dambıl yan eğilme"
+  },
+  "Standing_Cable_Wood_Chop": {
+    "tier": "core",
+    "tr": "Kablo wood chop"
+  },
+  "Pallof_Press": {
+    "tier": "core",
+    "tr": "Pallof press"
+  },
+  "Mountain_Climbers": {
+    "tier": "core",
+    "tr": "Mountain climber",
+    "aliases": [
+      "dağcı"
+    ]
+  },
+  "Rope_Jumping": {
+    "tier": "core",
+    "tr": "İp atlama",
+    "aliases": [
+      "jump rope",
+      "atlama ipi"
+    ]
+  },
+  "Farmers_Walk": {
+    "tier": "core",
+    "tr": "Farmer walk (çiftçi yürüyüşü)",
+    "aliases": [
+      "farmers walk",
+      "farmer carry"
+    ]
+  },
+  "Front_Box_Jump": {
+    "tier": "core",
+    "tr": "Box jump (kutuya sıçrama)",
+    "aliases": [
+      "kutu atlama"
+    ]
+  },
+  "cardio_running_outdoor": {
+    "tier": "core",
+    "tr": "Koşu (Açık Hava)"
+  },
+  "cardio_running_treadmill": {
+    "tier": "core",
+    "tr": "Koşu (Koşu Bandı)",
+    "aliases": [
+      "treadmill"
+    ]
+  },
+  "cardio_cycling_outdoor": {
+    "tier": "core",
+    "tr": "Bisiklet (Açık Hava)"
+  },
+  "cardio_cycling_indoor": {
+    "tier": "core",
+    "tr": "Sabit Bisiklet",
+    "aliases": [
+      "spin",
+      "kondisyon bisikleti"
+    ]
+  },
+  "cardio_rowing": {
+    "tier": "core",
+    "tr": "Kürek Çekme",
+    "aliases": [
+      "rowing machine",
+      "kürek makinesi"
+    ]
+  },
+  "cardio_stair_climber": {
+    "tier": "core",
+    "tr": "Merdiven Tırmanma Cihazı",
+    "aliases": [
+      "stepper",
+      "stair master"
+    ]
+  },
+  "cardio_elliptical": {
+    "tier": "core",
+    "tr": "Eliptik Bisiklet",
+    "aliases": [
+      "elliptical"
+    ]
+  },
+  "cardio_swimming": {
+    "tier": "core",
+    "tr": "Yüzme"
+  },
+  "cardio_walking": {
+    "tier": "core",
+    "tr": "Yürüyüş"
+  }
+}

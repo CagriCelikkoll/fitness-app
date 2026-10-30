@@ -1,16 +1,20 @@
 /**
  * Egzersiz listesi sorgusunun koşulları — liste ekranı ve seçici modal
  * aynı mantığı kullansın, test de gerçek DB'ye karşı bunu doğrulasın.
+ *
+ * v3.8: ekranlar aramayı SQL'de değil `exerciseCatalog.ts`'te yapıyor
+ * (Türkçe ad ve eş anlamlılar veritabanında yok); `search` boş kalıyor.
  */
 
 import { and, asc, eq, like, ne, or, sql, type SQL } from 'drizzle-orm';
 
-import { exercises } from '@/db/schema';
+import type { Db } from '@/db/client';
+import { cardioSegments, exercises, routineExercises, sessionExercises } from '@/db/schema';
 import type { ExerciseFilter } from '@/lib/exerciseTaxonomy';
 
 export function exerciseListCondition(
   filter: ExerciseFilter,
-  search: string
+  search = ''
 ): SQL | undefined {
   const conditions: SQL[] = [eq(exercises.isArchived, false)];
 
@@ -54,4 +58,17 @@ export function exerciseListOrder(filter: ExerciseFilter): SQL[] {
     sql`case when ${exercises.category} = 'strength' then 0 else 1 end`,
     byName,
   ];
+}
+
+/**
+ * Kullanıcının rutinlerinde ya da geçmişinde (yarım antrenman dahil) geçen
+ * egzersizler: extra olsalar da varsayılan listede görünürler (v3.8).
+ */
+export async function getUsedExerciseIds(db: Db): Promise<Set<string>> {
+  const rows = await db
+    .select({ id: routineExercises.exerciseId })
+    .from(routineExercises)
+    .union(db.select({ id: sessionExercises.exerciseId }).from(sessionExercises))
+    .union(db.select({ id: cardioSegments.exerciseId }).from(cardioSegments));
+  return new Set(rows.map((r) => r.id));
 }
