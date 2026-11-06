@@ -50,7 +50,7 @@ export function parseGymAccentEnabled(raw: string | null | undefined): boolean {
 
 export interface AccentInput {
   scheme: ColorScheme;
-  /** Bayrak açık ve Supabase hazır (`useGymFeatures().available`) */
+  /** Hesap özellikleri var (env tanımlı; v3.7 öncesi gizli bayrak) */
   gymFeatures: boolean;
   gymAccentEnabled: boolean;
   /** Ana salonun rengi; üye değilse null */

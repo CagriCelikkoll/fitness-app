@@ -1,7 +1,8 @@
 /**
  * Ad alanı (profiles.display_name) — saf mantık + Supabase çağrıları.
- * Sunucu: supabase/migrations/0007_display_name.sql (2–40 karakter
- * kısıtı, kayıtta verilen adın profile yazılması).
+ * Sunucu: supabase/migrations/0007_display_name.sql, kural v3.7'de
+ * 0014_auth_hardening.sql (1–40 karakter; harf, rakam, boşluk, . - ').
+ * Kayıtta verilen ad artık profile yazılmıyor (kayıt yalnızca kodla).
  *
  * - Ad isteğe bağlı; salona katılırken zorunlu (ekran denetler).
  * - Görünürlük sunucuda: yalnızca kendisi ve salonunun hoca / yöneticisi.
@@ -17,29 +18,49 @@ import type { AccountResult } from '@/lib/account';
 import { accountError, toAccountError } from '@/lib/auth';
 import type { KeyValueStore } from '@/lib/announcements';
 
-export const DISPLAY_NAME_MIN = 2;
+export const DISPLAY_NAME_MIN = 1;
 export const DISPLAY_NAME_MAX = 40;
 
-/** Baş / son boşluk yok, iç boşluklar tek, kontrol karakteri yok (sunucu da öyle) */
+/**
+ * İzin verilen karakterler (v3.7, pentest DNC-04): harf (Türkçe dahil),
+ * rakam, boşluk ve . - ' . Sunucudaki kısıt aynı:
+ * `^[[:alpha:][:digit:] .'-]+$` (0014_auth_hardening.sql).
+ */
+const DISPLAY_NAME_PATTERN = /^[\p{L}0-9 .'-]+$/u;
+
+export const DISPLAY_NAME_CHARS_ERROR = "Adında yalnızca harf, rakam, boşluk ve . - ' kullanabilirsin.";
+
+/**
+ * Baş / son boşluk yok, iç boşluklar tek, kontrol karakteri yok (sunucu da
+ * öyle). Telefon klavyesinin akıllı kesme işareti (’) düz olur; harfler
+ * birleşik biçime (NFC) getirilir: "g + ˘" değil "ğ".
+ */
 export function normalizeDisplayName(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  return (
+    text
+      .normalize('NFC')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, ' ')
+      .replace(/[‘’ʼ]/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
-/** Kod noktası sayısı (emoji 1; sunucunun char_length'i gibi) */
+/** Kod noktası sayısı (sunucunun char_length'i gibi) */
 export function displayNameLength(text: string): number {
   return [...normalizeDisplayName(text)].length;
 }
 
 /**
  * Doğrulama; geçerliyse null. `required` değilse boş ad geçerli
- * (adı silmek / kayıtta boş bırakmak).
+ * (adı silmek).
  */
 export function displayNameError(text: string, { required = false } = {}): string | null {
   const n = displayNameLength(text);
   if (n === 0) return required ? 'Adını yaz.' : null;
-  if (n < DISPLAY_NAME_MIN) return `Ad en az ${DISPLAY_NAME_MIN} karakter olmalı.`;
   if (n > DISPLAY_NAME_MAX) return `Ad en fazla ${DISPLAY_NAME_MAX} karakter olabilir.`;
+  if (!DISPLAY_NAME_PATTERN.test(normalizeDisplayName(text))) return DISPLAY_NAME_CHARS_ERROR;
   return null;
 }
 

@@ -1,6 +1,10 @@
 /**
- * Supabase bağlantı ayarları ve "Salon özellikleri (deneysel)" bayrağı
- * — saf, testte kullanılabilir. İstemcinin kendisi `supabase.ts`'te.
+ * Supabase bağlantı ayarları, istemcinin ne zaman başlayacağı ve canlı /
+ * test sunucusu kontrolü — saf, testte kullanılabilir. İstemcinin kendisi
+ * `supabase.ts`'te.
+ *
+ * v3.7: "Salon özellikleri (deneysel)" gizli bayrağı kaldırıldı (pentest
+ * DNC-06). Hesap herkese açık; salon ekranları üyeliğe bağlı.
  */
 
 export interface SupabaseConfig {
@@ -107,20 +111,78 @@ function base64UrlDecode(input: string): string {
 }
 
 // ============================================================================
-// Gizli bayrak (kv-store, varsayılan kapalı)
+// Ne zaman başlar (v3.7)
+//
+// Hesap herkese açık ama hesapsız kullanıcıda hiçbir ağ isteği olmamalı
+// (Gizlilik Politikası: "hesap açmazsan her şey telefonda kalır").
+// İstemci yalnızca iki durumda kurulur:
+// - cihazda kayıtlı bir oturum var (kv-store, ağsız okunuyor), ya da
+// - kullanıcı giriş ekranını açtı.
+// Kayıtlı oturum yoksa istemci hiç kurulmuyor. Kurulsa da oturumsuz
+// supabase-js istek atmıyor (test/accountBoot.test.ts ikisini de deniyor).
 // ============================================================================
 
-export const GYM_FEATURES_KEY = 'gymFeatures.enabled';
+export type AccountBootDecision =
+  | { kind: 'not_configured' }
+  | { kind: 'signed_out' }
+  | { kind: 'start'; user: StoredUser };
 
-interface KeyValueStore {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
+/**
+ * Açılışta: env yoksa hiçbir şey; kayıtlı oturum yoksa "çıkış yapılmış"
+ * (istemci kurulmaz); varsa istemci başlar. Depo okunamazsa çıkış
+ * yapılmış sayılır (istek atmamak güvenli taraf).
+ */
+export async function decideAccountBoot(input: {
+  configured: boolean;
+  sessionKey: string | null;
+  storage: Pick<SessionStorage, 'getItem'>;
+}): Promise<AccountBootDecision> {
+  if (!input.configured || !input.sessionKey) return { kind: 'not_configured' };
+  let raw: string | null;
+  try {
+    raw = await input.storage.getItem(input.sessionKey);
+  } catch (err) {
+    console.error('[ACCOUNT] Kayıtlı oturum okunamadı:', err);
+    return { kind: 'signed_out' };
+  }
+  const user = parseStoredUser(raw);
+  return user ? { kind: 'start', user } : { kind: 'signed_out' };
 }
 
-export async function getGymFeaturesEnabled(store: KeyValueStore): Promise<boolean> {
-  return (await store.getItem(GYM_FEATURES_KEY)) === 'true';
+// ============================================================================
+// Canlı / test sunucusu (v3.7)
+//
+// OTA güncellemesi sunucu adresini derleme anındaki ortamdan alıyor.
+// Yanlış ortamla yayınlanan güncelleme herkesi test projesine bağlayabilir.
+// Geliştirme dışı bir pakette adres canlı proje değilse geliştirici loguna
+// uyarı (kullanıcı görmez). Test projesinin adresi uygulamaya girmiyor:
+// yalnızca canlının kimliği biliniyor.
+// ============================================================================
+
+/** Canlı Supabase projesinin kimliği (adres herkese açık; anahtar değil) */
+export const LIVE_PROJECT_REF = 'iuugvgpcwqiwyrrouwrn';
+
+export function projectRefOf(url: string): string | null {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.endsWith('.supabase.co') ? host.split('.')[0]! : host;
+  } catch {
+    return null;
+  }
 }
 
-export async function setGymFeaturesEnabled(store: KeyValueStore, enabled: boolean): Promise<void> {
-  await store.setItem(GYM_FEATURES_KEY, enabled ? 'true' : 'false');
+/** Uyarı metni ya da null */
+export function serverEnvironmentWarning(
+  config: SupabaseConfig | null,
+  { isDev }: { isDev: boolean }
+): string | null {
+  if (isDev) return null;
+  if (!config) {
+    return '[CONFIG] Bu pakette Supabase adresi yok: hesap özellikleri kapalı. OTA komutuna --environment verildi mi?';
+  }
+  const ref = projectRefOf(config.url);
+  if (ref !== LIVE_PROJECT_REF) {
+    return `[CONFIG] Bu paket canlı olmayan bir Supabase projesine bağlı (${ref ?? 'bilinmiyor'}). Test projesiyle yayın yapılmış olabilir.`;
+  }
+  return null;
 }

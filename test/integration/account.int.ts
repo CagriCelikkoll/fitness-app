@@ -1,21 +1,14 @@
 /**
- * Gerçek sunucu — hesap (v3.2a). Uygulamanın kendi fonksiyonları
- * (src/lib/account.ts) uygulamadaki auth ayarlarıyla kurulmuş istemciyle.
- * Hiç e-posta gönderilmez: kodlar admin generateLink'ten.
+ * Gerçek sunucu — hesap (v3.2a; v3.7 yalnızca kod). Uygulamanın kendi
+ * fonksiyonları (src/lib/account.ts) uygulamadaki auth ayarlarıyla kurulmuş
+ * istemciyle. Hiç e-posta gönderilmez: kodlar admin generateLink'ten.
+ * Şifre kapatma (DNC-09): authHardening.int.ts.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { afterAll, describe, expect, it } from 'vitest';
 
-import {
-  deleteMyAccount,
-  signInWithPassword,
-  signOut,
-  updatePassword,
-  verifyRecoveryCode,
-  verifySignInCode,
-  verifySignupCode,
-} from '@/lib/account';
+import { deleteMyAccount, signOut, verifySignInCode } from '@/lib/account';
 import { supabaseTransport } from '@/lib/sync/supabaseTransport';
 
 import {
@@ -26,6 +19,7 @@ import {
   deleteCreatedUsers,
   emailCode,
   env,
+  hasStoredPassword,
   serverRowCounts,
   signedIn,
   stopAppClients,
@@ -41,55 +35,48 @@ afterAll(async () => {
 const rawClient = () =>
   createClient(env.url, env.anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-describe('Hesap: kayıt, giriş, şifre', () => {
-  it('kayıt → e-postadaki kodla doğrulama → giriş (kod admin generateLink ile, e-posta yok)', async () => {
-    const email = testEmail('kayit');
-    const { code, userId } = await emailCode({ type: 'signup', email, password: PASSWORD });
+describe('Hesap: yalnızca kodla giriş ve hesap açma (v3.7)', () => {
+  it('yeni hesap: hesabı olmayan adrese kod → hesap açılır, profil var, şifre yok', async () => {
+    const email = testEmail('yeni');
+    // Uygulamadaki signInWithOtp({ shouldCreateUser: true }) ile aynı yol;
+    // magiclink, kullanıcı yoksa kayıt koduna dönüyor (e-posta gönderilmez)
+    const { code, userId } = await emailCode({ type: 'magiclink', email });
     track(userId);
     expect(code).toMatch(/^\d{6,8}$/);
 
     const app = appClient();
-    expect(await verifySignupCode(app.client, email, code)).toEqual({ ok: true, value: null });
+    expect(await verifySignInCode(app.client, email, code)).toEqual({ ok: true, value: null });
     const { data } = await app.client.auth.getSession();
-    expect(data.session?.user.email).toBe(email);
+    expect(data.session?.user.id).toBe(userId);
     expect(data.session?.user.email_confirmed_at).toBeTruthy();
+    expect(await hasStoredPassword(userId)).toBe(false);
+    const { data: profile } = await admin.from('profiles').select('id, display_name').eq('id', userId).single();
+    expect(profile).toEqual({ id: userId, display_name: null });
 
     // Aynı kod ikinci kez işe yaramaz
     const again = appClient();
-    expect(await verifySignupCode(again.client, email, code)).toMatchObject({
+    expect(await verifySignInCode(again.client, email, code)).toMatchObject({
       ok: false,
       error: { kind: 'invalid_otp' },
     });
   });
 
-  it('yanlış şifre → "E-posta ya da şifre yanlış"; doğru şifre → giriş', async () => {
-    const user = await createUser('sifre');
-    const app = appClient();
-    expect(await signInWithPassword(app.client, user.email, 'yanlis-sifre-1')).toMatchObject({
-      ok: false,
-      error: { kind: 'invalid_credentials' },
-    });
-    expect(await signInWithPassword(app.client, user.email, user.password)).toEqual({ ok: true, value: null });
+  it('şifreyle kayıt olmuş eski kullanıcı aynı e-postayla kodla girer, verisi aynı hesapta', async () => {
+    // v3.7 öncesi uygulamanın kaydı: e-posta + şifre + doğrulama kodu
+    const email = testEmail('eskisifre');
+    const signup = await emailCode({ type: 'signup', email, password: PASSWORD });
+    track(signup.userId);
+    const first = appClient();
+    expect(await verifySignInCode(first.client, email, signup.code)).toEqual({ ok: true, value: null });
+    await supabaseTransport(first.client).serverTime();
+    await signOut(first.client);
+
+    // v3.7: kodla giriş aynı kullanıcıya
+    const later = await signedIn({ email });
+    expect((await later.client.auth.getSession()).data.session?.user.id).toBe(signup.userId);
   });
 
-  it('şifremi unuttum: kod → yeni şifre → yeni şifreyle giriş, eskisiyle değil', async () => {
-    const user = await createUser('sifirla');
-    const { code } = await emailCode({ type: 'recovery', email: user.email });
-    const app = appClient();
-    expect(await verifyRecoveryCode(app.client, user.email, code)).toEqual({ ok: true, value: null });
-    const newPassword = 'Yeni-sifre-456';
-    expect(await updatePassword(app.client, newPassword)).toEqual({ ok: true, value: null });
-    await signOut(app.client);
-
-    const check = appClient();
-    expect(await signInWithPassword(check.client, user.email, user.password)).toMatchObject({
-      ok: false,
-      error: { kind: 'invalid_credentials' },
-    });
-    expect(await signInWithPassword(check.client, user.email, newPassword)).toEqual({ ok: true, value: null });
-  });
-
-  it('kodla giriş (şifresiz)', async () => {
+  it('kodla giriş (var olan hesap)', async () => {
     const user = await createUser('kodla');
     const { code } = await emailCode({ type: 'magiclink', email: user.email });
     const app = appClient();
@@ -130,7 +117,8 @@ describe('Hesap: silme ve hesap değiştirme', () => {
     expect(await signOut(app.client)).toEqual({ ok: true, value: null });
 
     const before = app.calls.length;
-    expect(await signInWithPassword(app.client, b.email, b.password)).toEqual({ ok: true, value: null });
+    const { code } = await emailCode({ type: 'magiclink', email: b.email });
+    expect(await verifySignInCode(app.client, b.email, code)).toEqual({ ok: true, value: null });
     await supabaseTransport(app.client).serverTime();
     const after = app.calls.slice(before).filter((c) => c.url.includes('/rest/v1/'));
     expect(after.length).toBeGreaterThan(0);

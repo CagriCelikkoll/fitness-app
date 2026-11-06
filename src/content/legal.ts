@@ -15,8 +15,17 @@
 export const LEGAL_CONTACT = {
   name: 'Çağrı Çelikkol',
   email: 'dinc.destekk@gmail.com',
-  effectiveDate: '15 Ekim 2026',
+  effectiveDate: '8 Kasım 2026',
 } as const;
+
+/**
+ * Aydınlatma metni onayının sürümü (v3.7): yürürlük tarihi, YYYY-AA-GG.
+ * Giriş ekranında "Aydınlatma Metni'ni okudum" işaretlenince sunucuya
+ * yazılır (`profiles.privacy_version`). Metin değişip `effectiveDate`
+ * güncellenince bunu da güncelle: hesabı olanlara yeniden sorulur
+ * (`test/privacyNotice.test.ts` ikisinin aynı günü gösterdiğini denetliyor).
+ */
+export const PRIVACY_NOTICE_VERSION = '2026-11-08';
 
 /**
  * Yayındaki tam metinler (v3.4). Uygulama içi Gizlilik Politikası bunun
@@ -59,7 +68,8 @@ export const PRIVACY_POLICY: LegalDocument = {
     ),
     p('**1. Hesap açarsan işlenen bilgiler**'),
     list(
-      'Hesap bilgileri: e-posta adresin, şifren (tek yönlü şifrelenmiş) ve görünen adın',
+      'Hesap bilgileri: e-posta adresin ve uygulamada görünen adın. Giriş, e-postana gelen tek kullanımlık kodla yapılır; şifre tutulmaz.',
+      'Aydınlatma onayı: hesap açarken bu metni okuduğunu işaretlersin; işaretlediğin metnin sürümü ve tarihi hesabında saklanır.',
       'Eşitlenen antrenman verileri: rutinler, antrenmanlar, setler, ağırlık ve tekrarlar, RIR değerleri, kardiyo süreleri ve notlar',
       'Bildirim bilgileri: telefonunun bildirim kimliği (push token), cihaz platformu ve bildirim tercihlerin',
       'Teknik bilgiler: bağlantılarda IP adresin ve bağlantı zamanı'
@@ -78,7 +88,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     p('**3. Bilgileri kimler işler**'),
     list(
       'Supabase Inc.: hesap, eşitlenen antrenmanlar, salon üyeliği, salon girişleri, geri bildirimler ve fotoğrafları, bildirim bilgileri ve salon logoları; Frankfurt (Avrupa Birliği) sunucuları, yurt dışına aktarım sayılır',
-      "Google: giriş ve doğrulama e-postaları (Gmail); Android'de telefon bildirimleri (Firebase Cloud Messaging)",
+      "Google: giriş kodları (Gmail); Android'de telefon bildirimleri (Firebase Cloud Messaging)",
       'Expo (650 Industries, Inc., ABD): uygulama güncelleme kontrolü ve telefon bildirimlerinin iletimi',
       'GitHub: egzersiz görselleri'
     ),

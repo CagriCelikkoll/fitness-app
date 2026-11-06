@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { signInWithPassword } from '@/lib/account';
+import { verifySignInCode } from '@/lib/account';
 import { supabaseAuthOptions, type SessionStorage } from '@/lib/supabaseConfig';
 
 import { TEST_EMAIL_PREFIX } from './globalSetup';
@@ -27,12 +27,16 @@ export const admin: SupabaseClient = createClient(env.url, env.serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+/**
+ * v3.7: sunucuda şifre kapalı (0014). Yalnızca DNC-09 testlerinde
+ * "saldırganın şifresi" olarak ve generateLink signup'ın zorunlu alanı
+ * olarak kullanılıyor; hiçbir hesapta geçerli değil.
+ */
 export const PASSWORD = 'Gizli-sifre-123';
 
 export interface TestUser {
   id: string;
   email: string;
-  password: string;
 }
 
 const created: string[] = [];
@@ -41,17 +45,13 @@ export function testEmail(label: string): string {
   return `${TEST_EMAIL_PREFIX}${label}-${randomUUID().slice(0, 8)}@example.com`;
 }
 
-/** Onaylı kullanıcı (e-posta yok) */
+/** Onaylı, şifresiz kullanıcı (e-posta yok) */
 export async function createUser(label: string): Promise<TestUser> {
   const email = testEmail(label);
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password: PASSWORD,
-    email_confirm: true,
-  });
+  const { data, error } = await admin.auth.admin.createUser({ email, email_confirm: true });
   if (error || !data.user) throw new Error(`Kullanıcı açılamadı: ${error?.message}`);
   created.push(data.user.id);
-  return { id: data.user.id, email, password: PASSWORD };
+  return { id: data.user.id, email };
 }
 
 /** Test sonunda: açılan bütün kullanıcılar (verileri cascade ile gider) */
@@ -126,12 +126,36 @@ export async function stopAppClients(): Promise<void> {
   for (const c of appClients.splice(0)) await c.auth.stopAutoRefresh();
 }
 
-/** Uygulamanın giriş fonksiyonuyla giriş yapmış istemci */
-export async function signedIn(user: TestUser): Promise<AppClient> {
+/**
+ * Uygulamanın giriş fonksiyonuyla (v3.7: yalnızca kod) giriş yapmış
+ * istemci. Kod admin generateLink'ten; e-posta gönderilmez.
+ */
+export async function signedIn(user: Pick<TestUser, 'email'>): Promise<AppClient> {
   const app = appClient();
-  const r = await signInWithPassword(app.client, user.email, user.password);
+  const { code } = await emailCode({ type: 'magiclink', email: user.email });
+  const r = await verifySignInCode(app.client, user.email, code);
   if (!r.ok) throw new Error(`${user.email} giriş yapamadı: ${r.error.kind}`);
   return app;
+}
+
+/**
+ * auth.users'ta şifre tanımlı mı (DNC-09). REST auth şemasını göstermiyor;
+ * test projesinin veritabanına doğrudan, yalnızca okuyarak bakılır.
+ */
+export async function hasStoredPassword(userId: string): Promise<boolean> {
+  const { default: pg } = await import('pg');
+  const db = new pg.Client({ connectionString: env.dbUrl, ssl: { rejectUnauthorized: false } });
+  await db.connect();
+  try {
+    const r = await db.query<{ has: boolean }>(
+      "select coalesce(encrypted_password, '') <> '' as has from auth.users where id = $1",
+      [userId]
+    );
+    if (r.rows.length !== 1) throw new Error(`auth.users satırı yok: ${userId}`);
+    return r.rows[0]!.has;
+  } finally {
+    await db.end().catch(() => {});
+  }
 }
 
 /** Admin `generateLink` ile e-posta GÖNDERMEDEN 6 haneli kod */

@@ -1,13 +1,18 @@
 /**
- * Ad alanı — saf mantık: normalleştirme, doğrulama (2–40, emoji tek
- * karakter), "Adını ekle" sorusunun bir kez sorulması, kayıt formu alanı.
+ * Ad alanı — saf mantık: normalleştirme, doğrulama (v3.7: 1–40; harf,
+ * rakam, boşluk, . - '), "Adını ekle" sorusunun bir kez sorulması.
  * Sunucu kuralları: test/integration/profile.int.ts.
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { INITIAL_AUTH_FORM, authFormReducer } from '@/lib/auth';
 import {
+  DISPLAY_NAME_CHARS_ERROR,
+  DISPLAY_NAME_MAX,
+  DISPLAY_NAME_MIN,
   displayNameError,
   displayNameLength,
   displayNameValue,
@@ -32,15 +37,37 @@ describe('Ad: normalleştirme ve doğrulama', () => {
     expect(displayNameError('', { required: true })).toBe('Adını yaz.');
   });
 
-  it('2–40 karakter; emoji tek karakter', () => {
-    expect(displayNameError('A')).toMatch(/en az 2/);
-    expect(displayNameError(' A ')).toMatch(/en az 2/);
-    expect(displayNameError('Al')).toBeNull();
+  it('1–40 karakter (v3.7)', () => {
+    expect(displayNameError('A')).toBeNull();
+    expect(displayNameError(' A ')).toBeNull();
     expect(displayNameError('x'.repeat(40))).toBeNull();
     expect(displayNameError('x'.repeat(41))).toMatch(/en fazla 40/);
-    expect(displayNameLength('💪'.repeat(40))).toBe(40);
-    expect(displayNameError('💪'.repeat(40))).toBeNull();
-    expect(displayNameError('Çağrı Şükrü Öğüt')).toBeNull();
+    expect(displayNameLength('Ş'.repeat(40))).toBe(40);
+  });
+
+  it('harf (Türkçe dahil), rakam, boşluk ve . - \' kabul (DNC-04)', () => {
+    for (const ok of ['Çağrı Şükrü Öğüt', 'İsmail Işık', "O'Brien", 'Ayşe K.', 'Ali-Veli 2', 'José Müller', 'Ünal Çelik Jr.']) {
+      expect(displayNameError(ok), ok).toBeNull();
+    }
+  });
+
+  it('<, >, emoji ve diğer işaretler reddedilir; anlaşılır hata', () => {
+    for (const bad of ['<script>', 'Ali <b>', 'a>b', 'Ali💪', 'Ali@Veli', 'Ali_Veli', 'Ali & Veli', '"Ali"', 'Ali;']) {
+      expect(displayNameError(bad), bad).toBe(DISPLAY_NAME_CHARS_ERROR);
+    }
+    expect(DISPLAY_NAME_CHARS_ERROR).toBe("Adında yalnızca harf, rakam, boşluk ve . - ' kullanabilirsin.");
+  });
+
+  it('telefon klavyesinin akıllı kesme işareti düz olur; ayrık harf birleşir (NFC)', () => {
+    expect(normalizeDisplayName('O’Brien')).toBe("O'Brien");
+    expect(displayNameError('O’Brien')).toBeNull();
+    // "g" + birleşik breve (U+0306) → "ğ"
+    expect(normalizeDisplayName('Doğan')).toBe('Doğan');
+    expect(displayNameError('Doğan')).toBeNull();
+  });
+
+  it('kontrol karakterleri boşluğa döner, ad yine geçerli', () => {
+    expect(normalizeDisplayName('Ali\u0000Veli')).toBe('Ali Veli');
   });
 });
 
@@ -75,13 +102,12 @@ describe('"Adını ekle" sorusu', () => {
   });
 });
 
-describe('Kayıt formu: ad alanı', () => {
-  it('yazılır; başka adıma geçince silinir (e-posta kalır)', () => {
-    let s = authFormReducer(INITIAL_AUTH_FORM, { type: 'switchMode', mode: 'signUp' });
-    s = authFormReducer(s, { type: 'fieldChanged', field: 'email', value: 'a@b.co' });
-    s = authFormReducer(s, { type: 'fieldChanged', field: 'displayName', value: 'Ayşe' });
-    expect(s.displayName).toBe('Ayşe');
-    s = authFormReducer(s, { type: 'switchMode', mode: 'signIn' });
-    expect(s).toMatchObject({ displayName: '', email: 'a@b.co' });
+describe('Sunucu kısıtı ile aynı kural', () => {
+  it('0014 migration ad kısıtı: 1–40, harf / rakam / boşluk / . - \'', () => {
+    const sql = readFileSync(path.join(__dirname, '../supabase/migrations/0014_auth_hardening.sql'), 'utf8');
+    expect(sql).toContain('char_length(display_name) between 1 and 40');
+    expect(sql).toContain("display_name ~ '^[[:alpha:][:digit:] .''-]+$'");
+    expect(DISPLAY_NAME_MIN).toBe(1);
+    expect(DISPLAY_NAME_MAX).toBe(40);
   });
 });

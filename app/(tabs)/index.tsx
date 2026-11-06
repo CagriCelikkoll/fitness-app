@@ -4,7 +4,7 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Play, Scale, Target, UserRound } from 'lucide-react-native';
+import { Play, Scale, ShieldCheck, Target, UserRound } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
@@ -44,6 +44,11 @@ import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
 import { WorkoutCalendar } from '@/components/WorkoutCalendar';
 import { GymLogo } from '@/components/GymLogo';
 import { AnnouncementAlert } from '@/components/GymCards';
+import { ConsentCheckbox } from '@/components/ConsentCard';
+import { LegalLink } from '@/components/LegalLink';
+import { TextLink } from '@/components/TextLink';
+import { usePrivacyNotice } from '@/hooks/usePrivacyNotice';
+import { PRIVACY_NOTICE_CHECKBOX, privacyAckCardText } from '@/lib/privacyNotice';
 
 /**
  * Karşılama kararı uygulama açılışı başına bir kez verilir; sekmeler
@@ -143,6 +148,55 @@ function GymRow() {
         <Text className={`text-xs px-1 ${warning.ended ? 'text-danger' : 'text-warm'}`}>{warning.text}</Text>
       )}
     </View>
+  );
+}
+
+/**
+ * Aydınlatma metni (v3.7, KVKK): hesabı olan ama güncel metni okuduğunu
+ * işaretlememiş kullanıcıya (v3.7 öncesi hesaplar, metin güncellenince).
+ * Bilgilendirme kaydı, rıza değil; kapatılmaz, işaretlenince kaybolur.
+ */
+function PrivacyNoticeCard() {
+  const COLORS = useColors();
+  const router = useRouter();
+  const { needsAck, storedVersion, acknowledge } = usePrivacyNotice();
+  const [checked, setChecked] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!needsAck) return null;
+  const copy = privacyAckCardText(storedVersion);
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    const err = await acknowledge();
+    setSaving(false);
+    if (err) setError(err.message);
+  };
+
+  return (
+    <Card className="gap-3">
+      <View className="flex-row items-center gap-2">
+        <ShieldCheck color={COLORS.accent} size={16} />
+        <Text className="text-fg text-base font-semibold flex-1">{copy.title}</Text>
+      </View>
+      <Text className="text-muted text-sm leading-5">{copy.body}</Text>
+      <View>
+        <TextLink
+          label="Aydınlatma Metni →"
+          onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'kvkk' } })}
+        />
+        <LegalLink to="privacy" label="Gizlilik Politikası →" />
+      </View>
+      <ConsentCheckbox
+        checked={checked}
+        label={PRIVACY_NOTICE_CHECKBOX}
+        onToggle={() => setChecked((c) => !c)}
+      />
+      <PrimaryButton label="Kaydet" disabled={!checked} loading={saving} onPress={() => void save()} />
+      {error != null && <Text className="text-danger text-sm leading-5">{error}</Text>}
+    </Card>
   );
 }
 
@@ -310,6 +364,7 @@ function HomeContent() {
       contentContainerClassName="px-5 pt-6 gap-3 pb-10"
     >
       <GymRow />
+      <PrivacyNoticeCard />
       <NamePromptCard />
       <TrainerRequestCard />
       {/* Duyuru kartı ve dersler Salon sekmesinde (v3.6c); burada yalnızca okunmamış uyarısı */}
