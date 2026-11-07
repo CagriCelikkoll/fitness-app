@@ -31,6 +31,14 @@ export function useScreenBottomInset(): (route: string) => number {
   return (route: string) => screenBottomInset(route, bottom, keyboard);
 }
 
+/**
+ * Başlıksız ekranın (v4.0a odak modu, dinlenme, özet) üst boşluğu: durum
+ * çubuğunun altı. Yalnızca üst; alt boşluk yine kökten.
+ */
+export function useScreenTopInset(): number {
+  return useSafeAreaInsets().top;
+}
+
 /** Alttan açılan sayfanın (Modal) alt boşluğu */
 export function useSheetBottomPadding(base?: number): number {
   const { bottom } = useSafeAreaInsets();

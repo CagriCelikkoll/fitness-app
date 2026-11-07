@@ -243,6 +243,10 @@ function RootStack() {
         }}
       />
       <Stack.Screen
+        name="session/summary"
+        options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
         name="onboarding"
         options={{ headerShown: false, gestureEnabled: false }}
       />
