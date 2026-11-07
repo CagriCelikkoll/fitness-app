@@ -1,4 +1,5 @@
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import { Text } from '@/components/ui/Text';
 
 /** Vurgu renginde metin bağlantısı (uygulama içi ekrana gider) */
 export function TextLink({ label, onPress }: { label: string; onPress: () => void }) {

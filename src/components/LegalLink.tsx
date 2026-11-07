@@ -1,4 +1,5 @@
-import { Alert, Linking, Pressable, Text } from 'react-native';
+import { Alert, Linking, Pressable } from 'react-native';
+import { Text } from '@/components/ui/Text';
 
 import { LEGAL_URLS } from '@/content/legal';
 

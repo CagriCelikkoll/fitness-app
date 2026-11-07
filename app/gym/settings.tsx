@@ -12,10 +12,9 @@ import {
   Pressable,
   ScrollView,
   Share,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Check, Copy, ImageIcon, RefreshCw, Share2, Trash2 } from 'lucide-react-native';

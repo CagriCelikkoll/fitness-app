@@ -7,7 +7,8 @@
  */
 
 import { useState } from 'react';
-import { Alert, Text, TextInput, View } from 'react-native';
+import { Alert, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 
 import type { AppSettings } from '@/db/schema';
 import { useDb } from '@/hooks/useDb';

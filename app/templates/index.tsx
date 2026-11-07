@@ -1,4 +1,5 @@
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link, useRouter } from 'expo-router';
 import { ChevronRight, Sparkles } from 'lucide-react-native';
 

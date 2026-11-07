@@ -1,12 +1,9 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  type PressableProps,
-} from 'react-native';
+import { ActivityIndicator, Pressable, type PressableProps } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
-import { useColors } from '@/hooks/useTheme';
+import { Text } from '@/components/ui/Text';
+import { useColors, useContextTones } from '@/hooks/useTheme';
+import type { ContextKind } from '@/theme';
 
 interface ButtonProps extends Omit<PressableProps, 'children'> {
   label: string;
@@ -15,6 +12,8 @@ interface ButtonProps extends Omit<PressableProps, 'children'> {
   iconFill?: boolean;
   /** İkon yerine yükleniyor göstergesi */
   loading?: boolean;
+  /** `lg`: 64 yüksek (odak modu "Seti tamamla"); varsayılan 56 */
+  size?: 'md' | 'lg';
   className?: string;
 }
 
@@ -22,10 +21,14 @@ type Tone = {
   container: string;
   text: string;
   iconColor: string;
+  /** Dinamik dolgu (bağlam rengi) */
+  backgroundColor?: string;
+  textColor?: string;
 };
 
-const BASE =
-  'min-h-[52px] rounded-2xl px-5 flex-row items-center justify-center gap-2 active:opacity-80';
+// v4.0a 1.5: yükseklik 56–64, radius 18
+const BASE = 'rounded-[18px] px-5 flex-row items-center justify-center gap-2 active:opacity-80';
+const HEIGHT = { md: 'min-h-[56px]', lg: 'min-h-[64px]' } as const;
 
 function BaseButton({
   label,
@@ -33,52 +36,61 @@ function BaseButton({
   iconFill = false,
   loading = false,
   disabled,
+  size = 'md',
   className = '',
   tone,
+  style,
   ...rest
 }: ButtonProps & { tone: Tone }) {
   const COLORS = useColors();
-  const t: Tone =
-    disabled || loading
-      ? { container: 'bg-bg-elevated', text: 'text-muted', iconColor: COLORS.muted }
-      : tone;
+  const off = disabled || loading;
+  const t: Tone = off ? { container: 'bg-bg-elevated', text: 'text-muted', iconColor: COLORS.muted } : tone;
+  const dynamic = !off && t.backgroundColor ? { backgroundColor: t.backgroundColor } : null;
 
   return (
     <Pressable
-      disabled={disabled || loading}
-      className={`${BASE} ${t.container} ${className}`}
+      disabled={off}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!off, busy: loading }}
+      className={`${BASE} ${HEIGHT[size]} ${t.container} ${className}`}
+      style={typeof style === 'function' ? style : [dynamic, style]}
       {...rest}
     >
       {loading ? (
         <ActivityIndicator color={t.iconColor} size="small" />
       ) : Icon ? (
-        <Icon
-          color={t.iconColor}
-          size={18}
-          fill={iconFill ? t.iconColor : 'none'}
-        />
+        <Icon color={t.iconColor} size={size === 'lg' ? 20 : 18} fill={iconFill ? t.iconColor : 'none'} />
       ) : null}
-      <Text className={`text-base font-semibold ${t.text}`}>{label}</Text>
+      <Text
+        className={`${size === 'lg' ? 'text-lg' : 'text-base'} font-bold ${t.text}`}
+        style={!off && t.textColor ? { color: t.textColor } : undefined}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
-/** Ekrandaki birincil aksiyon — vurgu dolgusu (limon ya da salon rengi) */
-export function PrimaryButton(props: ButtonProps) {
+/**
+ * Ekrandaki birincil aksiyon. Varsayılan brand dolgusu (neon ya da salon
+ * rengi); `color` verilirse o bağlam renginde (yazı koyu).
+ */
+export function PrimaryButton({ color, ...props }: ButtonProps & { color?: ContextKind }) {
   const COLORS = useColors();
+  const ctx = useContextTones(color);
   return (
     <BaseButton
       {...props}
-      tone={{
-        container: 'bg-accent',
-        text: 'text-accent-fg',
-        iconColor: COLORS.accentFg,
-      }}
+      tone={
+        color
+          ? { container: '', text: '', iconColor: ctx.onFill, backgroundColor: ctx.fill, textColor: ctx.onFill }
+          : { container: 'bg-accent', text: 'text-accent-fg', iconColor: COLORS.accentFg }
+      }
     />
   );
 }
 
-/** İkincil aksiyon — yükseltilmiş zemin, ince çerçeve */
+/** İkincil aksiyon — kenarlıklı, nötr */
 export function SecondaryButton(props: ButtonProps) {
   const COLORS = useColors();
   return (
@@ -96,10 +108,7 @@ export function SecondaryButton(props: ButtonProps) {
 /**
  * Yıkıcı aksiyon. Varsayılan hali soluk (tehlike tonu), `solid` ile dolgulu.
  */
-export function DangerButton({
-  solid = false,
-  ...props
-}: ButtonProps & { solid?: boolean }) {
+export function DangerButton({ solid = false, ...props }: ButtonProps & { solid?: boolean }) {
   const COLORS = useColors();
   return (
     <BaseButton

@@ -23,10 +23,12 @@ import {
 import {
   DARK_COLORS,
   buildColors,
+  contextTones,
   cssVariables,
   gymAccentTones,
   type AccentTones,
   type ColorScheme,
+  type ContextKind,
   type ThemeColors,
 } from '@/theme';
 
@@ -140,6 +142,22 @@ export function useTheme(): ThemeState {
 /** Satır içi renkler (ikon, SVG, navigasyon, Switch) */
 export function useColors(): ThemeColors {
   return useContext(ThemeContext).colors;
+}
+
+/**
+ * Bağlam renginin bu temadaki tonları (v4.0a): `fill` dolgu / ışık / çentik,
+ * `ink` zemin üstünde yazı (açık temada ana metin rengi). `null` → brand
+ * (salon rengi varsa o).
+ */
+export function useContextTones(kind: ContextKind | null | undefined): AccentTones {
+  const { scheme, colors } = useTheme();
+  return useMemo(
+    () =>
+      kind
+        ? contextTones(kind, scheme)
+        : { fill: colors.accentFill, onFill: colors.accentFg, ink: colors.accent },
+    [kind, scheme, colors]
+  );
 }
 
 /**

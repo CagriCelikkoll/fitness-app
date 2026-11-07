@@ -11,7 +11,8 @@
  */
 
 import { useCallback, useRef, useState, type ComponentType } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleCheck, QrCode } from 'lucide-react-native';
 

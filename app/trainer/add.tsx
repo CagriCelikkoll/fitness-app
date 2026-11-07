@@ -5,7 +5,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Search, Users } from 'lucide-react-native';
 

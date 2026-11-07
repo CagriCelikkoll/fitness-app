@@ -1,8 +1,10 @@
 import '../global.css';
 
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack } from 'expo-router';
+import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
@@ -25,6 +27,8 @@ import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { AppThemeProvider, useColors } from '@/hooks/useTheme';
 import { useScreenBottomInset } from '@/hooks/useSafeBottom';
+import { FONT_ASSETS } from '@/lib/fontAssets';
+import { FONT_FAMILIES } from '@/lib/typography';
 
 // Dinlenme bildirimi: ön plan işleyicisi + sayaç dinleyicisi. İzin
 // burada istenmiyor, ilk dinlenme başlarken soruluyor.
@@ -147,6 +151,14 @@ function SyncTriggers() {
 }
 
 export default function RootLayout() {
+  // Archivo (v4.0a): yerel dosya, birkaç ms; yüklenene kadar boş. Hata
+  // olursa sistem yazı tipiyle devam.
+  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
+  useEffect(() => {
+    if (fontError) console.warn('[FONT] Yazı tipi yüklenemedi:', fontError);
+  }, [fontError]);
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -179,7 +191,7 @@ function RootStack() {
         headerStyle: { backgroundColor: COLORS.bg },
         headerShadowVisible: false,
         headerTintColor: COLORS.text,
-        headerTitleStyle: { fontWeight: '600' },
+        headerTitleStyle: { fontFamily: FONT_FAMILIES.semibold },
         headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: COLORS.bg, paddingBottom: bottomInset(route.name) },
       })}

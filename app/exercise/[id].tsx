@@ -1,4 +1,5 @@
-import { ScrollView, Text, View, ActivityIndicator } from 'react-native';
+import { ScrollView, View, ActivityIndicator } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq } from 'drizzle-orm';

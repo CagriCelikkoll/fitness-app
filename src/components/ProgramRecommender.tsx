@@ -8,7 +8,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import Storage from 'expo-sqlite/kv-store';
 import { Check, Plus } from 'lucide-react-native';
 

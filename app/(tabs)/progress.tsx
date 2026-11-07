@@ -16,7 +16,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, eq } from 'drizzle-orm';
@@ -351,7 +352,7 @@ interface MetricRowProps {
 function MetricRow({ label, value, detail, note, hint }: MetricRowProps) {
   return (
     <Card className="flex-1 p-4">
-      <Text className="text-muted text-[11px] uppercase tracking-widest">
+      <Text className="text-muted text-xs uppercase tracking-widest">
         {label}
       </Text>
       {value != null && (

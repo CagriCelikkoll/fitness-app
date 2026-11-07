@@ -13,10 +13,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
 
 import { JOIN_CODE_MAX, isValidJoinCode, normalizeJoinCode, roleLabel } from '@/lib/auth';

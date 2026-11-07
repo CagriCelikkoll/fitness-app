@@ -16,7 +16,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ClipboardList,

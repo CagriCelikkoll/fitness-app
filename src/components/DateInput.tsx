@@ -8,7 +8,8 @@
  */
 
 import { useRef } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 
 import { digitsOnly, type DateParts } from '@/lib/format';
 import { useColors } from '@/hooks/useTheme';

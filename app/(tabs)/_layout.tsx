@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useColors, useGymTones } from '@/hooks/useTheme';
+import { FONT_FAMILIES } from '@/lib/typography';
 
 
 const TAB_ICON_SIZE = 24;
@@ -29,11 +30,11 @@ export default function TabsLayout() {
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
         },
-        tabBarLabelStyle: { fontSize: 10, letterSpacing: 0.4 },
+        tabBarLabelStyle: { fontSize: 12, fontFamily: FONT_FAMILIES.semibold },
         headerStyle: { backgroundColor: COLORS.bg },
         headerShadowVisible: false,
         headerTintColor: COLORS.text,
-        headerTitleStyle: { fontWeight: '600' },
+        headerTitleStyle: { fontFamily: FONT_FAMILIES.semibold },
         sceneStyle: { backgroundColor: COLORS.bg },
       }}
     >

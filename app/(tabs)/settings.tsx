@@ -35,10 +35,9 @@ import {
   Pressable,
   ScrollView,
   Switch,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';

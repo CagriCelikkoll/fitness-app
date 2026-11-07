@@ -13,11 +13,11 @@
 import { useMemo, useState } from 'react';
 import {
   Pressable,
-  Text,
   View,
   type GestureResponderEvent,
   type LayoutChangeEvent,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
 
 import { Card, ListRow } from '@/components/ui';

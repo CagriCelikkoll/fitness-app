@@ -22,10 +22,9 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarDays, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react-native';
 

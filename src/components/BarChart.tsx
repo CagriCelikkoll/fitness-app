@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import Svg, { Line, Rect } from 'react-native-svg';
 
 import { formatDecimal } from '@/lib/format';

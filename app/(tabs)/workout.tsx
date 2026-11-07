@@ -3,10 +3,10 @@ import {
   Alert,
   FlatList,
   Pressable,
-  Text,
   View,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';

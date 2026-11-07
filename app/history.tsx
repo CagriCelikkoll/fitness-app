@@ -1,4 +1,5 @@
-import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, count, countDistinct, desc, eq, isNotNull, sql } from 'drizzle-orm';

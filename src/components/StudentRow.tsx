@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import { Text } from '@/components/ui/Text';
 
 import { studentLabel, type TrainerLink } from '@/lib/trainers';
 import { ListRow } from '@/components/ui';

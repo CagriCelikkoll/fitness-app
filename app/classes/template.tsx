@@ -5,7 +5,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Switch, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
 

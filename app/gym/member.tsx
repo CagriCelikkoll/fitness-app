@@ -9,7 +9,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { UserMinus } from 'lucide-react-native';
 

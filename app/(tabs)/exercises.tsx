@@ -3,11 +3,10 @@ import {
   FlatList,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Link, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Search, X } from 'lucide-react-native';
@@ -123,7 +122,7 @@ export default function ExercisesScreen() {
       {/* Toplam sayı footer */}
       {data && data.length > 0 && (
         <View className="absolute bottom-0 left-0 right-0 bg-bg/90 border-t border-border px-5 py-1.5">
-          <Text className="text-muted/70 text-[11px] tracking-wide text-center tabular-nums">
+          <Text className="text-muted/70 text-xs tracking-wide text-center tabular-nums">
             {shownCount} egzersiz gösteriliyor
           </Text>
         </View>

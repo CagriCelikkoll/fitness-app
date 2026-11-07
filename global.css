@@ -3,17 +3,18 @@
 @tailwind utilities;
 
 /*
- * v3.5 tema değişkenleri. Buradakiler koyu tema + Dinç vurgusu
- * (src/theme.ts DARK_COLORS ile aynı, test/theme.test.ts denetliyor);
- * çalışırken kökteki `vars()` açık temayı / salon rengini veriyor.
+ * Tema değişkenleri (v3.5, değerler v4.0a). Buradakiler koyu tema + Dinç
+ * vurgusu (src/theme.ts DARK_COLORS ile aynı, test/theme.test.ts
+ * denetliyor); çalışırken kökteki `vars()` açık temayı / salon rengini veriyor.
  */
 :root {
-  --color-bg: 10 10 11;
-  --color-surface: 20 20 22;
-  --color-elevated: 30 30 33;
-  --color-border: 42 42 47;
-  --color-text: 250 250 250;
-  --color-muted: 138 138 144;
+  --color-bg: 8 8 10;
+  --color-surface: 18 18 22;
+  --color-elevated: 30 30 36;
+  --color-border: 36 36 42;
+  --color-text: 242 242 240;
+  --color-muted: 161 161 166;
+  --color-faint: 142 142 147;
   --color-accent: 215 255 62;
   --color-accent-fg: 10 10 11;
   --color-accent-ink: 215 255 62;
@@ -22,6 +23,12 @@
   --color-danger-fg: 10 10 11;
   --color-success: 215 255 62;
   --color-success-fg: 10 10 11;
-  --color-pr: 215 255 62;
+  --color-pr: 255 200 61;
   --color-pr-fg: 10 10 11;
+  --color-upper: 46 197 255;
+  --color-lower: 255 138 61;
+  --color-full: 215 255 62;
+  --color-rest: 155 140 255;
+  --color-record: 255 200 61;
+  --color-on-context: 10 10 11;
 }

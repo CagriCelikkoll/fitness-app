@@ -1,4 +1,5 @@
-import { Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 
 import { useColors } from '@/hooks/useTheme';
 

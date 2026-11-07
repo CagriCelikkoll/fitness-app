@@ -8,7 +8,8 @@
  */
 
 import { useCallback, type ReactNode } from 'react';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ClipboardList } from 'lucide-react-native';
 

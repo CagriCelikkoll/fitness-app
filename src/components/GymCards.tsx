@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link } from 'expo-router';
 import { CalendarDays, Check, Megaphone, Pin } from 'lucide-react-native';
 

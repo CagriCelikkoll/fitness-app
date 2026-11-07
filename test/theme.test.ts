@@ -29,16 +29,19 @@ import {
   resolveScheme,
 } from '@/lib/themeMode';
 import {
+  CONTEXT_COLORS,
   DARK_COLORS,
   DINC_ACCENT,
   DINC_LIME,
   PALETTES,
   buildColors,
+  contextTones,
   cssVariables,
   gymAccentTones,
   imageFrameClass,
   textBackgrounds,
   type ColorScheme,
+  type ContextKind,
 } from '@/theme';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -113,8 +116,49 @@ describe('paletler × iki tema (AA)', () => {
     });
   }
 
+  it('açık tema v4.0a değerleri', () => {
+    expect(PALETTES.light).toMatchObject({
+      bg: '#F2F1EC',
+      surface: '#FFFFFF',
+      elevated: '#F2F1EC',
+      border: '#E3E1D9',
+      text: '#16161A',
+      muted: '#5E5E66',
+    });
+  });
+
+  it('spec kontrastları: textMuted surface üstünde ~7.1, textFaint ~5.6 (koyu)', () => {
+    expect(contrastRatio(PALETTES.dark.muted, PALETTES.dark.surface)).toBeGreaterThanOrEqual(7);
+    expect(contrastRatio(PALETTES.dark.faint, PALETTES.dark.surface)).toBeGreaterThanOrEqual(5.5);
+  });
+
+  for (const scheme of SCHEMES) {
+    it(`${scheme}: en soluk metin her zeminde ≥ 4.5`, () => {
+      for (const bg of textBackgrounds(scheme)) {
+        expect(contrastRatio(PALETTES[scheme].faint, bg), bg).toBeGreaterThanOrEqual(CONTRAST_TEXT);
+      }
+    });
+
+    it(`${scheme}: bağlam renkleri dolgu olarak koyu yazıyla ≥ 4.5, yazı tonu zeminlerde ≥ 4.5`, () => {
+      for (const kind of Object.keys(CONTEXT_COLORS) as ContextKind[]) {
+        const t = contextTones(kind, scheme);
+        expect(contrastRatio(t.fill, t.onFill), kind).toBeGreaterThanOrEqual(CONTRAST_TEXT);
+        for (const bg of textBackgrounds(scheme)) {
+          expect(contrastRatio(t.ink, bg), `${kind} / ${bg}`).toBeGreaterThanOrEqual(CONTRAST_TEXT);
+        }
+      }
+    });
+  }
+
+  it('açık temada bağlam rengi yazı olmaz (ana metin), koyu temada rengin kendisi', () => {
+    expect(contextTones('upper', 'light').ink).toBe(PALETTES.light.text);
+    expect(contextTones('upper', 'dark').ink).toBe(CONTEXT_COLORS.upper);
+    expect(contextTones('rest', 'light').fill).toBe(CONTEXT_COLORS.rest);
+    expect(CONTEXT_COLORS.full).toBe(DINC_LIME);
+  });
+
   it('açık temada limon ve altın metin olarak kullanılmaz (koyulaştırılmış ton)', () => {
-    expect(DINC_ACCENT.light.ink).toBe('#4D6B00');
+    expect(DINC_ACCENT.light.ink).toBe('#4A6400');
     expect(gymAccentTones(DINC_LIME, 'light').ink).not.toBe(DINC_LIME);
     const gold = GYM_COLORS.find((c) => c.label === 'Güneş')!;
     expect(gymAccentTones(gold.hex, 'light').ink).not.toBe(gold.hex);
@@ -129,22 +173,28 @@ describe('paletler × iki tema (AA)', () => {
     expect(gymAccentTones('#A33A8C', 'dark').ink).not.toBe('#A33A8C');
   });
 
-  it('koyu tema bugünkü değerlerle aynı', () => {
+  it('koyu tema v4.0a değerleri', () => {
     expect(DARK_COLORS).toMatchObject({
-      bg: '#0A0A0B',
-      surface: '#141416',
-      elevated: '#1E1E21',
-      border: '#2A2A2F',
-      text: '#FAFAFA',
-      muted: '#8A8A90',
+      bg: '#08080A',
+      surface: '#121216',
+      elevated: '#1E1E24',
+      border: '#24242A',
+      text: '#F2F2F0',
+      muted: '#A1A1A6',
+      faint: '#8E8E93',
       accent: '#D7FF3E',
       accentFill: '#D7FF3E',
       accentFg: '#0A0A0B',
       warm: '#FF9A3C',
       danger: '#FF5A5A',
       success: '#D7FF3E',
-      pr: '#D7FF3E',
-      disabledIcon: '#2A2A2F',
+      pr: '#FFC83D',
+      disabledIcon: '#24242A',
+      upper: '#2EC5FF',
+      lower: '#FF8A3D',
+      full: '#D7FF3E',
+      rest: '#9B8CFF',
+      record: '#FFC83D',
     });
     // salon rengi koyu temada kendisi (v3.2d'deki görünüm)
     for (const c of GYM_COLORS.filter((g) => g.hex !== '#A33A8C')) {
@@ -179,7 +229,7 @@ describe('CSS değişkenleri', () => {
     const light = cssVariables(buildColors('light', DINC_ACCENT.light));
     expect(light['--color-bg']).not.toBe(cssVariables(DARK_COLORS)['--color-bg']);
     expect(light['--color-accent']).toBe(hexToRgbChannels(DINC_LIME));
-    expect(light['--color-accent-ink']).toBe(hexToRgbChannels('#4D6B00'));
+    expect(light['--color-accent-ink']).toBe(hexToRgbChannels('#4A6400'));
   });
 });
 

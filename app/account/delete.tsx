@@ -10,7 +10,8 @@
  */
 
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
 

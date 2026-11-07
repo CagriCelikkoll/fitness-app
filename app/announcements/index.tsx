@@ -10,7 +10,8 @@
  */
 
 import { useCallback, useRef } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { Megaphone, PenSquare, Pin } from 'lucide-react-native';
 

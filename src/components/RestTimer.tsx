@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import * as Haptics from 'expo-haptics';
 import { Minus, Plus, X, type LucideIcon } from 'lucide-react-native';
 

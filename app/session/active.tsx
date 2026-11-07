@@ -6,10 +6,9 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, asc, eq, inArray } from 'drizzle-orm';
@@ -727,17 +726,17 @@ function ExerciseSetEditor({
 
       {/* Set başlık satırı */}
       <View className="flex-row px-2 mt-2">
-        <Text className="text-muted text-[11px] tracking-widest w-9">SET</Text>
-        <Text className="text-muted text-[11px] tracking-widest flex-1 text-center">
+        <Text className="text-muted text-xs tracking-widest w-9">SET</Text>
+        <Text className="text-muted text-xs tracking-widest flex-1 text-center">
           ÖNCEKİ
         </Text>
-        <Text className="text-muted text-[11px] tracking-widest w-20 text-center">
+        <Text className="text-muted text-xs tracking-widest w-20 text-center">
           KG
         </Text>
-        <Text className="text-muted text-[11px] tracking-widest w-16 text-center ml-2">
+        <Text className="text-muted text-xs tracking-widest w-16 text-center ml-2">
           TEKRAR
         </Text>
-        <Text className="text-muted text-[11px] w-12 ml-2"></Text>
+        <Text className="text-muted text-xs w-12 ml-2"></Text>
       </View>
 
       {/* Setler */}
@@ -930,7 +929,7 @@ function SetRow({
         </Text>
         {isRecord && (
           <View className="bg-pr rounded-full px-2 py-0.5 mt-1">
-            <Text className="text-pr-fg text-[11px] font-semibold">
+            <Text className="text-pr-fg text-xs font-semibold">
               🏆 Rekor
             </Text>
           </View>
@@ -942,7 +941,7 @@ function SetRow({
             accessibilityLabel="RIR değerini değiştir"
             className="border border-border rounded-full px-2 py-0.5 mt-1 active:opacity-60"
           >
-            <Text className="text-muted text-[11px] font-semibold tabular-nums">
+            <Text className="text-muted text-xs font-semibold tabular-nums">
               RIR {rirLabel(set.rir!)}
             </Text>
           </Pressable>
@@ -1015,14 +1014,14 @@ function RirPicker({
   return (
     <View className="px-2 pb-1">
       <View className="flex-row items-center">
-        <Text className="text-muted text-[11px] tracking-widest w-9">RIR</Text>
+        <Text className="text-muted text-xs tracking-widest w-9">RIR</Text>
         <Pressable
           onPress={onToggleHelp}
           hitSlop={8}
           accessibilityLabel="RIR nedir?"
           className="w-6 h-6 rounded-full border border-border items-center justify-center mr-2 active:opacity-60"
         >
-          <Text className="text-muted text-[11px] font-semibold">?</Text>
+          <Text className="text-muted text-xs font-semibold">?</Text>
         </Pressable>
         {RIR_OPTIONS.map((value) => {
           const active = selected != null && rirLabel(selected) === rirLabel(value);
@@ -1096,7 +1095,7 @@ function ProgressionHint({
           accessibilityLabel="İlerleme önerisi nedir?"
           className="w-6 h-6 rounded-full border border-border items-center justify-center ml-2 active:opacity-60"
         >
-          <Text className="text-muted text-[11px] font-semibold">?</Text>
+          <Text className="text-muted text-xs font-semibold">?</Text>
         </Pressable>
         {suggestion.canApply && (
           <Pressable

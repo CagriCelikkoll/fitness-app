@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { inArray } from 'drizzle-orm';
 import { Plus } from 'lucide-react-native';

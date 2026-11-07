@@ -13,9 +13,9 @@ import {
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Play } from 'lucide-react-native';

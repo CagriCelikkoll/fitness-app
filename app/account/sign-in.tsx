@@ -23,10 +23,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Storage from 'expo-sqlite/kv-store';
 
