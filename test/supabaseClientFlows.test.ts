@@ -8,14 +8,14 @@
  *    kullanılmaz.
  * 2. Uçak modu: fetch'in her başarısızlık biçimi (failed / timed out /
  *    DNS) eşitleme kartında "İnternet yok" olarak görünür.
- * 3. Kayıt e-postası: 500 + SMTP → "E-posta gönderilemedi"; 429 →
- *    "Çok fazla deneme"; "Kodu tekrar gönder" akışı.
+ * 3. Kod e-postası (v3.7: kayıt ve giriş aynı akış): 500 + SMTP → "E-posta
+ *    gönderilemedi"; 429 → "Çok fazla deneme"; "Kodu tekrar gönder" akışı.
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { deleteMyAccount, resendSignupCode, signOut, signUpWithPassword } from '@/lib/account';
+import { deleteMyAccount, sendSignInCode, signOut } from '@/lib/account';
 import {
   ACCOUNT_ERROR_MESSAGES,
   INITIAL_AUTH_FORM,
@@ -228,22 +228,22 @@ describe('internetsiz eşitleme', () => {
 });
 
 // ============================================================================
-// 3. Kayıt e-postası: 500 + SMTP, 429, kodu tekrar gönder
+// 3. Kod e-postası: 500 + SMTP, 429, kodu tekrar gönder
 // ============================================================================
 
-describe('kayıt e-postası hataları', () => {
+describe('kod e-postası hataları', () => {
   const authError = (status: number, error_code: string, msg: string) => () => json({ code: status, error_code, msg }, status);
 
   it.each([
-    ['Supabase SMTP', authError(500, 'unexpected_failure', 'Error sending confirmation email'), 'email_send_failed'],
+    ['Supabase SMTP', authError(500, 'unexpected_failure', 'Error sending magic link email'), 'email_send_failed'],
     ['özel SMTP (gomail)', authError(500, 'unexpected_failure', 'gomail: could not send email 1: 535 Authentication failed'), 'email_send_failed'],
     ['SMTP dışı 500', authError(500, 'unexpected_failure', 'Database error saving new user'), 'server'],
     ['e-posta sınırı (429)', authError(429, 'over_email_send_rate_limit', 'For security purposes, you can only request this after 52 seconds.'), 'rate_limited'],
     ['internet yok', () => { throw new TypeError('Network request timed out'); }, 'network'],
-  ] as const)('kayıt: %s', async (_name, respond, kind) => {
+  ] as const)('kod gönderme: %s', async (_name, respond, kind) => {
     const c = client(memoryStorage(), (async () => respond()) as typeof fetch);
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const r = await signUpWithPassword(c, 'ali@ornek.com', 'gizli-sifre');
+    const r = await sendSignInCode(c, 'ali@ornek.com');
     error.mockRestore();
     expect(r).toMatchObject({ ok: false, error: { kind, message: ACCOUNT_ERROR_MESSAGES[kind] } });
   });
@@ -256,12 +256,13 @@ describe('kayıt e-postası hataları', () => {
   it('kodu tekrar gönder: 429 → hata görünür, kod adımında kalınır, tekrar denenebilir; başarıda süre baştan başlar', async () => {
     let next: () => Response = authError(429, 'over_email_send_rate_limit', 'For security purposes, you can only request this after 30 seconds.');
     const c = client(memoryStorage(), (async (url: string) =>
-      String(url).includes('/resend') ? next() : json({}, 404)) as typeof fetch);
+      String(url).includes('/otp') ? next() : json({}, 404)) as typeof fetch);
 
     const step = (s: AuthFormState, a: AuthFormAction) => authFormReducer(s, a);
     const setup: AuthFormAction[] = [
       { type: 'fieldChanged', field: 'email', value: 'ali@ornek.com' },
-      { type: 'codeSent', mode: 'verifySignup', now: 0 },
+      { type: 'noticeToggled' },
+      { type: 'codeSent', now: 0 },
     ];
     let s = setup.reduce(step, INITIAL_AUTH_FORM);
     expect(canResend(s, 30_000)).toBe(false);
@@ -269,18 +270,18 @@ describe('kayıt e-postası hataları', () => {
 
     // Ekrandaki resend(): started → istek → başarısızsa failed
     s = step(s, { type: 'started' });
-    const failed = await resendSignupCode(c, s.email);
+    const failed = await sendSignInCode(c, s.email);
     expect(failed).toMatchObject({ ok: false, error: { kind: 'rate_limited' } });
     if (!failed.ok) s = step(s, { type: 'failed', message: failed.error.message });
-    expect(s).toMatchObject({ mode: 'verifySignup', busy: false, error: ACCOUNT_ERROR_MESSAGES.rate_limited });
+    expect(s).toMatchObject({ mode: 'code', busy: false, error: ACCOUNT_ERROR_MESSAGES.rate_limited });
     expect(canResend(s, 60_000)).toBe(true);
 
     next = () => json({});
     s = step(s, { type: 'started' });
-    const sent = await resendSignupCode(c, s.email);
+    const sent = await sendSignInCode(c, s.email);
     expect(sent).toEqual({ ok: true, value: null });
-    s = step(s, { type: 'codeSent', mode: 'verifySignup', now: 60_000 });
-    expect(s).toMatchObject({ mode: 'verifySignup', busy: false, error: null });
+    s = step(s, { type: 'codeSent', now: 60_000 });
+    expect(s).toMatchObject({ mode: 'code', busy: false, error: null });
     expect(canResend(s, 60_000 + 30_000)).toBe(false);
     expect(canResend(s, 60_000 + 60_000)).toBe(true);
   });

@@ -1,102 +1,77 @@
 /**
- * Giriş (v3.0).
+ * Giriş ve hesap açma (v3.0; v3.7'den beri yalnızca kodla).
  *
- * - Giriş: e-posta + şifre
- * - Hesap oluştur: e-posta + şifre (en az 8, tekrar) → e-postaya 6
- *   haneli doğrulama kodu (Confirm signup şablonu) → kod → giriş
- * - Şifremi unuttum: e-postaya 6 haneli kod (Reset Password şablonu) →
- *   kod + yeni şifre
- * - Kodla giriş yap: şifresiz, e-postaya 6 haneli kod
+ * E-posta → e-postaya 6 haneli kod → giriş. Hesabı olmayana aynı kodla
+ * hesap açılır. Şifre yok (pentest DNC-09; sunucuda da kapalı).
  *
- * Girişte "e-posta doğrulanmamış" gelirse yeni doğrulama kodu gönderilip
- * kod adımına geçiliyor. Durum mantığı saf: `authFormReducer`
+ * "Kodu gönder"in üstünde Aydınlatma Metni ve Gizlilik Politikası
+ * bağlantıları ve "Aydınlatma Metni'ni okudum." kutusu: işaretlenmeden kod
+ * gönderilmez. Bu bilgilendirmenin kaydı, açık rıza değil. Onay cihazda
+ * bekleyen olarak bırakılır, giriş yapılınca sunucuya yazılır
+ * (`usePrivacyAckSync`).
+ *
+ * Supabase istemcisi bu ekran açılınca kurulur (hesapsız kullanıcıda
+ * başka hiçbir yerde kurulmuyor). Durum mantığı saf: `authFormReducer`
  * (src/lib/auth.ts). "Kodu tekrar gönder" 60 sn sonra açılır.
  *
- * Bayrak kapalıysa / env yoksa ekran açıklama gösterip istek atmaz.
+ * `next=join-gym`: Ayarlar'daki "Salon koduyla katıl"dan gelindiyse giriş
+ * sonrası salon kodu ekranı.
  */
 
 import { useEffect, useReducer, useRef, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
-  type TextInputProps,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Eye, EyeOff } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Storage from 'expo-sqlite/kv-store';
 
 import {
-  ACCOUNT_ERROR_MESSAGES,
   INITIAL_AUTH_FORM,
   OTP_LENGTH,
-  PASSWORD_MIN_LENGTH,
   authFormReducer,
   canResend,
   canSubmit,
-  emailStepOf,
-  isCodeMode,
   normalizeEmail,
-  passwordError,
   resendSecondsLeft,
   type AuthFormField,
-  type AuthMode,
 } from '@/lib/auth';
+import { sendSignInCode, verifySignInCode, type AccountResult } from '@/lib/account';
 import {
-  resendSignupCode,
-  sendPasswordResetCode,
-  sendSignInCode,
-  signInWithPassword,
-  signUpWithPassword,
-  updatePassword,
-  verifyRecoveryCode,
-  verifySignInCode,
-  verifySignupCode,
-  type AccountResult,
-} from '@/lib/account';
-import { DISPLAY_NAME_MAX, displayNameError, displayNameValue } from '@/lib/profile';
+  PRIVACY_NOTICE_CHECKBOX,
+  PRIVACY_NOTICE_VERSION,
+  savePendingAck,
+} from '@/lib/privacyNotice';
 import { getSupabase } from '@/lib/supabase';
-import { useSession } from '@/hooks/useSession';
+import { startAccountClient, useSession } from '@/hooks/useSession';
 import { useColors } from '@/hooks/useTheme';
 import { Card, PrimaryButton, SecondaryButton } from '@/components/ui';
+import { ConsentCheckbox } from '@/components/ConsentCard';
+import { LegalLink } from '@/components/LegalLink';
+import { TextLink } from '@/components/TextLink';
 
 const INPUT_CLASS = 'bg-bg-elevated text-fg text-base px-4 h-12 rounded-xl';
-
-const TITLES: Record<AuthMode, string> = {
-  signIn: 'Giriş yap',
-  signUp: 'Hesap oluştur',
-  verifySignup: 'E-postanı doğrula',
-  forgot: 'Şifremi unuttum',
-  resetPassword: 'Yeni şifre',
-  otpEmail: 'Kodla giriş',
-  otpCode: 'Kodla giriş',
-};
-
-const SUBMIT_LABELS: Record<AuthMode, string> = {
-  signIn: 'Giriş yap',
-  signUp: 'Hesap oluştur',
-  verifySignup: 'Doğrula ve giriş yap',
-  forgot: 'Kod gönder',
-  resetPassword: 'Şifreyi kaydet',
-  otpEmail: 'Kod gönder',
-  otpCode: 'Giriş yap',
-};
 
 export default function SignInScreen() {
   const COLORS = useColors();
   const router = useRouter();
+  const { next } = useLocalSearchParams<{ next?: string }>();
   const { available } = useSession();
   const [state, dispatch] = useReducer(authFormReducer, INITIAL_AUTH_FORM);
-  const codeMode = isCodeMode(state.mode);
+  const codeMode = state.mode === 'code';
   const now = useNow(codeMode);
+
+  // İstemci yalnızca burada (ve kayıtlı oturum varsa açılışta) kurulur
+  useEffect(() => {
+    if (available) startAccountClient();
+  }, [available]);
 
   const setField = (field: AuthFormField) => (value: string) =>
     dispatch({ type: 'fieldChanged', field, value });
-  const switchMode = (mode: AuthMode) => dispatch({ type: 'switchMode', mode });
 
   // "düzelt": e-posta adımına dön ve alanı odakla. Alan kod adımında
   // düzenlenemez durumda; odak, adım değişip alan açıldıktan sonra.
@@ -109,10 +84,11 @@ export default function SignInScreen() {
   }, [codeMode]);
   const editEmail = () => {
     focusEmailNext.current = true;
-    switchMode(emailStepOf(state.mode));
+    dispatch({ type: 'editEmail' });
   };
 
   const done = () => {
+    if (next === 'join-gym') return router.replace('/account/join-gym');
     if (router.canGoBack()) router.back();
     else router.replace('/settings');
   };
@@ -124,109 +100,38 @@ export default function SignInScreen() {
     return false;
   };
 
-  const sendCode = async (mode: AuthMode) => {
-    const client = getSupabase();
-    const result =
-      mode === 'verifySignup'
-        ? await resendSignupCode(client, state.email)
-        : mode === 'resetPassword'
-          ? await sendPasswordResetCode(client, state.email)
-          : await sendSignInCode(client, state.email);
-    if (check(result)) dispatch({ type: 'codeSent', mode, now: Date.now() });
+  const sendCode = async () => {
+    if (check(await sendSignInCode(getSupabase(), state.email))) {
+      dispatch({ type: 'codeSent', now: Date.now() });
+    }
   };
 
-  // Kayıtta ad isteğe bağlı; yazıldıysa 2–40
-  const nameError = state.mode === 'signUp' ? displayNameError(state.displayName) : null;
-
   const submit = async () => {
-    if (!canSubmit(state) || nameError != null) return;
+    if (!canSubmit(state)) return;
     dispatch({ type: 'started' });
-    const client = getSupabase();
-
-    switch (state.mode) {
-      case 'signIn': {
-        const result = await signInWithPassword(client, state.email, state.password);
-        if (result.ok) return done();
-        if (result.error.kind !== 'email_not_confirmed') return void check(result);
-        // Kayıt olmuş ama kodu girmemiş: yeni kod gönder, kod adımına geç
-        const resent = await resendSignupCode(client, state.email);
-        if (resent.ok) {
-          dispatch({
-            type: 'codeSent',
-            mode: 'verifySignup',
-            now: Date.now(),
-            info: `${ACCOUNT_ERROR_MESSAGES.email_not_confirmed} Yeni bir doğrulama kodu gönderdik.`,
-          });
-        } else {
-          dispatch({
-            type: 'failed',
-            message: `${ACCOUNT_ERROR_MESSAGES.email_not_confirmed} ${resent.error.message}`,
-          });
-        }
-        return;
-      }
-      case 'signUp': {
-        const result = await signUpWithPassword(
-          client,
-          state.email,
-          state.password,
-          displayNameValue(state.displayName)
-        );
-        if (!check(result)) return;
-        if (result.ok && !result.value.needsVerification) return done();
-        dispatch({ type: 'codeSent', mode: 'verifySignup', now: Date.now() });
-        return;
-      }
-      case 'verifySignup':
-        if (check(await verifySignupCode(client, state.email, state.code))) done();
-        return;
-      case 'forgot':
-        if (check(await sendPasswordResetCode(client, state.email))) {
-          dispatch({ type: 'codeSent', mode: 'resetPassword', now: Date.now() });
-        }
-        return;
-      case 'resetPassword': {
-        // Kod tek kullanımlık: doğrulandıysa tekrar denemede yalnızca şifre
-        if (!state.recoveryVerified) {
-          if (!check(await verifyRecoveryCode(client, state.email, state.code))) return;
-          dispatch({ type: 'recoveryVerified' });
-        }
-        if (!check(await updatePassword(client, state.password))) return;
-        Alert.alert('Şifren güncellendi', 'Yeni şifrenle giriş yaptın.');
-        return done();
-      }
-      case 'otpEmail':
-        if (check(await sendSignInCode(client, state.email))) {
-          dispatch({ type: 'codeSent', mode: 'otpCode', now: Date.now() });
-        }
-        return;
-      case 'otpCode':
-        if (check(await verifySignInCode(client, state.email, state.code))) done();
-        return;
-    }
+    if (state.mode === 'email') return sendCode();
+    // Onay giriş yapılınca sunucuya yazılır (usePrivacyAckSync); kod
+    // doğrulanmadan önce bırakılıyor ki oturum açılır açılmaz bulunsun
+    await savePendingAck(Storage, PRIVACY_NOTICE_VERSION);
+    if (check(await verifySignInCode(getSupabase(), state.email, state.code))) done();
   };
 
   const resend = async () => {
     dispatch({ type: 'started' });
-    await sendCode(state.mode);
+    await sendCode();
   };
 
   if (!available) {
     return (
       <View className="flex-1 bg-bg items-center justify-center p-6">
         <Text className="text-muted text-base text-center">
-          Hesap özellikleri şu an kapalı.
+          Hesap özellikleri bu sürümde kullanılamıyor.
         </Text>
       </View>
     );
   }
 
   const secondsLeft = resendSecondsLeft(state, now);
-  const emailEditable = !codeMode && !state.busy;
-  const newPassword = state.mode === 'signUp' || state.mode === 'resetPassword';
-  const newPasswordHint =
-    state.password.length > 0 ? passwordError(state.password, state.passwordRepeat) : null;
-  const showCodeField = codeMode && !(state.mode === 'resetPassword' && state.recoveryVerified);
 
   return (
     <KeyboardAvoidingView
@@ -240,19 +145,19 @@ export default function SignInScreen() {
       >
         <Card className="gap-3">
           <Text className="text-fg text-base leading-6">
-            Hesap oluşturursan e-posta adresin, salon üyeliğin ve antrenmanların (rutinler,
+            Hesap açarsan e-posta adresin, salon üyeliğin ve antrenmanların (rutinler,
             setler, notlar) Dinç'in sunucusunda saklanır; telefon değişince geri gelir.
             Vücut ölçülerin yalnızca telefonunda kalır.
           </Text>
-          <TextLink
-            label="Gizlilik Politikası →"
-            onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'privacy' } })}
-          />
+          <Text className="text-muted text-sm leading-5">
+            Şifre yok: her girişte e-postana 6 haneli bir kod gelir. Hesabın yoksa aynı kodla
+            açılır.
+          </Text>
         </Card>
 
         <Card className="gap-4">
           <Text className="text-fg text-lg font-semibold tracking-tight">
-            {TITLES[state.mode]}
+            {codeMode ? 'Kodu gir' : 'Giriş yap ya da hesap aç'}
           </Text>
 
           <Field label="E-posta">
@@ -260,7 +165,7 @@ export default function SignInScreen() {
               ref={emailRef}
               value={state.email}
               onChangeText={setField('email')}
-              editable={emailEditable}
+              editable={!codeMode && !state.busy}
               placeholder="ornek@eposta.com"
               placeholderTextColor={COLORS.muted}
               keyboardType="email-address"
@@ -272,22 +177,28 @@ export default function SignInScreen() {
             />
           </Field>
 
-          {state.mode === 'signIn' && (
-            <Field label="Şifre">
-              <PasswordInput
-                value={state.password}
-                onChangeText={setField('password')}
-                editable={!state.busy}
-                autoComplete="current-password"
-                textContentType="password"
-                onSubmitEditing={() => void submit()}
+          {!codeMode && (
+            <View className="gap-2">
+              <Text className="text-muted text-sm leading-5">
+                Kod göndermeden önce hesabınla ilgili bilgilerin nasıl işlendiğini oku.
+              </Text>
+              <TextLink
+                label="Aydınlatma Metni →"
+                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'kvkk' } })}
               />
-            </Field>
+              <LegalLink to="privacy" label="Gizlilik Politikası →" />
+              <View className="mt-1">
+                <ConsentCheckbox
+                  checked={state.noticeRead}
+                  label={PRIVACY_NOTICE_CHECKBOX}
+                  onToggle={() => dispatch({ type: 'noticeToggled' })}
+                />
+              </View>
+            </View>
           )}
 
-          {showCodeField && (
+          {codeMode && (
             <Text className="text-muted text-sm leading-5">
-              {state.info != null && `${state.info} `}
               {OTP_LENGTH} haneli kodu{' '}
               <Text className="text-fg font-semibold">{normalizeEmail(state.email)}</Text>{' '}
               adresine gönderdik. Adres yanlışsa{' '}
@@ -302,7 +213,7 @@ export default function SignInScreen() {
             </Text>
           )}
 
-          {showCodeField && (
+          {codeMode && (
             <Field label="Kod">
               <TextInput
                 value={state.code}
@@ -315,68 +226,15 @@ export default function SignInScreen() {
                 textContentType="oneTimeCode"
                 maxLength={OTP_LENGTH + 2}
                 autoFocus
+                onSubmitEditing={() => void submit()}
                 className={`${INPUT_CLASS} text-2xl tracking-[8px] tabular-nums text-center`}
               />
             </Field>
           )}
 
-          {state.mode === 'resetPassword' && state.recoveryVerified && (
-            <Text className="text-muted text-sm leading-5">
-              Kod doğrulandı. Yeni şifreni kaydet.
-            </Text>
-          )}
-
-          {state.mode === 'signUp' && (
-            <Field label="Adın (isteğe bağlı)">
-              <TextInput
-                value={state.displayName}
-                onChangeText={setField('displayName')}
-                editable={!state.busy}
-                placeholder="Ör. Ayşe Yılmaz"
-                placeholderTextColor={COLORS.muted}
-                autoCapitalize="words"
-                autoComplete="name"
-                textContentType="name"
-                maxLength={DISPLAY_NAME_MAX + 10}
-                className={INPUT_CLASS}
-              />
-              <Text className={`text-xs mt-1.5 leading-5 ${nameError ? 'text-danger' : 'text-muted'}`}>
-                {nameError ?? 'Yalnızca salonunun hocaları ve yöneticisi görür.'}
-              </Text>
-            </Field>
-          )}
-
-          {newPassword && (
-            <>
-              <Field label={state.mode === 'signUp' ? 'Şifre' : 'Yeni şifre'}>
-                <PasswordInput
-                  value={state.password}
-                  onChangeText={setField('password')}
-                  editable={!state.busy}
-                  placeholder={`En az ${PASSWORD_MIN_LENGTH} karakter`}
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                />
-              </Field>
-              <Field label="Şifre (tekrar)">
-                <PasswordInput
-                  value={state.passwordRepeat}
-                  onChangeText={setField('passwordRepeat')}
-                  editable={!state.busy}
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                  onSubmitEditing={() => void submit()}
-                />
-              </Field>
-              {newPasswordHint != null && (
-                <Text className="text-muted text-xs -mt-2">{newPasswordHint}</Text>
-              )}
-            </>
-          )}
-
           <PrimaryButton
-            label={SUBMIT_LABELS[state.mode]}
-            disabled={!canSubmit(state) || nameError != null}
+            label={codeMode ? 'Giriş yap' : 'Kodu gönder'}
+            disabled={!canSubmit(state)}
             loading={state.busy}
             onPress={() => void submit()}
           />
@@ -385,7 +243,7 @@ export default function SignInScreen() {
             <Text className="text-danger text-sm leading-5">{state.error}</Text>
           )}
 
-          {codeMode && !(state.mode === 'resetPassword' && state.recoveryVerified) && (
+          {codeMode && (
             <View className="flex-row gap-2">
               <SecondaryButton
                 label={secondsLeft > 0 ? `Tekrar gönder (${secondsLeft})` : 'Kodu tekrar gönder'}
@@ -402,26 +260,6 @@ export default function SignInScreen() {
             </View>
           )}
         </Card>
-
-        <View className="gap-3 px-1">
-          {state.mode === 'signIn' ? (
-            <>
-              <TextLink label="Şifremi unuttum" onPress={() => switchMode('forgot')} />
-              <TextLink
-                label="Hesabın yok mu? Hesap oluştur"
-                onPress={() => switchMode('signUp')}
-              />
-              <TextLink label="Kodla giriş yap" onPress={() => switchMode('otpEmail')} />
-            </>
-          ) : state.mode === 'signUp' ? (
-            <TextLink
-              label="Zaten hesabın var mı? Giriş yap"
-              onPress={() => switchMode('signIn')}
-            />
-          ) : (
-            <TextLink label="← Şifreyle girişe dön" onPress={() => switchMode('signIn')} />
-          )}
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -432,47 +270,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <View>
       <Text className="text-muted text-xs mb-2">{label}</Text>
       {children}
-    </View>
-  );
-}
-
-function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={6}
-      accessibilityRole="link"
-      className="self-start active:opacity-60"
-    >
-      <Text className="text-accent text-sm font-semibold">{label}</Text>
-    </Pressable>
-  );
-}
-
-/** Şifre alanı + göster/gizle düğmesi */
-function PasswordInput(props: Omit<TextInputProps, 'secureTextEntry'>) {
-  const COLORS = useColors();
-  const [visible, setVisible] = useState(false);
-  const Icon = visible ? EyeOff : Eye;
-  return (
-    <View className="flex-row items-center bg-bg-elevated rounded-xl">
-      <TextInput
-        {...props}
-        secureTextEntry={!visible}
-        placeholderTextColor={COLORS.muted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        className="flex-1 text-fg text-base px-4 h-12"
-      />
-      <Pressable
-        onPress={() => setVisible((v) => !v)}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={visible ? 'Şifreyi gizle' : 'Şifreyi göster'}
-        className="px-4 h-12 items-center justify-center active:opacity-60"
-      >
-        <Icon color={COLORS.muted} size={20} />
-      </Pressable>
     </View>
   );
 }

@@ -1,62 +1,43 @@
 /**
- * Hesap ve salon (v3.0) — saf yardımcılar: şifre kuralı, hata eşleme,
- * giriş ekranı durum mantığı (şifre, kayıt, şifre sıfırlama, kodla
- * giriş), gizli bayrak ve env yokken (istemci null) çökmeme.
+ * Hesap ve salon (v3.0; v3.7 yalnızca kod) — saf yardımcılar: hata eşleme,
+ * giriş ekranı durum mantığı (e-posta → aydınlatma onayı → kod), env
+ * yokken (istemci null) çökmeme. Şifre yok (pentest DNC-09).
  */
 
 import { describe, expect, it } from 'vitest';
 
+import * as authLib from '@/lib/auth';
 import {
   ACCOUNT_ERROR_MESSAGES,
   INITIAL_AUTH_FORM,
-  INITIAL_TAP_COUNTER,
-  PASSWORD_MAX_LENGTH,
   RESEND_COOLDOWN_SECONDS,
-  VERSION_TAP_GAP_MS,
   authFormReducer,
   canResend,
   canSubmit,
   classifyAccountError,
-  emailStepOf,
   isValidEmail,
   isValidJoinCode,
-  isValidNewPassword,
   isValidOtp,
   normalizeEmail,
   normalizeJoinCode,
-  passwordError,
-  registerVersionTap,
   resendSecondsLeft,
   roleLabel,
   type AccountErrorKind,
   type AuthFormAction,
   type AuthFormState,
 } from '@/lib/auth';
+import * as account from '@/lib/account';
 import {
   fetchMemberships,
   joinGym,
   leaveGym,
   parseMembershipRows,
   previewGym,
-  resendSignupCode,
-  sendPasswordResetCode,
   sendSignInCode,
-  signInWithPassword,
   signOut,
-  signUpWithPassword,
-  updatePassword,
-  verifyRecoveryCode,
   verifySignInCode,
-  verifySignupCode,
 } from '@/lib/account';
-import {
-  GYM_FEATURES_KEY,
-  getGymFeaturesEnabled,
-  isServiceRoleKey,
-  parseStoredUser,
-  readSupabaseConfig,
-  setGymFeaturesEnabled,
-} from '@/lib/supabaseConfig';
+import { isServiceRoleKey, parseStoredUser, readSupabaseConfig } from '@/lib/supabaseConfig';
 
 describe('e-posta', () => {
   it('geçerli adresler', () => {
@@ -107,36 +88,6 @@ describe('kod ve rol', () => {
   });
 });
 
-describe('şifre kuralı', () => {
-  it('en az 8 karakter', () => {
-    expect(passwordError('1234567', '')).toBe('Şifre en az 8 karakter olmalı.');
-    expect(passwordError('12345678', '')).toBeNull();
-  });
-
-  it('en fazla 72 karakter', () => {
-    expect(passwordError('a'.repeat(PASSWORD_MAX_LENGTH), '')).toBeNull();
-    expect(passwordError('a'.repeat(PASSWORD_MAX_LENGTH + 1), '')).toBe(
-      'Şifre en fazla 72 karakter olabilir.'
-    );
-  });
-
-  it('yalnızca boşluk olamaz', () => {
-    expect(passwordError('        ', '')).toBe('Şifre yalnızca boşluktan oluşamaz.');
-  });
-
-  it('tekrar alanı: boşken uyarı yok, farklıysa "aynı değil"', () => {
-    expect(passwordError('gizli-sifre', '')).toBeNull();
-    expect(passwordError('gizli-sifre', 'gizli-sifr')).toBe('Şifreler aynı değil.');
-    expect(passwordError('gizli-sifre', 'gizli-sifre')).toBeNull();
-  });
-
-  it('yeni şifre geçerli: kural + tekrar birebir aynı (boş tekrar geçmez)', () => {
-    expect(isValidNewPassword('gizli-sifre', '')).toBe(false);
-    expect(isValidNewPassword('gizli-sifre', 'gizli-sifre')).toBe(true);
-    expect(isValidNewPassword('kisa', 'kisa')).toBe(false);
-  });
-});
-
 describe('hata eşleme', () => {
   const cases: [string, unknown, AccountErrorKind][] = [
     // İnternet yok: fetch hiç yanıt alamadı
@@ -150,14 +101,6 @@ describe('hata eşleme', () => {
     ['500 genel', { name: 'AuthRetryableFetchError', message: 'Internal Server Error', status: 500 }, 'server'],
     ['503', { name: 'AuthRetryableFetchError', message: 'Service Unavailable', status: 503 }, 'server'],
     ['bozuk yanıt', { name: 'AuthUnknownError', message: 'Unexpected token <' }, 'server'],
-    // Giriş / kayıt
-    ['yanlış şifre', { name: 'AuthApiError', code: 'invalid_credentials', status: 400, message: 'Invalid login credentials' }, 'invalid_credentials'],
-    ['yanlış şifre (kodsuz)', { status: 400, message: 'Invalid login credentials' }, 'invalid_credentials'],
-    ['doğrulanmamış', { code: 'email_not_confirmed', status: 400, message: 'Email not confirmed' }, 'email_not_confirmed'],
-    ['zaten kayıtlı', { code: 'user_already_exists', status: 422, message: 'User already registered' }, 'email_taken'],
-    ['zaten kayıtlı (email_exists)', { code: 'email_exists', status: 422, message: 'x' }, 'email_taken'],
-    ['zayıf şifre', { name: 'AuthWeakPasswordError', code: 'weak_password', status: 422, message: 'weak' }, 'weak_password'],
-    ['aynı şifre', { code: 'same_password', status: 422, message: 'x' }, 'same_password'],
     ['geçersiz e-posta', { code: 'email_address_invalid', status: 400, message: 'x' }, 'invalid_email'],
     ['kayıt kapalı', { code: 'signup_disabled', status: 422, message: 'x' }, 'signup_disabled'],
     // Kod
@@ -189,44 +132,36 @@ describe('hata eşleme', () => {
   });
 });
 
-describe('giriş ekranı durumu', () => {
+describe('giriş ekranı durumu (yalnızca kod)', () => {
   const run = (actions: AuthFormAction[], start: AuthFormState = INITIAL_AUTH_FORM) =>
     actions.reduce(authFormReducer, start);
-  const set = (field: 'email' | 'password' | 'passwordRepeat' | 'code', value: string): AuthFormAction => ({
+  const set = (field: 'email' | 'code', value: string): AuthFormAction => ({
     type: 'fieldChanged',
     field,
     value,
   });
+  const read: AuthFormAction = { type: 'noticeToggled' };
 
-  it('şifreyle giriş: geçerli e-posta ve boş olmayan şifre', () => {
+  it('açılış e-posta adımı; şifre alanı yok', () => {
+    expect(INITIAL_AUTH_FORM.mode).toBe('email');
+    expect(Object.keys(INITIAL_AUTH_FORM).some((k) => /password/i.test(k))).toBe(false);
+  });
+
+  it('"Kodu gönder": geçerli e-posta VE aydınlatma metni okundu işaretli', () => {
     expect(canSubmit(run([set('email', 'ali@ornek.com')]))).toBe(false);
-    expect(canSubmit(run([set('email', 'ali@'), set('password', 'x')]))).toBe(false);
-    // Girişte uzunluk kuralı yok (eski / kodla açılmış hesaplar)
-    expect(canSubmit(run([set('email', 'ali@ornek.com'), set('password', 'x')]))).toBe(true);
+    expect(canSubmit(run([set('email', 'ali@'), read]))).toBe(false);
+    expect(canSubmit(run([set('email', 'ali@ornek.com'), read]))).toBe(true);
+    // İşaret kaldırılırsa yine kapalı
+    expect(canSubmit(run([set('email', 'ali@ornek.com'), read, read]))).toBe(false);
   });
 
   it('istek sürerken düğme kapalı', () => {
-    const s = run([set('email', 'ali@ornek.com'), set('password', 'x'), { type: 'started' }]);
-    expect(canSubmit(s)).toBe(false);
+    expect(canSubmit(run([set('email', 'ali@ornek.com'), read, { type: 'started' }]))).toBe(false);
   });
 
-  it('kayıt: kural + tekrar şart', () => {
-    const base: AuthFormAction[] = [{ type: 'switchMode', mode: 'signUp' }, set('email', 'ali@ornek.com')];
-    expect(canSubmit(run([...base, set('password', 'kisa'), set('passwordRepeat', 'kisa')]))).toBe(false);
-    expect(canSubmit(run([...base, set('password', 'gizli-sifre'), set('passwordRepeat', 'gizli')]))).toBe(false);
-    expect(canSubmit(run([...base, set('password', 'gizli-sifre'), set('passwordRepeat', 'gizli-sifre')]))).toBe(true);
-  });
-
-  it('kayıt → kod gönderildi → doğrulama adımı; kod yalnızca rakam, en fazla 6', () => {
-    let s = run([
-      { type: 'switchMode', mode: 'signUp' },
-      set('email', 'ali@ornek.com'),
-      set('password', 'gizli-sifre'),
-      set('passwordRepeat', 'gizli-sifre'),
-      { type: 'started' },
-      { type: 'codeSent', mode: 'verifySignup', now: 1_000 },
-    ]);
-    expect(s).toMatchObject({ mode: 'verifySignup', busy: false, code: '', sentAt: 1_000 });
+  it('kod gönderildi → kod adımı; kod yalnızca rakam, en fazla 6', () => {
+    let s = run([set('email', 'ali@ornek.com'), read, { type: 'started' }, { type: 'codeSent', now: 1_000 }]);
+    expect(s).toMatchObject({ mode: 'code', busy: false, code: '', sentAt: 1_000 });
     expect(canSubmit(s)).toBe(false);
     s = authFormReducer(s, set('code', '12 34-5'));
     expect(s.code).toBe('12345');
@@ -235,92 +170,15 @@ describe('giriş ekranı durumu', () => {
     expect(canSubmit(s)).toBe(true);
   });
 
-  it('girişte doğrulanmamış: bilgi notuyla doğrulama adımına', () => {
-    const s = run([
-      set('email', 'ali@ornek.com'),
-      set('password', 'x'),
-      { type: 'started' },
-      { type: 'codeSent', mode: 'verifySignup', now: 0, info: 'Doğrulanmamış.' },
-    ]);
-    expect(s).toMatchObject({ mode: 'verifySignup', info: 'Doğrulanmamış.', error: null });
-  });
-
-  it('şifremi unuttum: kod + yeni şifre (+ tekrar) gerekli', () => {
-    let s = run([
-      set('password', 'eski-yazilan'),
-      { type: 'switchMode', mode: 'forgot' },
-      set('email', 'ali@ornek.com'),
-    ]);
-    expect(s.password).toBe('');
-    expect(canSubmit(s)).toBe(true);
-
-    s = run([{ type: 'started' }, { type: 'codeSent', mode: 'resetPassword', now: 0 }], s);
-    expect(canSubmit(s)).toBe(false);
-    s = run([set('code', '123456'), set('password', 'yeni-sifre1')], s);
-    expect(canSubmit(s)).toBe(false);
-    s = authFormReducer(s, set('passwordRepeat', 'yeni-sifre1'));
-    expect(canSubmit(s)).toBe(true);
-  });
-
-  it('sıfırlamada "tekrar gönder" yazılan yeni şifreyi silmiyor', () => {
-    const s = run([
-      { type: 'switchMode', mode: 'forgot' },
-      set('email', 'ali@ornek.com'),
-      { type: 'codeSent', mode: 'resetPassword', now: 0 },
-      set('password', 'yeni-sifre1'),
-      set('passwordRepeat', 'yeni-sifre1'),
-      { type: 'started' },
-      { type: 'codeSent', mode: 'resetPassword', now: 70_000 },
-    ]);
-    expect(s).toMatchObject({ password: 'yeni-sifre1', passwordRepeat: 'yeni-sifre1', sentAt: 70_000 });
-  });
-
-  it('kod doğrulandı ama şifre kaydedilemedi: tekrar denemede kod gerekmiyor', () => {
-    let s = run([
-      { type: 'switchMode', mode: 'forgot' },
-      set('email', 'ali@ornek.com'),
-      { type: 'codeSent', mode: 'resetPassword', now: 0 },
-      set('code', '123456'),
-      set('password', 'yeni-sifre1'),
-      set('passwordRepeat', 'yeni-sifre1'),
-      { type: 'started' },
-      { type: 'recoveryVerified' },
-      { type: 'failed', message: 'Sunucuda bir sorun oluştu.' },
-    ]);
-    expect(s).toMatchObject({ recoveryVerified: true, code: '', busy: false });
-    expect(canSubmit(s)).toBe(true);
-    expect(canResend(s, 1_000_000)).toBe(false);
-    s = authFormReducer(s, set('passwordRepeat', 'baska'));
-    expect(canSubmit(s)).toBe(false);
-  });
-
-  it('kodla giriş: e-posta → kod', () => {
-    let s = run([{ type: 'switchMode', mode: 'otpEmail' }, set('email', 'ali@ornek.com')]);
-    expect(canSubmit(s)).toBe(true);
-    s = run([{ type: 'codeSent', mode: 'otpCode', now: 0 }, set('code', '654321')], s);
-    expect(s.mode).toBe('otpCode');
-    expect(canSubmit(s)).toBe(true);
-  });
-
   it('hata gösterilir, yazmaya başlayınca kalkar', () => {
-    let s = run([set('email', 'ali@ornek.com'), { type: 'started' }, { type: 'failed', message: 'E-posta ya da şifre yanlış.' }]);
-    expect(s).toMatchObject({ busy: false, error: 'E-posta ya da şifre yanlış.' });
-    s = authFormReducer(s, set('password', 'y'));
+    let s = run([set('email', 'ali@ornek.com'), { type: 'started' }, { type: 'failed', message: 'Kod yanlış.' }]);
+    expect(s).toMatchObject({ busy: false, error: 'Kod yanlış.' });
+    s = authFormReducer(s, set('code', '1'));
     expect(s.error).toBeNull();
   });
 
-  it('adım değişince e-posta kalır, şifre / kod / hata temizlenir', () => {
-    const s = run([
-      set('email', 'ali@ornek.com'),
-      set('password', 'x'),
-      { type: 'failed', message: 'hata' },
-      { type: 'switchMode', mode: 'signUp' },
-    ]);
-    expect(s).toEqual({ ...INITIAL_AUTH_FORM, mode: 'signUp', email: 'ali@ornek.com' });
-  });
-
-  it('"Kodu tekrar gönder" 60 sn sonra, yalnızca kod adımlarında', () => {
-    const s = run([set('email', 'ali@ornek.com'), { type: 'codeSent', mode: 'otpCode', now: 10_000 }]);
+  it('"Kodu tekrar gönder" 60 sn sonra, yalnızca kod adımında', () => {
+    const s = run([set('email', 'ali@ornek.com'), read, { type: 'codeSent', now: 10_000 }]);
     expect(resendSecondsLeft(s, 10_000)).toBe(RESEND_COOLDOWN_SECONDS);
     expect(canResend(s, 10_000)).toBe(false);
     expect(resendSecondsLeft(s, 10_000 + 59_500)).toBe(1);
@@ -328,50 +186,37 @@ describe('giriş ekranı durumu', () => {
     expect(canResend(INITIAL_AUTH_FORM, 1_000_000)).toBe(false);
   });
 
-  it('"düzelt": kod adımından e-postanın yazıldığı adıma, e-posta korunur', () => {
-    expect(emailStepOf('verifySignup')).toBe('signUp');
-    expect(emailStepOf('resetPassword')).toBe('forgot');
-    expect(emailStepOf('otpCode')).toBe('otpEmail');
-    expect(emailStepOf('signIn')).toBe('signIn');
+  it('"düzelt": e-posta adımına; e-posta ve işaret korunur, kod gider', () => {
     const s = run([
       set('email', 'ali@ornk.com'),
-      { type: 'codeSent', mode: 'otpCode', now: 1 },
-      { type: 'switchMode', mode: emailStepOf('otpCode') },
+      read,
+      { type: 'codeSent', now: 1 },
+      set('code', '123'),
+      { type: 'editEmail' },
     ]);
-    expect(s.mode).toBe('otpEmail');
-    expect(s.email).toBe('ali@ornk.com');
+    expect(s).toMatchObject({ mode: 'email', email: 'ali@ornk.com', noticeRead: true, code: '', sentAt: null });
   });
 });
 
-describe('gizli bayrak', () => {
-  it('art arda 7 dokunuş açar', () => {
-    let counter = INITIAL_TAP_COUNTER;
-    let unlocked = false;
-    for (let i = 0; i < 7; i++) {
-      ({ counter, unlocked } = registerVersionTap(counter, 1_000 + i * 300));
-      expect(unlocked).toBe(i === 6);
+describe('şifre akışı kaldırıldı (DNC-09)', () => {
+  it('account.ts şifreyle giriş / kayıt / sıfırlama dışa vermiyor', () => {
+    for (const name of [
+      'signInWithPassword',
+      'signUpWithPassword',
+      'verifySignupCode',
+      'resendSignupCode',
+      'sendPasswordResetCode',
+      'verifyRecoveryCode',
+      'updatePassword',
+    ]) {
+      expect(account, name).not.toHaveProperty(name);
     }
+    expect(authLib).not.toHaveProperty('passwordError');
+    expect(authLib).not.toHaveProperty('PASSWORD_MIN_LENGTH');
   });
 
-  it('uzun ara sayacı sıfırlar', () => {
-    let counter = INITIAL_TAP_COUNTER;
-    for (let i = 0; i < 6; i++) ({ counter } = registerVersionTap(counter, i * 300));
-    const r = registerVersionTap(counter, 5 * 300 + VERSION_TAP_GAP_MS + 1);
-    expect(r).toEqual({ counter: { count: 1, lastAt: 5 * 300 + VERSION_TAP_GAP_MS + 1 }, unlocked: false });
-  });
-
-  it('kv-store: varsayılan kapalı, açılıp kapanıyor', async () => {
-    const data = new Map<string, string>();
-    const store = {
-      getItem: async (k: string) => data.get(k) ?? null,
-      setItem: async (k: string, v: string) => void data.set(k, v),
-    };
-    expect(await getGymFeaturesEnabled(store)).toBe(false);
-    await setGymFeaturesEnabled(store, true);
-    expect(data.get(GYM_FEATURES_KEY)).toBe('true');
-    expect(await getGymFeaturesEnabled(store)).toBe(true);
-    await setGymFeaturesEnabled(store, false);
-    expect(await getGymFeaturesEnabled(store)).toBe(false);
+  it('hata mesajlarında şifre geçmiyor', () => {
+    for (const m of Object.values(ACCOUNT_ERROR_MESSAGES)) expect(m).not.toMatch(/şifre/i);
   });
 });
 
@@ -424,13 +269,6 @@ describe('kayıtlı oturumdan kullanıcı (açılışta ağsız)', () => {
 describe('istemci null (env yok): hiçbir çağrı çökmez, ağa çıkmaz', () => {
   it('her fonksiyon not_configured döner', async () => {
     const results = await Promise.all([
-      signInWithPassword(null, 'ali@ornek.com', 'gizli-sifre'),
-      signUpWithPassword(null, 'ali@ornek.com', 'gizli-sifre'),
-      verifySignupCode(null, 'ali@ornek.com', '123456'),
-      resendSignupCode(null, 'ali@ornek.com'),
-      sendPasswordResetCode(null, 'ali@ornek.com'),
-      verifyRecoveryCode(null, 'ali@ornek.com', '123456'),
-      updatePassword(null, 'gizli-sifre'),
       sendSignInCode(null, 'ali@ornek.com'),
       verifySignInCode(null, 'ali@ornek.com', '123456'),
       signOut(null),
@@ -450,49 +288,39 @@ describe('istemci null (env yok): hiçbir çağrı çökmez, ağa çıkmaz', () 
   it('istemci fırlatırsa da sonuç döner (ağ hatası)', async () => {
     const throwing = {
       auth: {
-        signInWithPassword: async () => {
+        signInWithOtp: async () => {
           throw new TypeError('Network request failed');
         },
       },
-    } as unknown as Parameters<typeof signInWithPassword>[0];
-    const r = await signInWithPassword(throwing, 'ali@ornek.com', 'x');
+    } as unknown as Parameters<typeof sendSignInCode>[0];
+    const r = await sendSignInCode(throwing, 'ali@ornek.com');
     expect(r).toMatchObject({ ok: false, error: { kind: 'network' } });
   });
 });
 
-describe('kayıt sonucu', () => {
-  const client = (data: unknown, error: unknown = null) =>
-    ({ auth: { signUp: async () => ({ data, error }) } }) as unknown as Parameters<
-      typeof signUpWithPassword
-    >[0];
-  const user = (identities: unknown[]) => ({ id: 'u', identities });
+describe('kod gönderme sonucu', () => {
+  const client = (error: unknown, seen: unknown[] = []) =>
+    ({
+      auth: {
+        signInWithOtp: async (params: unknown) => {
+          seen.push(params);
+          return { data: {}, error };
+        },
+      },
+    }) as unknown as Parameters<typeof sendSignInCode>[0];
 
-  it('doğrulama açık: oturum yok → kod adımı', async () => {
-    expect(await signUpWithPassword(client({ user: user([{}]), session: null }), 'a@b.co', 'gizli-sifre')).toEqual({
-      ok: true,
-      value: { needsVerification: true },
-    });
-  });
-
-  it('doğrulama kapalı: oturum geldi → doğrudan giriş', async () => {
-    expect(await signUpWithPassword(client({ user: user([{}]), session: {} }), 'a@b.co', 'gizli-sifre')).toEqual({
-      ok: true,
-      value: { needsVerification: false },
-    });
-  });
-
-  it('e-posta zaten kayıtlı (Supabase boş identities ile gizliyor) → email_taken', async () => {
-    expect(await signUpWithPassword(client({ user: user([]), session: null }), 'a@b.co', 'gizli-sifre')).toMatchObject({
-      ok: false,
-      error: { kind: 'email_taken' },
-    });
+  it('hesap yoksa da açılır (shouldCreateUser), adres normalleştirilir, kullanıcı verisi gönderilmez', async () => {
+    const seen: unknown[] = [];
+    expect(await sendSignInCode(client(null, seen), '  Ali@Ornek.COM ')).toEqual({ ok: true, value: null });
+    expect(seen).toEqual([{ email: 'ali@ornek.com', options: { shouldCreateUser: true } }]);
   });
 
   it('sunucu SMTP hatası → email_send_failed', async () => {
-    const err = { name: 'AuthRetryableFetchError', message: 'Error sending confirmation email', status: 500 };
-    expect(
-      await signUpWithPassword(client({ user: null, session: null }, err), 'a@b.co', 'gizli-sifre')
-    ).toMatchObject({ ok: false, error: { kind: 'email_send_failed' } });
+    const err = { name: 'AuthRetryableFetchError', message: 'Error sending magic link email', status: 500 };
+    expect(await sendSignInCode(client(err), 'a@b.co')).toMatchObject({
+      ok: false,
+      error: { kind: 'email_send_failed' },
+    });
   });
 });
 

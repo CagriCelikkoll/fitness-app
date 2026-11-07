@@ -2,8 +2,9 @@
  * Eşitlemenin ne zaman çalışacağı (v3.1b) — saf karar, React yok.
  * Bağlantı: src/hooks/useSyncTriggers.ts.
  *
- * Yalnızca gizli bayrak açık + giriş yapılmış iken; değilse motor hiç
- * çağrılmıyor, istemci kurulmuyor, ağa istek gitmiyor, takip açılmıyor.
+ * Yalnızca env tanımlı + giriş yapılmış iken (v3.7'den beri gizli bayrak
+ * yok; hesap herkese açık); değilse motor hiç çağrılmıyor, istemci
+ * kurulmuyor, ağa istek gitmiyor, takip açılmıyor.
  * Sahip uyuşmazlığını motor kendisi denetliyor (istek atmadan).
  */
 
@@ -26,11 +27,11 @@ export function shouldRun(trigger: SyncTrigger, lastAttemptAt: number | null, no
 export type GatedOutcome = SyncOutcome | { status: 'disabled' } | { status: 'skipped' };
 
 export interface SyncGate {
-  /** Gizli bayrak açık ve env tanımlı */
+  /** Env tanımlı (v3.7 öncesi: gizli bayrak da açık) */
   enabled: boolean;
   userId: string | null;
   db: Db;
-  /** Yalnızca gerektiğinde çağrılır (bayrak kapalıyken asla) */
+  /** Yalnızca gerektiğinde çağrılır (giriş yokken asla) */
   makeTransport: () => SyncTransport | null;
   confirmDeletes?: boolean;
 }

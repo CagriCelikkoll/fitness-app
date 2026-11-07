@@ -19,6 +19,7 @@ import { useAnnouncementTriggers } from '@/hooks/useAnnouncements';
 import { useClassScheduleTriggers } from '@/hooks/useClassSchedule';
 import { useClassReminderResponses } from '@/lib/classReminderNative';
 import { usePushRegistration, usePushResponses } from '@/lib/pushNative';
+import { usePrivacyAckSync } from '@/hooks/usePrivacyNotice';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -140,6 +141,8 @@ function SyncTriggers() {
   usePushResponses();
   // Salon girişi (v3.6c): antrenman bitince ziyarete bağla (otomatik çıkış)
   useVisitWorkoutLink();
+  // Aydınlatma metni onayı (v3.7): girişte işaretleneni sunucuya yaz
+  usePrivacyAckSync();
   return null;
 }
 
@@ -241,7 +244,7 @@ function RootStack() {
       />
       <Stack.Screen
         name="account/sign-in"
-        options={{ title: 'Giriş yap' }}
+        options={{ title: 'Hesap' }}
       />
       <Stack.Screen
         name="account/join-gym"

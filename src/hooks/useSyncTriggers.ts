@@ -20,8 +20,8 @@ import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 /**
  * Eşitleme tetikleyicileri (v3.1b). `app/_layout.tsx`'te bir kez bağlanır.
  *
- * Yalnızca gizli bayrak açık + giriş yapılmış iken (`useSession`
- * bayrak kapalıyken `available: false` döner, istemciye dokunmaz):
+ * Yalnızca giriş yapılmış iken (`useSession`; v3.7'den beri gizli bayrak
+ * yok, hesapsız kullanıcıda istemci kurulmuyor):
  * - girişten hemen sonra / açılışta oturum varsa
  * - antrenman bitince: store'a dışarıdan abone (`active.tsx`'e dokunmadan);
  *   `endSession` veritabanı yazıldıktan sonra çağrılıyor
@@ -138,7 +138,7 @@ export function useSyncStatus(): SyncUiState & { refresh: () => Promise<void> } 
 }
 
 /**
- * Eşitleme açık mı (3.3 uyarıları için): bayrak açık, giriş yapılmış ve
+ * Eşitleme açık mı (3.3 uyarıları için): giriş yapılmış ve
  * bu telefonda takip başlamış.
  */
 export function useSyncActive(): boolean {

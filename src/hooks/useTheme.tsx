@@ -6,7 +6,7 @@ import Storage from 'expo-sqlite/kv-store';
 import { vars } from 'nativewind';
 import { create } from 'zustand';
 
-import { useGymFeatures } from '@/hooks/useGymFeatures';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { isGymColor } from '@/lib/gymAdmin';
 import { ONBOARDING_FLAG_KEY } from '@/lib/onboarding';
@@ -95,7 +95,8 @@ const ThemeContext = createContext<ThemeState>({
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const { mode, gymAccent } = usePrefsStore();
   const system = useColorScheme();
-  const { available } = useGymFeatures();
+  // Salon rengi yalnızca üyede var (primary); env yoksa hiç (v3.7: bayrak yok)
+  const available = isSupabaseConfigured();
   const { primary } = useGymMembership();
 
   // "Sistem"de uygulamanın gece modu telefona bırakılıyor; `useColorScheme`

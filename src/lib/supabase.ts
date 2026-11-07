@@ -1,13 +1,14 @@
 /**
- * Supabase istemcisi (v3.0 hesap ve salon).
+ * Supabase istemcisi (v3.0 hesap ve salon; v3.7 herkese açık).
  *
- * - Tembel kuruluyor: yalnızca "Salon özellikleri" bayrağı açıkken
- *   `getSupabase()` çağrılıyor. Bayrak kapalıyken istemci hiç
- *   oluşmuyor, ağa istek gitmiyor.
+ * - Tembel kuruluyor ve yalnızca gerektiğinde: cihazda kayıtlı oturum
+ *   varsa (açılışta, `useSession`) ya da kullanıcı giriş ekranını açınca.
+ *   Hesapsız kullanıcıda istemci hiç oluşmuyor, ağa istek gitmiyor
+ *   (karar `decideAccountBoot`, supabaseConfig.ts).
  * - Env (`EXPO_PUBLIC_SUPABASE_URL` / `_ANON_KEY`) yoksa `null`; hesap
  *   özellikleri gizleniyor, uygulama çökmüyor.
  * - Oturum kv-store'da (expo-sqlite, zaten kurulu); AsyncStorage yok.
- * - Token yenileme yalnızca uygulama ön plandayken ve bayrak açıkken.
+ * - Token yenileme yalnızca uygulama ön plandayken.
  *
  * React Native modülü içe aktarıyor; testte kullanılmaz (saf kısım
  * `supabaseConfig.ts`).
@@ -19,6 +20,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import {
   readSupabaseConfig,
+  serverEnvironmentWarning,
   sessionStorageKey,
   supabaseAuthOptions,
 } from '@/lib/supabaseConfig';
@@ -29,6 +31,10 @@ const config = readSupabaseConfig({
   url: process.env.EXPO_PUBLIC_SUPABASE_URL,
   anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
 });
+
+// Yanlış ortamla yayınlanmış paket: yalnızca geliştirici logu (v3.7)
+const envWarning = serverEnvironmentWarning(config, { isDev: __DEV__ });
+if (envWarning) console.warn(envWarning);
 
 let client: SupabaseClient | null = null;
 let active = false;
@@ -43,7 +49,15 @@ export function getSessionStorageKey(): string | null {
   return config ? sessionStorageKey(config.url) : null;
 }
 
-/** İstemci; env yoksa null. İlk çağrıda kurulur. */
+/** İstemci kuruldu mu (kurmadan) */
+export function isSupabaseStarted(): boolean {
+  return client != null;
+}
+
+/**
+ * İstemci; env yoksa null. İlk çağrıda kurulur. Ekranlar ve kancalar
+ * yalnızca giriş yapılmışken çağırıyor (userId kontrolünden sonra).
+ */
 export function getSupabase(): SupabaseClient | null {
   if (!config) return null;
   if (client) return client;
@@ -64,17 +78,11 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
-/** Bayrak açılınca: istemciyi kur, token yenilemeyi başlat */
+/** Kayıtlı oturum bulununca ya da giriş ekranında: istemciyi kur, token yenilemeyi başlat */
 export function activateSupabase(): SupabaseClient | null {
   const c = getSupabase();
   if (!c) return null;
   active = true;
   if (AppState.currentState === 'active') void c.auth.startAutoRefresh();
   return c;
-}
-
-/** Bayrak kapanınca: arka plan istekleri dursun (oturum silinmez) */
-export function deactivateSupabase(): void {
-  active = false;
-  if (client) void client.auth.stopAutoRefresh();
 }

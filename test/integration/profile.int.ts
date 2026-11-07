@@ -1,5 +1,6 @@
 /**
- * Gerçek sunucu — ad alanı (supabase/migrations/0007_display_name.sql).
+ * Gerçek sunucu — ad alanı (supabase/migrations/0007_display_name.sql;
+ * v3.7 kuralı 0014_auth_hardening.sql, pentest DNC-04).
  * Uygulamanın kendi fonksiyonlarıyla (src/lib/profile.ts), her rolün
  * kendi oturumuyla. Salonlar ve üyelikler service role ile tohumlanıyor.
  */
@@ -12,7 +13,6 @@ import { createAnnouncement, fetchAnnouncements } from '@/lib/announcements';
 import { fetchMyDisplayName, updateDisplayName } from '@/lib/profile';
 
 import {
-  PASSWORD,
   admin,
   createUser,
   deleteCreatedUsers,
@@ -139,15 +139,14 @@ describe('Ad: duyuru yazarı', () => {
 });
 
 describe('Ad: sunucu kuralları', () => {
-  it('uzunluk 2–40, baş / son boşluk ve satır sonu sunucuda reddedilir', async () => {
+  it('uzunluk 1–40, baş / son boşluk ve satır sonu sunucuda reddedilir (v3.7)', async () => {
     const raw = (display_name: string | null) =>
       c.member2.client.from('profiles').update({ display_name }).eq('id', u.member2.id).select('id');
-    expect((await raw('A')).error?.code).toBe('23514');
+    expect((await raw('A')).error).toBeNull();
     expect((await raw('x'.repeat(41))).error?.code).toBe('23514');
     expect((await raw(' Mehmet')).error?.code).toBe('23514');
     expect((await raw('Meh\nmet')).error?.code).toBe('23514');
     expect((await raw('x'.repeat(40))).error).toBeNull();
-    expect((await raw('💪'.repeat(40))).error).toBeNull(); // emoji tek karakter
     expect((await raw(null)).error).toBeNull(); // ad silinebilir
     expect(await updateDisplayName(c.member2.client, u.member2.id, 'x'.repeat(41))).toMatchObject({
       ok: false,
@@ -155,11 +154,29 @@ describe('Ad: sunucu kuralları', () => {
     });
   });
 
-  it('kayıtta verilen ad profile yazılır; geçersizse kayıt bozulmaz, ad boş kalır', async () => {
+  it('DNC-04: geçerli ad kabul (Türkçe dahil), <script> ve işaretler reddedilir', async () => {
+    const raw = (display_name: string) =>
+      c.member2.client.from('profiles').update({ display_name }).eq('id', u.member2.id).select('display_name');
+    for (const ok of ['Çağrı Şükrü Öğüt', 'İsmail Işık', "O'Brien", 'Ayşe K.', 'Ali-Veli 2']) {
+      const r = await raw(ok);
+      expect(r.error, ok).toBeNull();
+      expect(r.data, ok).toEqual([{ display_name: ok }]);
+    }
+    for (const bad of ['<script>', 'Ali <b>', 'a>b', 'Ali💪', 'Ali@Veli', 'Ali;']) {
+      expect((await raw(bad)).error?.code, bad).toBe('23514');
+    }
+    // Uygulamanın kendi fonksiyonu: <script> → anlaşılır hata türü, ad değişmez
+    expect(await updateDisplayName(c.member2.client, u.member2.id, '<script>')).toMatchObject({
+      ok: false,
+      error: { kind: 'invalid_input' },
+    });
+    expect(await fetchMyDisplayName(c.member2.client, u.member2.id)).toEqual({ ok: true, value: 'Ali-Veli 2' });
+  });
+
+  it('kayıtta gelen kullanıcı verisindeki ad profile YAZILMAZ (v3.7; kayıt bozulmaz)', async () => {
     const signUp = async (name: unknown) => {
       const { data, error } = await admin.auth.admin.createUser({
         email: testEmail('kayit-ad'),
-        password: PASSWORD,
         email_confirm: true,
         user_metadata: { display_name: name },
       });
@@ -168,9 +185,8 @@ describe('Ad: sunucu kuralları', () => {
       const { data: p } = await admin.from('profiles').select('display_name').eq('id', data.user.id).single();
       return (p as { display_name: string | null }).display_name;
     };
-    expect(await signUp('  Zeynep   Kaya ')).toBe('Zeynep Kaya');
-    expect(await signUp('Z')).toBeNull();
-    expect(await signUp('x'.repeat(41))).toBeNull();
+    expect(await signUp('Zeynep Kaya')).toBeNull();
+    expect(await signUp('<script>')).toBeNull();
     expect(await signUp(42)).toBeNull();
   });
 });

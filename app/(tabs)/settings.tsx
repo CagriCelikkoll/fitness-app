@@ -20,12 +20,14 @@
  * Gizlilik bölümü: yasal metinler ve vücut ölçüsü rızası (`consent.ts`).
  * Yedek almadan önce paylaşım uyarısı gösteriliyor.
  *
- * Hesap ve salon (v3.0): en üstte, yalnızca "Salon özellikleri
- * (deneysel)" bayrağı açıkken. Bayrak Hakkında'daki sürüm satırına
- * 7 dokunuşla görünüyor; kapalıyken bölüm yok, Supabase'e istek yok.
+ * Hesap ve salon (v3.0; v3.7'den beri herkese açık): en üstte. Hesapsız
+ * kullanıcıya "Hesap aç" kartı ve "Salon koduyla katıl" satırı; hesap
+ * zorunlu değil. Salon araçları yalnızca üye olunan salonun kartında.
+ * Gizli bayrak kaldırıldı (pentest DNC-06). Hesapsız kullanıcıda Supabase
+ * istemcisi kurulmuyor, istek yok (`useSession`).
  */
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -45,6 +47,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
 import {
   ClipboardList,
+  CloudUpload,
   Download,
   GraduationCap,
   LogOut,
@@ -107,14 +110,13 @@ import { hideBackupWarning, isBackupWarningHidden } from '@/lib/consent';
 import { BACKUP_SHARE_WARNING } from '@/content/legal';
 import { ConsentCard } from '@/components/ConsentCard';
 import { GymLogo } from '@/components/GymLogo';
-import { useGymFeatures } from '@/hooks/useGymFeatures';
 import { useSession } from '@/hooks/useSession';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useProfile } from '@/hooks/useProfile';
 import { setGymAccentEnabled, setThemeMode, useColors, useTheme } from '@/hooks/useTheme';
 import { THEME_MODE_OPTIONS } from '@/lib/themeMode';
 import { leaveGym, signOut, type GymMembership } from '@/lib/account';
-import { INITIAL_TAP_COUNTER, registerVersionTap, roleLabel } from '@/lib/auth';
+import { roleLabel } from '@/lib/auth';
 import { getSupabase } from '@/lib/supabase';
 import {
   requestSync,
@@ -318,13 +320,14 @@ function ActionButton({
 }
 
 // ============================================================================
-// Hesap ve salon (v3.0, deneysel bayrak arkasında)
+// Hesap ve salon (v3.0; v3.7 herkese açık)
 // ============================================================================
 
 /**
  * Giriş durumu, e-posta, salon kartı (ad, rol, üyelik bitişi), salona
- * katılma, salondan ayrılma ve çıkış. Bayrak kapalıysa / env yoksa hiç
- * render edilmiyor. Çıkış yapınca lokal antrenman verisi silinmez.
+ * katılma, salondan ayrılma ve çıkış. Env yoksa render edilmiyor; giriş
+ * yoksa "Hesap aç" kartı ve "Salon koduyla katıl". Çıkış yapınca lokal
+ * antrenman verisi silinmez.
  */
 function AccountSection() {
   const COLORS = useColors();
@@ -346,11 +349,29 @@ function AccountSection() {
 
   if (!userId) {
     return (
-      <Section
-        title="Hesap ve salon"
-        description="Salonuna katılmak için giriş yap. Hesap isteğe bağlı; uygulama hesapsız da aynen çalışır."
-      >
-        <PrimaryButton label="Giriş yap" onPress={() => router.push('/account/sign-in')} />
+      <Section title="Hesap">
+        <Card variant="outline" className="gap-3 -mt-1">
+          <View className="flex-row items-center gap-2">
+            <CloudUpload color={COLORS.accent} size={20} />
+            <Text className="text-fg text-lg font-semibold tracking-tight flex-1">Hesap aç</Text>
+          </View>
+          <Text className="text-fg text-base leading-6">
+            Antrenmanların yedeklensin, telefon değiştirince kaybolmasın.
+          </Text>
+          <Text className="text-muted text-sm leading-5">
+            İsteğe bağlı; uygulama hesapsız da aynen çalışır. Hesabın varsa aynı yerden giriş
+            yap.
+          </Text>
+          <PrimaryButton label="Hesap aç ya da giriş yap" onPress={() => router.push('/account/sign-in')} />
+        </Card>
+        <ListRow
+          chevron
+          onPress={() =>
+            router.push({ pathname: '/account/sign-in', params: { next: 'join-gym' } })
+          }
+        >
+          <Text className="text-fg text-base">Salon koduyla katıl</Text>
+        </ListRow>
       </Section>
     );
   }
@@ -419,7 +440,9 @@ function AccountSection() {
       )}
 
       {!loading && error == null && memberships.length === 0 && (
-        <PrimaryButton label="Salona katıl" onPress={() => router.push('/account/join-gym')} />
+        <ListRow divider chevron onPress={() => router.push('/account/join-gym')}>
+          <Text className="text-fg text-base">Salon koduyla katıl</Text>
+        </ListRow>
       )}
 
       <SyncCard />
@@ -1378,24 +1401,10 @@ function AboutSection() {
     db.select({ count: sql<number>`count(*)` }).from(bodyMetrics)
   );
 
-  // v3.0 gizli bayrak: sürüm satırına art arda 7 dokunuş anahtarı
-  // gösterir (anahtar açıkken hep görünür, kapatılabilsin diye)
-  const gymFeatures = useGymFeatures();
-  const tapCounter = useRef(INITIAL_TAP_COUNTER);
-  const [flagRevealed, setFlagRevealed] = useState(false);
-  const handleVersionTap = () => {
-    const { counter, unlocked } = registerVersionTap(tapCounter.current, Date.now());
-    tapCounter.current = counter;
-    if (unlocked) setFlagRevealed(true);
-  };
-  const showFlag = flagRevealed || gymFeatures.enabled === true;
-
+  // v3.7: "Salon özellikleri (deneysel)" gizli anahtarı (sürüm satırına 7
+  // dokunuş) kaldırıldı; hesap herkese açık, salon üyeliğe bağlı (DNC-06)
   const rows: { label: string; value: string; onPress?: () => void }[] = [
-    {
-      label: 'Uygulama sürümü',
-      value: Constants.expoConfig?.version ?? '—',
-      onPress: handleVersionTap,
-    },
+    { label: 'Uygulama sürümü', value: Constants.expoConfig?.version ?? '—' },
     { label: 'Çalışma zamanı', value: Updates.runtimeVersion || '—' },
     { label: 'Kanal', value: Updates.channel || '—' },
     { label: 'Güncelleme', value: updateIdText() },
@@ -1426,18 +1435,6 @@ function AboutSection() {
         <ListRow divider chevron onPress={() => router.push('/onboarding')}>
           <Text className="text-fg text-base">Tanıtımı tekrar göster</Text>
         </ListRow>
-        {showFlag && gymFeatures.enabled != null && (
-          <ToggleRow
-            label="Salon özellikleri (deneysel)"
-            description={
-              gymFeatures.configured
-                ? 'Hesap, giriş ve salona katılma. Geliştirme aşamasında.'
-                : 'Bu sürümde sunucu ayarı yok; açılsa da hesap bölümü görünmez.'
-            }
-            value={gymFeatures.enabled}
-            onChange={(value) => void gymFeatures.setEnabled(value)}
-          />
-        )}
       </View>
     </Section>
   );

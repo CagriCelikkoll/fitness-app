@@ -1,16 +1,19 @@
 /**
  * Hesap ve salon (v3.0) — saf yardımcılar.
  *
- * E-posta ve şifre kuralları, salon kodu normalleştirme, rol etiketleri,
- * hata eşleme ve giriş ekranının durum mantığı (şifreyle giriş, kayıt +
- * doğrulama kodu, şifremi unuttum, kodla giriş). React ve Supabase
+ * E-posta kuralı, salon kodu normalleştirme, rol etiketleri, hata eşleme
+ * ve giriş ekranının durum mantığı (e-posta → kod). React ve Supabase
  * bilmez; test/auth.test.ts.
+ *
+ * v3.7: şifre yok. Giriş ve hesap açma tek akış: e-postaya 6 haneli kod
+ * (DNC-09; sunucuda şifre supabase/migrations/0014_auth_hardening.sql ile
+ * kapalı).
  */
 
 import { digitsOnly } from '@/lib/format';
 
 // ============================================================================
-// E-posta, şifre ve kod
+// E-posta ve kod
 // ============================================================================
 
 export function normalizeEmail(text: string): string {
@@ -20,30 +23,6 @@ export function normalizeEmail(text: string): string {
 /** Kaba kontrol: bir @, iki tarafta da boşluksuz metin, alan adında nokta */
 export function isValidEmail(text: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(text));
-}
-
-export const PASSWORD_MIN_LENGTH = 8;
-/** bcrypt 72 bayttan sonrasını yok sayar; Supabase de 72'de kesiyor */
-export const PASSWORD_MAX_LENGTH = 72;
-
-/**
- * Yeni şifre kuralı (kayıt ve şifre sıfırlama). Hata yoksa null.
- * Tekrar alanı boşken "aynı değil" denmiyor; kullanıcı henüz yazmadı.
- */
-export function passwordError(password: string, repeat: string): string | null {
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    return `Şifre en az ${PASSWORD_MIN_LENGTH} karakter olmalı.`;
-  }
-  if (password.length > PASSWORD_MAX_LENGTH) {
-    return `Şifre en fazla ${PASSWORD_MAX_LENGTH} karakter olabilir.`;
-  }
-  if (password.trim().length === 0) return 'Şifre yalnızca boşluktan oluşamaz.';
-  if (repeat.length > 0 && repeat !== password) return 'Şifreler aynı değil.';
-  return null;
-}
-
-export function isValidNewPassword(password: string, repeat: string): boolean {
-  return passwordError(password, repeat) == null && repeat === password;
 }
 
 export const OTP_LENGTH = 6;
@@ -99,12 +78,7 @@ export type AccountErrorKind =
   | 'server'
   | 'email_send_failed'
   | 'rate_limited'
-  | 'invalid_credentials'
-  | 'email_not_confirmed'
-  | 'email_taken'
   | 'invalid_email'
-  | 'weak_password'
-  | 'same_password'
   | 'signup_disabled'
   | 'invalid_otp'
   | 'invalid_code'
@@ -140,12 +114,7 @@ export const ACCOUNT_ERROR_MESSAGES: Record<AccountErrorKind, string> = {
   server: 'Sunucuda bir sorun oluştu. Biraz sonra tekrar dene.',
   email_send_failed: 'E-posta gönderilemedi. Biraz sonra tekrar dene.',
   rate_limited: 'Çok fazla deneme yapıldı. Biraz sonra tekrar dene.',
-  invalid_credentials: 'E-posta ya da şifre yanlış.',
-  email_not_confirmed: 'E-posta adresin henüz doğrulanmamış.',
-  email_taken: 'Bu e-posta zaten kayıtlı. Giriş yap ya da şifreni sıfırla.',
   invalid_email: 'Bu e-posta adresi kabul edilmedi. Kontrol edip tekrar dene.',
-  weak_password: 'Şifre çok zayıf. Daha uzun ya da tahmin edilmesi zor bir şifre seç.',
-  same_password: 'Yeni şifre eskisiyle aynı olamaz.',
   signup_disabled: 'Yeni kayıt şu an kapalı.',
   invalid_otp: 'Kod yanlış ya da süresi dolmuş.',
   invalid_code: 'Bu kodla bir salon bulunamadı.',
@@ -280,19 +249,8 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
   if (name === 'AuthUnknownError') return 'server';
 
   switch (code) {
-    case 'invalid_credentials':
-      return 'invalid_credentials';
-    case 'email_not_confirmed':
-      return 'email_not_confirmed';
-    case 'user_already_exists':
-    case 'email_exists':
-      return 'email_taken';
     case 'email_address_invalid':
       return 'invalid_email';
-    case 'weak_password':
-      return 'weak_password';
-    case 'same_password':
-      return 'same_password';
     case 'signup_disabled':
     case 'email_provider_disabled':
       return 'signup_disabled';
@@ -301,16 +259,12 @@ export function classifyAccountError(err: unknown): AccountErrorKind {
     case 'session_not_found':
       return 'not_signed_in';
   }
-  if (name === 'AuthWeakPasswordError') return 'weak_password';
   if (name === 'AuthSessionMissingError') return 'not_signed_in';
   if (status === 429 || code.startsWith('over_') || /rate limit/i.test(message)) {
     return 'rate_limited';
   }
 
   // Eski API sürümleri kodsuz, yalnızca mesajla dönebiliyor
-  if (/invalid login credentials/i.test(message)) return 'invalid_credentials';
-  if (/email not confirmed/i.test(message)) return 'email_not_confirmed';
-  if (/already (been )?registered|already exists/i.test(message)) return 'email_taken';
   if (/token has expired|otp.*(expired|invalid)|invalid.*otp/i.test(message)) return 'invalid_otp';
   if (/jwt expired|auth session missing/i.test(message)) return 'not_signed_in';
   return 'unknown';
@@ -321,47 +275,22 @@ export function toAccountError(err: unknown): AccountError {
 }
 
 // ============================================================================
-// Giriş ekranı durumu
+// Giriş ekranı durumu (v3.7: yalnızca kod)
 //
-//   signIn ──"Hesap oluştur"──> signUp ──kod gönderildi──> verifySignup
-//     │  └─"Şifremi unuttum"──> forgot ──kod gönderildi──> resetPassword
-//     └────"Kodla giriş yap"──> otpEmail ──kod gönderildi──> otpCode
+//   email ──"Kodu gönder"──> code ──"Giriş yap"──> (oturum açık)
+//     ▲                        │
+//     └──"düzelt" / "E-postayı değiştir"
 //
-// signIn'de "e-posta doğrulanmamış" gelirse yeni kod gönderilip
-// verifySignup'a geçiliyor.
+// Hesabı olmayan için de aynı akış: kod doğrulanınca hesap açılır.
+// "Kodu gönder" için Aydınlatma Metni'nin okunduğu işaretlenmeli (KVKK
+// aydınlatma; açık rıza değil). Onay giriş sonrası sunucuya yazılır
+// (src/lib/privacyNotice.ts).
 // ============================================================================
 
-export type AuthMode =
-  | 'signIn'
-  | 'signUp'
-  | 'verifySignup'
-  | 'forgot'
-  | 'resetPassword'
-  | 'otpEmail'
-  | 'otpCode';
-
-/** Kod girilen adımlar */
-export const CODE_MODES: readonly AuthMode[] = ['verifySignup', 'resetPassword', 'otpCode'];
+export type AuthMode = 'email' | 'code';
 
 export function isCodeMode(mode: AuthMode): boolean {
-  return CODE_MODES.includes(mode);
-}
-
-/**
- * Kod adımından "düzelt" / "E-postayı değiştir" ile dönülen, e-postanın
- * yazıldığı adım. Kod adımı değilse olduğu yerde kalır.
- */
-export function emailStepOf(mode: AuthMode): AuthMode {
-  switch (mode) {
-    case 'verifySignup':
-      return 'signUp';
-    case 'resetPassword':
-      return 'forgot';
-    case 'otpCode':
-      return 'otpEmail';
-    default:
-      return mode;
-  }
+  return mode === 'code';
 }
 
 /** "Kodu tekrar gönder" bu kadar saniye sonra açılır */
@@ -370,48 +299,33 @@ export const RESEND_COOLDOWN_SECONDS = 60;
 export interface AuthFormState {
   mode: AuthMode;
   email: string;
-  /** signIn: şifre; signUp / resetPassword: yeni şifre */
-  password: string;
-  passwordRepeat: string;
   code: string;
-  /** signUp: isteğe bağlı ad (profiles.display_name; doğrulama src/lib/profile.ts) */
-  displayName: string;
+  /** "Aydınlatma Metni'ni okudum" işaretli mi */
+  noticeRead: boolean;
   /** Son kod gönderiminin zamanı (ms) */
   sentAt: number | null;
-  /**
-   * resetPassword: kod doğrulandı (oturum açıldı) ama yeni şifre
-   * kaydedilemedi. Kod tek kullanımlık; tekrar denemede yalnızca şifre
-   * güncelleniyor.
-   */
-  recoveryVerified: boolean;
   busy: boolean;
   error: string | null;
-  /** Bilgi notu (ör. "doğrulanmamış, yeni kod gönderdik") */
-  info: string | null;
 }
 
-export type AuthFormField = 'email' | 'password' | 'passwordRepeat' | 'code' | 'displayName';
+export type AuthFormField = 'email' | 'code';
 
 export type AuthFormAction =
   | { type: 'fieldChanged'; field: AuthFormField; value: string }
-  | { type: 'switchMode'; mode: AuthMode }
+  | { type: 'noticeToggled' }
+  | { type: 'editEmail' }
   | { type: 'started' }
   | { type: 'failed'; message: string }
-  | { type: 'codeSent'; mode: AuthMode; now: number; info?: string }
-  | { type: 'recoveryVerified' };
+  | { type: 'codeSent'; now: number };
 
 export const INITIAL_AUTH_FORM: AuthFormState = {
-  mode: 'signIn',
+  mode: 'email',
   email: '',
-  password: '',
-  passwordRepeat: '',
   code: '',
-  displayName: '',
+  noticeRead: false,
   sentAt: null,
-  recoveryVerified: false,
   busy: false,
   error: null,
-  info: null,
 };
 
 export function authFormReducer(state: AuthFormState, action: AuthFormAction): AuthFormState {
@@ -422,36 +336,17 @@ export function authFormReducer(state: AuthFormState, action: AuthFormAction): A
         action.field === 'code' ? digitsOnly(action.value).slice(0, OTP_LENGTH) : action.value;
       return { ...state, [action.field]: value, error: null };
     }
-    case 'switchMode':
-      // E-posta kalıyor; şifre ve kod adımlar arasında taşınmıyor
-      return {
-        ...INITIAL_AUTH_FORM,
-        mode: action.mode,
-        email: state.email,
-      };
+    case 'noticeToggled':
+      return { ...state, noticeRead: !state.noticeRead, error: null };
+    case 'editEmail':
+      // E-posta ve işaret kalıyor; kod ve hata gidiyor
+      return { ...state, mode: 'email', code: '', sentAt: null, busy: false, error: null };
     case 'started':
-      return { ...state, busy: true, error: null, info: null };
+      return { ...state, busy: true, error: null };
     case 'failed':
       return { ...state, busy: false, error: action.message };
-    case 'codeSent': {
-      // Sıfırlamada yeni şifre kod adımında giriliyor: adıma ilk girişte
-      // boş başlasın, "tekrar gönder"de yazılan şifre silinmesin
-      const enteringReset = action.mode === 'resetPassword' && state.mode !== 'resetPassword';
-      return {
-        ...state,
-        mode: action.mode,
-        code: '',
-        password: enteringReset ? '' : state.password,
-        passwordRepeat: enteringReset ? '' : state.passwordRepeat,
-        sentAt: action.now,
-        recoveryVerified: false,
-        busy: false,
-        error: null,
-        info: action.info ?? null,
-      };
-    }
-    case 'recoveryVerified':
-      return { ...state, recoveryVerified: true, code: '' };
+    case 'codeSent':
+      return { ...state, mode: 'code', code: '', sentAt: action.now, busy: false, error: null };
   }
 }
 
@@ -459,21 +354,10 @@ export function authFormReducer(state: AuthFormState, action: AuthFormAction): A
 export function canSubmit(state: AuthFormState): boolean {
   if (state.busy) return false;
   switch (state.mode) {
-    case 'signIn':
-      return isValidEmail(state.email) && state.password.length > 0;
-    case 'signUp':
-      return isValidEmail(state.email) && isValidNewPassword(state.password, state.passwordRepeat);
-    case 'forgot':
-    case 'otpEmail':
-      return isValidEmail(state.email);
-    case 'verifySignup':
-    case 'otpCode':
+    case 'email':
+      return isValidEmail(state.email) && state.noticeRead;
+    case 'code':
       return isValidOtp(state.code);
-    case 'resetPassword':
-      return (
-        (state.recoveryVerified || isValidOtp(state.code)) &&
-        isValidNewPassword(state.password, state.passwordRepeat)
-      );
   }
 }
 
@@ -485,33 +369,5 @@ export function resendSecondsLeft(state: AuthFormState, now: number): number {
 }
 
 export function canResend(state: AuthFormState, now: number): boolean {
-  return (
-    isCodeMode(state.mode) &&
-    !state.busy &&
-    !state.recoveryVerified &&
-    resendSecondsLeft(state, now) === 0
-  );
-}
-
-// ============================================================================
-// Gizli bayrak: sürüm satırına art arda 7 dokunuş
-// ============================================================================
-
-export const VERSION_TAPS_TO_UNLOCK = 7;
-/** İki dokunuş arasında bundan uzun ara olursa sayaç sıfırlanır */
-export const VERSION_TAP_GAP_MS = 1500;
-
-export interface TapCounter {
-  count: number;
-  lastAt: number;
-}
-
-export const INITIAL_TAP_COUNTER: TapCounter = { count: 0, lastAt: 0 };
-
-export function registerVersionTap(
-  prev: TapCounter,
-  now: number
-): { counter: TapCounter; unlocked: boolean } {
-  const count = prev.count > 0 && now - prev.lastAt <= VERSION_TAP_GAP_MS ? prev.count + 1 : 1;
-  return { counter: { count, lastAt: now }, unlocked: count >= VERSION_TAPS_TO_UNLOCK };
+  return isCodeMode(state.mode) && !state.busy && resendSecondsLeft(state, now) === 0;
 }

@@ -3,49 +3,61 @@ import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
 
 import { classifyAccountError } from '@/lib/auth';
-import { getSessionStorageKey, getSupabase } from '@/lib/supabase';
-import { parseStoredUser, type StoredUser } from '@/lib/supabaseConfig';
-import { useGymFeatures } from '@/hooks/useGymFeatures';
+import {
+  activateSupabase,
+  getSessionStorageKey,
+  isSupabaseConfigured,
+} from '@/lib/supabase';
+import { decideAccountBoot, type StoredUser } from '@/lib/supabaseConfig';
 
 /**
- * Supabase oturumu (v3.0). Bayrak kapalıysa ya da env yoksa hiçbir şey
+ * Supabase oturumu (v3.0; v3.7'den beri bayraksız). Env yoksa hiçbir şey
  * yapmaz: `available: false`, istemciye dokunulmaz.
  *
- * Kalıcılık: oturum kv-store'da (persistSession), erişim token'ı
- * kendiliğinden yenileniyor (autoRefreshToken). Açılışta:
- * 1. Kullanıcı depodan hemen okunuyor; ağ beklenmiyor.
- * 2. `getSession()` oturumu doğruluyor, gerekirse token'ı yeniliyor.
- *    İnternet yoksa yenileme ~25 sn denenip boş dönüyor; bu çıkış
- *    sayılmıyor (token depoda duruyor, internet gelince yenileniyor ve
- *    `onAuthStateChange` haber veriyor).
- * 3. Yalnızca SIGNED_OUT (çıkış ya da sunucunun reddettiği token) ve
- *    ağ dışı bir hatayla boş dönen `getSession` oturumu kapatıyor.
+ * Açılış (v3.7):
+ * 1. Kayıtlı oturum kv-store'dan okunuyor (ağsız, `decideAccountBoot`).
+ *    Yoksa istemci HİÇ kurulmuyor: hesapsız kullanıcıda ağ isteği yok.
+ *    Giriş ekranı açılınca `startAccountClient()` kurar.
+ * 2. Varsa kullanıcı hemen gösteriliyor; `getSession()` oturumu doğruluyor,
+ *    gerekirse token'ı yeniliyor. İnternet yoksa yenileme ~25 sn denenip
+ *    boş dönüyor; bu çıkış sayılmıyor (token depoda duruyor, internet
+ *    gelince yenileniyor ve `onAuthStateChange` haber veriyor).
+ * 3. Yalnızca SIGNED_OUT (çıkış ya da sunucunun reddettiği token) ve ağ
+ *    dışı bir hatayla boş dönen `getSession` oturumu kapatıyor.
  */
 const useSessionStore = create<{ user: StoredUser | null; ready: boolean }>(() => ({
   user: null,
   ready: false,
 }));
 
+let booted = false;
 let subscribed = false;
 
 function setUser(user: StoredUser | null): void {
   useSessionStore.setState({ user, ready: true });
 }
 
-async function readStoredUser(): Promise<StoredUser | null> {
-  const key = getSessionStorageKey();
-  if (!key) return null;
-  try {
-    return parseStoredUser(await Storage.getItem(key));
-  } catch (err) {
-    console.error('[ACCOUNT] Kayıtlı oturum okunamadı:', err);
-    return null;
-  }
+function ensureBooted(): void {
+  if (booted) return;
+  booted = true;
+  void decideAccountBoot({
+    configured: isSupabaseConfigured(),
+    sessionKey: getSessionStorageKey(),
+    storage: Storage,
+  }).then((decision) => {
+    if (decision.kind === 'start') {
+      // Ağ beklemeden "giriş yapılmış" görünsün
+      if (!useSessionStore.getState().ready) setUser(decision.user);
+      ensureSubscribed();
+    } else if (!subscribed) {
+      setUser(null);
+    }
+  });
 }
 
 function ensureSubscribed(): void {
   if (subscribed) return;
-  const client = getSupabase();
+  const client = activateSupabase();
   if (!client) return;
   subscribed = true;
 
@@ -58,11 +70,6 @@ function ensureSubscribed(): void {
     // INITIAL_SESSION boşsa karar getSession'ın sonucunda
   });
 
-  void readStoredUser().then((stored) => {
-    // getSession daha önce bittiyse onun sonucu geçerli
-    if (!useSessionStore.getState().ready) setUser(stored);
-  });
-
   client.auth
     .getSession()
     .then(({ data, error }) => {
@@ -70,7 +77,7 @@ function ensureSubscribed(): void {
         setUser({ userId: data.session.user.id, email: data.session.user.email ?? null });
       } else if (error && classifyAccountError(error) === 'network') {
         // Çevrimdışı: depodaki kullanıcı kalsın
-        if (!useSessionStore.getState().ready) void readStoredUser().then(setUser);
+        if (!useSessionStore.getState().ready) setUser(null);
       } else {
         setUser(null);
       }
@@ -81,20 +88,29 @@ function ensureSubscribed(): void {
     });
 }
 
+/**
+ * Giriş ekranı açılınca: istemciyi kur ve oturum değişikliklerini dinle.
+ * Kod gönderilene kadar istek atılmaz (oturumsuz istemci ağa çıkmıyor).
+ */
+export function startAccountClient(): void {
+  if (!isSupabaseConfigured()) return;
+  ensureSubscribed();
+}
+
 export function useSession(): {
-  /** Bayrak açık ve env tanımlı */
+  /** Env tanımlı: hesap özellikleri gösterilebilir */
   available: boolean;
   /** Oturum okundu mu */
   ready: boolean;
   userId: string | null;
   email: string | null;
 } {
-  const { available } = useGymFeatures();
+  const available = isSupabaseConfigured();
   const user = useSessionStore((s) => s.user);
   const ready = useSessionStore((s) => s.ready);
 
   useEffect(() => {
-    if (available) ensureSubscribed();
+    if (available) ensureBooted();
   }, [available]);
 
   if (!available) {
