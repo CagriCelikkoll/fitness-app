@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, count, eq } from 'drizzle-orm';
 import {
@@ -34,7 +33,7 @@ import {
   routines,
   type Routine,
 } from '@/db/schema';
-import { EXERCISE_IMAGE_CACHE } from '@/lib/exerciseImage';
+import { useStartRoutine } from '@/hooks/useStartRoutine';
 import {
   programUpdates,
   pruneLinks,
@@ -42,10 +41,6 @@ import {
   updateBadgeText,
   type ProgramUpdate,
 } from '@/lib/programs';
-import {
-  createSessionFromRoutine,
-  sessionExerciseImageUrls,
-} from '@/lib/startSession';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
   Card,
@@ -61,8 +56,7 @@ export default function WorkoutScreen() {
   const db = useDb();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
-  const startSession = useActiveWorkoutStore((s) => s.startSession);
-  const [starting, setStarting] = useState(false);
+  const { start: startRoutine, starting } = useStartRoutine();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Programdan eklenen rutinler (v3.6b): program güncellenince rozet.
@@ -98,37 +92,7 @@ export default function WorkoutScreen() {
     }
   }, [routineList]);
 
-  const handleStartRoutine = async (routine: Routine) => {
-    if (starting) return;
-    setStarting(true);
-    try {
-      const sessionId = await createSessionFromRoutine(db, routine);
-
-      if (sessionId == null) {
-        Alert.alert(
-          'Boş Rutin',
-          'Bu rutin egzersiz içermiyor. Önce egzersiz ekle.'
-        );
-        return;
-      }
-
-      startSession(sessionId);
-      router.push('/session/active');
-
-      // Hareket görsellerini arka planda önbelleğe al; salonda internet
-      // olmasa da detayda görünsünler. Beklenmiyor, hata antrenmanı etkilemez.
-      sessionExerciseImageUrls(db, sessionId)
-        .then((urls) =>
-          urls.length > 0 ? Image.prefetch(urls, EXERCISE_IMAGE_CACHE) : true
-        )
-        .catch((err) => console.warn('[IMAGE-PREFETCH] Atlandı:', err));
-    } catch (err) {
-      console.error('Antrenman başlatılırken hata:', err);
-      Alert.alert('Hata', String(err));
-    } finally {
-      setStarting(false);
-    }
-  };
+  const handleStartRoutine = (routine: Routine) => startRoutine(routine);
 
   const handleDelete = (routine: Routine) => {
     Alert.alert(

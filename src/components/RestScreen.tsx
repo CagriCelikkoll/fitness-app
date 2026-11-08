@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/Text';
 import { useColors, useContextTones } from '@/hooks/useTheme';
 import { formatElapsed } from '@/lib/focusMode';
 import { RIR_OPTIONS, rirLabel } from '@/lib/rir';
-import { restRingLabel } from '@/lib/tickRing';
+import { restRemainingFraction, restRingLabel } from '@/lib/tickRing';
 import type { ContextKind } from '@/theme';
 
 /**
@@ -138,10 +138,12 @@ const RestRing = memo(function RestRing({
 }) {
   const elapsedSeconds = Math.floor(useElapsedMs(startedAt) / 1000);
   const remaining = completed ? 0 : Math.max(0, durationSeconds - elapsedSeconds);
-  const progress = completed ? 1 : Math.min(1, elapsedSeconds / Math.max(1, durationSeconds));
+  // Kalan süre: başta 60 çentiğin hepsi renkli, saat yönünde söner
+  const fraction = restRemainingFraction(remaining, durationSeconds);
   return (
     <TickRing
-      progress={progress}
+      progress={fraction}
+      mode="drain"
       size={270}
       tickLength={22}
       color="rest"

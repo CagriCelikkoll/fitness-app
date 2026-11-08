@@ -67,6 +67,7 @@ import {
   nextIncompleteExercise,
   nextUpText,
   prefillValues,
+  earlierCompletedSet,
   progressSegments,
   repsA11yLabel,
   setValueText,
@@ -869,6 +870,7 @@ function FocusView({
     ? prefillValues({
         weightKg: set.weightKg,
         reps: set.reps,
+        earlier: earlierCompletedSet(sets, setIndex!),
         previous: previous ?? null,
         targetWeightKg: data.target?.weightKg ?? null,
         targetReps: data.target?.reps ?? null,

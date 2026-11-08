@@ -209,6 +209,8 @@ export interface PrefillInput {
   /** Setin kayıtlı değerleri (kullanıcının yazdığı ya da başlangıçtaki hedef ağırlık) */
   weightKg: number | null;
   reps: number | null;
+  /** Aynı hareketin bu antrenmandaki bir önceki tamamlanmış seti (`earlierCompletedSet`) */
+  earlier?: { weightKg: number | null; reps: number | null } | null;
   /** Geçen seferin aynı sıradaki seti */
   previous?: { weightKg: number | null; reps: number | null } | null;
   /** Rutindeki hedef */
@@ -220,22 +222,42 @@ export interface Prefill {
   weight: string;
   reps: string;
   /** Kaynak: ekranda "Geçen sefer" / hedef ayrımı ve test için */
-  weightSource: 'set' | 'previous' | 'target' | 'empty';
-  repsSource: 'set' | 'previous' | 'target' | 'empty';
+  weightSource: 'set' | 'earlier' | 'previous' | 'target' | 'empty';
+  repsSource: 'set' | 'earlier' | 'previous' | 'target' | 'empty';
 }
 
 /**
- * Odak modunda kutulara gelen değer: geçen sefer → rutindeki hedef → boş.
- * Kullanıcı bu sette bir değer yazdıysa (kayıtlıysa) o geçerli. Ağırlık
- * başlangıçta rutin hedefinden yazılıyor (`startSession.ts`); hedefe eşit
- * kayıtlı ağırlık "yazılmış" sayılmaz, geçen sefer öne geçer.
+ * Aynı hareketin bu antrenmanda, verilen setten önceki son tamamlanmış seti
+ * (aynı set türünden: ısınmanın değeri asıl sete taşınmaz). Yoksa null.
+ */
+export function earlierCompletedSet<
+  T extends { isCompleted: boolean; setType?: string | null; weightKg: number | null; reps: number | null },
+>(sets: readonly T[], index: number): T | null {
+  const current = sets[index];
+  if (!current) return null;
+  for (let i = index - 1; i >= 0; i--) {
+    const s = sets[i]!;
+    if (!s.isCompleted) continue;
+    if ((s.setType ?? 'normal') !== (current.setType ?? 'normal')) continue;
+    if (s.weightKg == null && s.reps == null) continue;
+    return s;
+  }
+  return null;
+}
+
+/**
+ * Odak modunda kutulara gelen değer: bu antrenmandaki bir önceki tamamlanmış
+ * set → geçen sefer → rutindeki hedef → boş. Kullanıcı bu sette bir değer
+ * yazdıysa (kayıtlıysa) o geçerli. Ağırlık başlangıçta rutin hedefinden
+ * yazılıyor (`startSession.ts`); hedefe eşit kayıtlı ağırlık "yazılmış"
+ * sayılmaz, önceki kaynaklar öne geçer.
  *
  * Hazır değerler veritabanına yazılmaz: dokunulmamış set bitirirken
  * "değer girilmiş ama onaylanmamış" sayılmasın. "Seti tamamla"da ekranda
  * görünen değer kaydedilir.
  */
 export function prefillValues(input: PrefillInput): Prefill {
-  const { weightKg, reps, previous, targetWeightKg, targetReps } = input;
+  const { weightKg, reps, earlier, previous, targetWeightKg, targetReps } = input;
 
   let weight: string;
   let weightSource: Prefill['weightSource'];
@@ -243,6 +265,9 @@ export function prefillValues(input: PrefillInput): Prefill {
   if (typedWeight) {
     weight = String(weightKg);
     weightSource = 'set';
+  } else if (earlier?.weightKg != null) {
+    weight = String(earlier.weightKg);
+    weightSource = 'earlier';
   } else if (previous?.weightKg != null) {
     weight = String(previous.weightKg);
     weightSource = 'previous';
@@ -260,6 +285,9 @@ export function prefillValues(input: PrefillInput): Prefill {
   if (reps != null) {
     repsText = String(reps);
     repsSource = 'set';
+  } else if (earlier?.reps != null) {
+    repsText = String(earlier.reps);
+    repsSource = 'earlier';
   } else if (previous?.reps != null) {
     repsText = String(previous.reps);
     repsSource = 'previous';

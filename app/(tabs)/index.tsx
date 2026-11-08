@@ -3,9 +3,9 @@ import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { desc, isNotNull, sql } from 'drizzle-orm';
+import { desc, eq, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { Play, Scale, ShieldCheck, Target, UserRound } from 'lucide-react-native';
+import { ChevronRight, Flame, Play, Scale, ShieldCheck, Sparkles, Target, UserRound } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
@@ -15,19 +15,34 @@ import { useGymMembership } from '@/hooks/useGymMembership';
 import { useProfile } from '@/hooks/useProfile';
 import { useTrainerLinks } from '@/hooks/useTrainerLinks';
 import { useColors, useGymTones } from '@/hooks/useTheme';
-import { useSheetBottomPadding } from '@/hooks/useSafeBottom';
+import { useScreenTopInset, useSheetBottomPadding } from '@/hooks/useSafeBottom';
+import { usePrograms, useRoutineLinks } from '@/hooks/usePrograms';
+import { useStartRoutine } from '@/hooks/useStartRoutine';
+import { useElapsedMs } from '@/components/RestTimer';
+import { formatElapsed } from '@/lib/focusMode';
+import { upperTr } from '@/lib/typography';
+import {
+  loadTodayData,
+  streakChipText,
+  todayHeading,
+  weekStrip,
+  weekSummaryLabel,
+  type LatestRecord,
+  type TodayData,
+  type WeekDay,
+} from '@/lib/today';
 import { membershipWarning } from '@/lib/gymAdmin';
 import { markNamePrompted, shouldPromptForName, wasNamePrompted } from '@/lib/profile';
 import { pendingRequestsFor, requestCardText } from '@/lib/trainers';
 import { roleLabel } from '@/lib/auth';
-import { bodyMetrics, routines, workoutSessions } from '@/db/schema';
+import { routines, workoutSessions } from '@/db/schema';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
   isOnboardingDone,
   markOnboardingDone,
   shouldShowOnboarding,
 } from '@/lib/onboarding';
-import { formatDaysAgo, formatDecimal } from '@/lib/format';
+import { formatDuration, formatRelativeDate } from '@/lib/format';
 import {
   goalStreak,
   workoutDayKeys,
@@ -35,14 +50,16 @@ import {
 } from '@/lib/workoutCalendar';
 import {
   Card,
+  Glow,
   ListRow,
   PrimaryButton,
+  ScreenTitle,
   SecondaryButton,
-  SectionHeader,
+  SectionLabel,
+  StatCard,
 } from '@/components/ui';
-import { GoalRing } from '@/components/GoalRing';
+import { CornerGlow } from '@/components/ui/CornerGlow';
 import { WeeklyGoalPicker } from '@/components/WeeklyGoalPicker';
-import { WorkoutCalendar } from '@/components/WorkoutCalendar';
 import { GymLogo } from '@/components/GymLogo';
 import { AnnouncementAlert } from '@/components/GymCards';
 import { ConsentCheckbox } from '@/components/ConsentCard';
@@ -307,6 +324,7 @@ function HomeContent() {
   const db = useDb();
   const router = useRouter();
   const consent = useHealthConsent();
+  const topInset = useScreenTopInset();
   // Uygulama arka planda kapatıldıysa yarım antrenmanı geri getir. Ardından
   // (yarım antrenman sorusu yanıtlandıktan sonra) güncellemeyle gelen
   // kullanıcıya vücut ölçüsü rızası. Kullanıcı antrenmana döndüyse rıza
@@ -320,36 +338,47 @@ function HomeContent() {
   const { goal, loaded: goalLoaded, setGoal } = useWeeklyGoal();
   const [goalPickerOpen, setGoalPickerOpen] = useState(false);
 
-  // Bitmiş tüm seanslar: takvim, haftalık hedef, seri ve toplam sayı.
+  // Bitmiş tüm seanslar: haftalık hedef, gün şeridi ve seri.
   // Join yok, useLiveQuery seans bitince kendiliğinden güncelliyor.
   const finishedSessions = useLiveQuery(
     db
-      .select({
-        id: workoutSessions.id,
-        name: workoutSessions.name,
-        startedAt: workoutSessions.startedAt,
-        endedAt: workoutSessions.endedAt,
-        durationSeconds: workoutSessions.durationSeconds,
-      })
+      .select({ id: workoutSessions.id, startedAt: workoutSessions.startedAt, endedAt: workoutSessions.endedAt })
       .from(workoutSessions)
       .where(isNotNull(workoutSessions.endedAt))
   );
-  const latestWeight = useLiveQuery(
-    db
-      .select({ date: bodyMetrics.date, weightKg: bodyMetrics.weightKg })
-      .from(bodyMetrics)
-      .where(isNotNull(bodyMetrics.weightKg))
-      .orderBy(desc(bodyMetrics.date))
-      .limit(1)
-  );
-
   const sessions = finishedSessions.data ?? [];
   const now = new Date();
   const dayKeys = useMemo(() => workoutDayKeys(sessions), [sessions]);
   const doneThisWeek = workoutDaysThisWeek(dayKeys, now);
-  const streak = goalStreak(dayKeys, goal, now);
+  const streakText = streakChipText(goalStreak(dayKeys, goal, now));
+  const strip = weekStrip(dayKeys, now);
 
-  // Son 3 tamamlanmış antrenman
+  // Programdan eklenen rutinlerin gün sırası (yalnızca cihazdaki bağlar; istek yok)
+  const { enabled: programsEnabled } = usePrograms();
+  const { links } = useRoutineLinks(programsEnabled);
+
+  // Sıradaki rutin, haftalık hacim, son rekor: join'li → odakta ve seans
+  // sayısı değişince yeniden okunur
+  const [today, setToday] = useState<TodayData | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      setReloadKey((k) => k + 1);
+    }, [])
+  );
+  useEffect(() => {
+    let cancelled = false;
+    loadTodayData(db, new Date(), links)
+      .then((d) => {
+        if (!cancelled) setToday(d);
+      })
+      .catch((err) => console.warn('[TODAY] Okunamadı:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [db, links, reloadKey, sessions.length]);
+
+  // Son 3 tamamlanmış antrenman (geçmişe giriş)
   const recentSessions = useLiveQuery(
     db
       .select()
@@ -360,242 +389,303 @@ function HomeContent() {
   );
 
   return (
-    <ScrollView
-      className="flex-1 bg-bg"
-      contentContainerClassName="px-5 pt-6 gap-3 pb-10"
-    >
-      <GymRow />
-      <PrivacyNoticeCard />
-      <NamePromptCard />
-      <TrainerRequestCard />
-      {/* Duyuru kartı ve dersler Salon sekmesinde (v3.6c); burada yalnızca okunmamış uyarısı */}
-      <AnnouncementAlert />
-      <View className="mb-3">
-        <Text className="text-fg text-4xl font-bold tracking-tight">
-          Hoş geldin 💪
-        </Text>
-        <Text className="text-muted text-sm mt-2">
-          Bugün hangi kasları çalıştıracağız?
-        </Text>
-      </View>
+    <View className="flex-1 bg-bg">
+      <Glow />
+      <ScrollView
+        contentContainerStyle={{ paddingTop: topInset + 20 }}
+        contentContainerClassName="px-5 gap-4 pb-10"
+      >
+        <GymRow />
+        <PrivacyNoticeCard />
+        <NamePromptCard />
+        <TrainerRequestCard />
+        {/* Duyuru kartı ve dersler Salon sekmesinde (v3.6c); burada yalnızca okunmamış uyarısı */}
+        <AnnouncementAlert />
 
-      {/* Aktif session bandı */}
-      {activeSessionId && (
-        <Link href="/session/active" asChild>
-          <Card variant="accent" className="flex-row items-center">
-            <View className="w-12 h-12 rounded-full bg-accent-fg items-center justify-center">
-              <Play color={COLORS.accent} size={20} fill={COLORS.accent} />
+        {/* 1. Tarih, BUGÜN, seri çipi */}
+        <View className="flex-row items-center justify-between">
+          <View className="gap-1 flex-1">
+            <Text className="text-muted text-[13px] font-semibold">{todayHeading(now)}</Text>
+            <ScreenTitle>Bugün</ScreenTitle>
+          </View>
+          {streakText != null && (
+            <View
+              accessible
+              accessibilityLabel={streakText}
+              className="flex-row items-center gap-1.5 px-3 h-9 rounded-full bg-bg-surface border border-border"
+            >
+              <Flame color={COLORS.accent} size={16} />
+              <Text className="text-fg text-[13px] font-bold">{streakText}</Text>
             </View>
-            <View className="flex-1 ml-4">
-              <Text className="text-accent-fg text-xl font-bold tracking-tight">
-                Devam eden antrenman
-              </Text>
-              <Text className="text-accent-fg/70 text-sm mt-0.5">
-                Devam et →
-              </Text>
-            </View>
-          </Card>
-        </Link>
-      )}
+          )}
+        </View>
 
-      {/* Yan yana: haftalık hedef + güncel kilo */}
-      <View className="flex-row gap-3">
-        <GoalCard
+        {/* 2. Haftalık hedef + gün şeridi */}
+        <WeekGoal
           loaded={goalLoaded}
           goal={goal}
           done={doneThisWeek}
-          streak={streak}
+          strip={strip}
           onPress={() => setGoalPickerOpen(true)}
         />
-        {/* Kilo yalnızca vücut ölçüsü rızasıyla; rıza okunurken boş kart */}
-        {consent.state == null ? (
-          <WeightCard loaded={false} />
-        ) : consent.granted ? (
-          <WeightCard
-            loaded={latestWeight.updatedAt != null}
-            latest={latestWeight.data?.[0]}
-          />
-        ) : null}
-      </View>
-      {consent.state != null && !consent.granted && (
-        <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
-          <Pressable className="flex-row items-center px-1 py-1 active:opacity-60">
-            <Scale color={COLORS.muted} size={16} />
-            <Text className="text-muted text-sm ml-2">Kilo takibi için izin ver →</Text>
-          </Pressable>
-        </Link>
-      )}
 
-      <WorkoutCalendar sessions={sessions} totalCount={sessions.length} />
+        {/* 3. Sıradaki */}
+        <NextCard activeSessionId={activeSessionId} data={today} />
 
-      <GoalPickerModal
-        visible={goalPickerOpen}
-        goal={goal}
-        onChange={(days) => void setGoal(days)}
-        onClose={() => setGoalPickerOpen(false)}
-      />
+        {/* 4. Haftalık hacim + son rekor */}
+        {today && (
+          <View className="flex-row gap-2.5">
+            <StatCard
+              className="flex-1"
+              label="Haftalık hacim"
+              value={Math.round(today.volume.thisWeek).toLocaleString('tr-TR')}
+              unit="kg"
+              footnote={today.volume.change != null ? `geçen haftaya göre ${today.volume.change}` : undefined}
+              color="upper"
+              selected
+              onPress={() => router.push('/(tabs)/progress')}
+              accessibilityLabel={`Haftalık hacim: ${Math.round(today.volume.thisWeek)} kilogram${
+                today.volume.change != null ? `, geçen haftaya göre ${today.volume.change.replace('%', 'yüzde ')}` : ''
+              }. İlerleme ekranını aç`}
+            />
+            <RecordCard record={today.record} />
+          </View>
+        )}
 
-      {/* Hızlı aksiyon */}
-      {!activeSessionId && (
-        <Link href="/(tabs)/workout" asChild>
-          <Card variant="outline" className="flex-row items-center">
-            <View className="w-12 h-12 rounded-full bg-accent items-center justify-center">
-              <Play color={COLORS.accentFg} size={20} fill={COLORS.accentFg} />
-            </View>
-            <View className="flex-1 ml-4">
-              <Text className="text-fg text-xl font-semibold tracking-tight">
-                Antrenmana Başla
-              </Text>
-              <Text className="text-muted text-sm mt-0.5">
-                Rutinlerini gör veya yeni bir antrenman oluştur
-              </Text>
-            </View>
-          </Card>
-        </Link>
-      )}
-
-      {/* Son antrenmanlar */}
-      <SectionHeader
-        title="Son Antrenmanlar"
-        className="mt-5 mb-1"
-        action={
-          <Link href="/history" asChild>
-            <Pressable hitSlop={12}>
-              <Text className="text-muted text-sm font-medium">
-                Tümünü gör →
-              </Text>
+        {/* Kilo takibi: rıza yoksa öneri */}
+        {consent.state != null && !consent.granted && (
+          <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
+            <Pressable
+              accessibilityRole="button"
+              className="flex-row items-center gap-3 rounded-[20px] bg-bg-surface border border-border px-4 py-3.5 active:opacity-70"
+            >
+              <View className="w-10 h-10 rounded-xl bg-bg-elevated items-center justify-center">
+                <Scale color={COLORS.text} size={18} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-fg text-[15px] font-semibold">Kilo takibi için izin ver</Text>
+                <Text className="text-muted text-xs mt-0.5">Kilonu ve ölçülerini İlerleme'de gör</Text>
+              </View>
+              <ChevronRight color={COLORS.muted} size={18} />
             </Pressable>
           </Link>
-        }
-      />
-      <Card className="py-2">
-        {!recentSessions.data || recentSessions.data.length === 0 ? (
-          <Text className="text-muted text-sm py-3">
-            Henüz tamamlanmış antrenman yok. İlk antrenmanını başlat!
-          </Text>
-        ) : (
-          recentSessions.data.map((session, idx) => (
-            <Link
-              key={session.id}
-              href={{ pathname: '/session/[id]', params: { id: session.id } }}
-              asChild
-            >
-              <ListRow divider={idx > 0} chevron>
-                <Text className="text-fg text-base font-semibold">
-                  {session.name}
-                </Text>
-                <Text className="text-muted text-xs mt-1 tabular-nums">
-                  {formatRelativeDate(session.startedAt)}
-                  {session.durationSeconds &&
-                    `  •  ${formatDuration(session.durationSeconds)}`}
-                </Text>
-              </ListRow>
-            </Link>
-          ))
         )}
-      </Card>
-    </ScrollView>
+
+        {/* Son antrenmanlar (geçmişe giriş) */}
+        <View className="flex-row items-center justify-between mt-3 px-1">
+          <SectionLabel muted>Son antrenmanlar</SectionLabel>
+          <Link href="/history" asChild>
+            <Pressable hitSlop={12} accessibilityRole="link" className="min-h-[44px] justify-center">
+              <Text className="text-muted text-sm font-semibold">Tümünü gör ›</Text>
+            </Pressable>
+          </Link>
+        </View>
+        <View className="rounded-[20px] bg-bg-surface border border-border px-4 py-1 -mt-2">
+          {!recentSessions.data || recentSessions.data.length === 0 ? (
+            <Text className="text-muted text-sm py-3">Henüz tamamlanmış antrenman yok. İlk antrenmanını başlat!</Text>
+          ) : (
+            recentSessions.data.map((session, idx) => (
+              <Link key={session.id} href={{ pathname: '/session/[id]', params: { id: session.id } }} asChild>
+                <ListRow divider={idx > 0} chevron>
+                  <Text className="text-fg text-base font-semibold">{session.name}</Text>
+                  <Text className="text-muted text-xs mt-1">
+                    {formatRelativeDate(session.startedAt)}
+                    {session.durationSeconds ? ` · ${formatDuration(session.durationSeconds)}` : ''}
+                  </Text>
+                </ListRow>
+              </Link>
+            ))
+          )}
+        </View>
+
+        <GoalPickerModal
+          visible={goalPickerOpen}
+          goal={goal}
+          onChange={(days) => void setGoal(days)}
+          onClose={() => setGoalPickerOpen(false)}
+        />
+      </ScrollView>
+    </View>
   );
 }
 
 // ============================================================================
-// Bento kartları
+// Haftalık hedef
 // ============================================================================
 
-const BENTO_CARD_CLASS = 'flex-1 min-h-[180px] items-center justify-center';
-
-function GoalCard({
+function WeekGoal({
   loaded,
   goal,
   done,
-  streak,
+  strip,
   onPress,
 }: {
   loaded: boolean;
   goal: number | null;
   done: number;
-  streak: number;
+  strip: WeekDay[];
   onPress: () => void;
 }) {
   const COLORS = useColors();
-  // Hedef okunmadan "belirle" daveti göstermeyelim — boş kart
-  if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
-
-  if (goal == null) {
-    return (
-      <Card onPress={onPress} className={BENTO_CARD_CLASS}>
-        <View className="w-12 h-12 rounded-full bg-accent items-center justify-center">
-          <Target color={COLORS.accentFg} size={22} />
-        </View>
-        <Text className="text-fg text-base font-semibold text-center mt-3">
-          Haftalık hedef belirle
-        </Text>
-        <Text className="text-muted text-xs text-center mt-1">
-          Haftada kaç gün?
-        </Text>
-      </Card>
-    );
-  }
-
+  // Hedef okunmadan "belirle" daveti göstermeyelim
+  if (!loaded) return <View className="h-[140px]" />;
   return (
-    <Card
+    <Pressable
       onPress={onPress}
-      className={BENTO_CARD_CLASS}
-      accessibilityLabel="Haftalık hedefi değiştir"
+      accessibilityRole="button"
+      accessibilityLabel={`${weekSummaryLabel(strip, done, goal)} ${goal == null ? 'Haftalık hedef belirle' : 'Haftalık hedefi değiştir'}`}
+      className="mt-3 gap-3 active:opacity-80"
     >
-      <GoalRing done={done} goal={goal} />
-      {streak >= 2 && (
-        <Text className="text-fg text-xs font-medium mt-3">
-          🔥 {streak} haftalık seri
-        </Text>
-      )}
-    </Card>
+      <View className="flex-row items-end gap-2.5">
+        <Text className="font-display text-fg text-[88px] leading-[84px]">{done}</Text>
+        <View className="pb-2 gap-0.5">
+          {goal != null && <Text className="font-display text-muted text-[26px] leading-[30px]">/ {goal}</Text>}
+          <Text className="text-muted text-sm font-semibold">bu haftaki antrenman</Text>
+        </View>
+        {goal == null && (
+          <View className="ml-auto pb-2 flex-row items-center gap-1">
+            <Target color={COLORS.accent} size={16} />
+            <Text className="text-accent text-sm font-bold">Hedef belirle</Text>
+          </View>
+        )}
+      </View>
+      <View className="flex-row gap-1.5">
+        {strip.map((d) => (
+          <View key={d.key} className="flex-1 items-center gap-1.5">
+            <View
+              className={`self-stretch h-1.5 rounded-full ${d.done ? 'bg-accent' : 'bg-bg-elevated'}`}
+              style={d.today ? { borderWidth: 2, borderColor: COLORS.accentFill, height: 10 } : undefined}
+            />
+            <Text className={`text-xs ${d.today ? 'text-fg font-extrabold' : 'text-muted'}`}>{d.short}</Text>
+          </View>
+        ))}
+      </View>
+    </Pressable>
   );
 }
 
-function WeightCard({
-  loaded,
-  latest,
-}: {
-  loaded: boolean;
-  latest?: { date: string; weightKg: number | null };
-}) {
-  const COLORS = useColors();
-  if (!loaded) return <Card className={BENTO_CARD_CLASS} />;
+// ============================================================================
+// Sıradaki kartı
+// ============================================================================
 
-  if (latest?.weightKg == null) {
+function NextCard({ activeSessionId, data }: { activeSessionId: string | null; data: TodayData | null }) {
+  const router = useRouter();
+  const { start, starting } = useStartRoutine();
+
+  // Devam eden antrenman: "Antrenmana dön · 24:10"
+  if (activeSessionId) return <ResumeCard sessionId={activeSessionId} />;
+  if (!data) return <View className="h-[200px] rounded-3xl bg-bg-surface border border-border" />;
+
+  const next = data.next;
+  if (!next) {
     return (
-      <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
-        <Card className={BENTO_CARD_CLASS}>
-          <View className="w-12 h-12 rounded-full bg-bg-elevated border border-border items-center justify-center">
-            <Scale color={COLORS.text} size={22} />
-          </View>
-          <Text className="text-fg text-base font-semibold text-center mt-3">
-            Kilonu ekle
+      <View className="rounded-3xl overflow-hidden bg-bg-surface border border-border">
+        <CornerGlow />
+        <View className="p-[18px] gap-3">
+          <SectionLabel>Sıradaki</SectionLabel>
+          <Text accessibilityRole="header" className="font-display text-fg text-[30px] leading-[32px]">
+            {upperTr('Programını seç')}
           </Text>
-          <Text className="text-muted text-xs text-center mt-1">
-            İlerlemeni takip et
-          </Text>
-        </Card>
-      </Link>
+          <Text className="text-muted text-sm">Hazır programlardan birini seç ya da sana uygun olanı önerelim.</Text>
+          <PrimaryButton label="Bana program öner" icon={Sparkles} onPress={() => router.push('/templates/recommend')} />
+          <SecondaryButton label="Hazır programlar" onPress={() => router.push('/templates')} />
+        </View>
+      </View>
     );
   }
 
   return (
-    <Link href="/(tabs)/progress" asChild>
-      <Card className={BENTO_CARD_CLASS}>
-        <Text className="text-muted text-xs tracking-widest">GÜNCEL KİLO</Text>
-        <View className="flex-row items-baseline mt-2">
-          <Text className="text-fg text-4xl font-bold tracking-tight tabular-nums">
-            {formatDecimal(latest.weightKg)}
-          </Text>
-          <Text className="text-muted text-base ml-1">kg</Text>
+    <View className="rounded-3xl overflow-hidden bg-bg-surface border border-border">
+      <CornerGlow color={next.color} />
+      <View className="p-[18px] gap-3">
+        <View className="flex-row items-center justify-between gap-3">
+          <SectionLabel color={next.color}>{next.dayLabel ? `Sıradaki · ${next.dayLabel}` : 'Sıradaki'}</SectionLabel>
+          {next.lastDone != null && <Text className="text-muted text-xs">{next.lastDone}</Text>}
         </View>
-        <Text className="text-muted text-xs mt-2">
-          {formatDaysAgo(latest.date)}
+        <Text accessibilityRole="header" className="font-display text-fg text-[30px] leading-[32px]">
+          {upperTr(next.name)}
         </Text>
-      </Card>
-    </Link>
+        <Text className="text-muted text-sm">{next.line}</Text>
+        <PrimaryButton
+          label={starting ? 'Başlatılıyor…' : 'Antrenmanı başlat'}
+          icon={Play}
+          iconFill
+          disabled={starting}
+          accessibilityLabel={`${next.name} antrenmanını başlat`}
+          onPress={() => void start({ id: next.routineId, name: next.name })}
+        />
+      </View>
+    </View>
+  );
+}
+
+function ResumeCard({ sessionId }: { sessionId: string }) {
+  const db = useDb();
+  const router = useRouter();
+  const [session, setSession] = useState<{ name: string; startedAt: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    db.select({ name: workoutSessions.name, startedAt: workoutSessions.startedAt })
+      .from(workoutSessions)
+      .where(eq(workoutSessions.id, sessionId))
+      .limit(1)
+      .then((rows) => {
+        if (!cancelled) setSession(rows[0] ?? null);
+      })
+      .catch((err) => console.warn('[TODAY] Antrenman okunamadı:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [db, sessionId]);
+
+  return (
+    <View className="rounded-3xl overflow-hidden bg-bg-surface border border-border">
+      <CornerGlow />
+      <View className="p-[18px] gap-3">
+        <SectionLabel>Devam eden antrenman</SectionLabel>
+        {session && (
+          <Text accessibilityRole="header" className="font-display text-fg text-[30px] leading-[32px]">
+            {upperTr(session.name)}
+          </Text>
+        )}
+        <ResumeButton
+          startedAt={session ? Date.parse(session.startedAt) : null}
+          onPress={() => router.push('/session/active')}
+        />
+      </View>
+    </View>
+  );
+}
+
+/** "Antrenmana dön · 24:10" — süre her saniye */
+function ResumeButton({ startedAt, onPress }: { startedAt: number | null; onPress: () => void }) {
+  const elapsed = Math.floor(useElapsedMs(startedAt ?? 0) / 1000);
+  const label = startedAt != null ? `Antrenmana dön · ${formatElapsed(elapsed)}` : 'Antrenmana dön';
+  return <PrimaryButton label={label} icon={Play} iconFill onPress={onPress} />;
+}
+
+function RecordCard({ record }: { record: LatestRecord | null }) {
+  return (
+    <View
+      accessible
+      accessibilityLabel={record ? `Son rekor: ${record.exerciseName}, ${record.weightKg} kilogram, ${record.reps} tekrar` : 'Henüz rekor yok. İlk rekorunu kır.'}
+      className="flex-1 rounded-3xl overflow-hidden bg-bg-surface border border-border p-4"
+    >
+      <CornerGlow color="record" corner="bottom-left" width={160} height={120} opacity={0.35} />
+      <SectionLabel color="record">Son rekor</SectionLabel>
+      {record ? (
+        <>
+          <Text className="font-display text-fg text-3xl mt-2" numberOfLines={1} adjustsFontSizeToFit>
+            {String(record.weightKg).replace('.', ',')} kg
+          </Text>
+          <Text className="text-muted text-xs mt-1" numberOfLines={2}>
+            {record.exerciseName} × {record.reps}
+          </Text>
+        </>
+      ) : (
+        <Text className="text-fg text-base font-bold mt-2">İlk rekorunu kır</Text>
+      )}
+    </View>
   );
 }
 
@@ -647,24 +737,4 @@ function GoalPickerModal({
       </Pressable>
     </Modal>
   );
-}
-
-function formatRelativeDate(isoString: string): string {
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffDays = Math.floor(
-    (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  if (diffDays === 0) return 'Bugün';
-  if (diffDays === 1) return 'Dün';
-  if (diffDays < 7) return `${diffDays} gün önce`;
-  return date.toLocaleDateString('tr-TR');
-}
-
-function formatDuration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} dk`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMin = minutes % 60;
-  return `${hours}sa ${remainingMin}dk`;
 }

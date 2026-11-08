@@ -20,7 +20,8 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, isNotNull } from 'drizzle-orm';
+import { WorkoutCalendar } from '@/components/WorkoutCalendar';
 import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
@@ -28,7 +29,7 @@ import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { useHealthConsent } from '@/hooks/useHealthConsent';
 import { useColors } from '@/hooks/useTheme';
 import { ConsentCard } from '@/components/ConsentCard';
-import { appSettings, bodyMetrics, type BodyMetric } from '@/db/schema';
+import { appSettings, bodyMetrics, workoutSessions, type BodyMetric } from '@/db/schema';
 import {
   bmiCategory,
   calculateAge,
@@ -140,6 +141,8 @@ export default function ProgressScreen() {
         <WeeklyMusclesCard />
         <RecordsCard />
         {consent.granted && <HistoryCard metrics={metrics} />}
+        {/* v4.0a: antrenman takvimi ana sayfadan buraya taşındı */}
+        <CalendarCard />
       </ScrollView>
 
       {consent.granted && (
@@ -151,6 +154,25 @@ export default function ProgressScreen() {
       )}
     </View>
   );
+}
+
+/** Antrenman takvimi (ısı haritası): bitmiş seanslar, join yok → canlı sorgu */
+function CalendarCard() {
+  const db = useDb();
+  const { data } = useLiveQuery(
+    db
+      .select({
+        id: workoutSessions.id,
+        name: workoutSessions.name,
+        startedAt: workoutSessions.startedAt,
+        endedAt: workoutSessions.endedAt,
+        durationSeconds: workoutSessions.durationSeconds,
+      })
+      .from(workoutSessions)
+      .where(isNotNull(workoutSessions.endedAt))
+  );
+  const sessions = data ?? [];
+  return <WorkoutCalendar sessions={sessions} totalCount={sessions.length} />;
 }
 
 // ============================================================================

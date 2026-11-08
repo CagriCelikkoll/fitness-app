@@ -10,5 +10,6 @@ export { Chip } from './Chip';
 export { EmptyState } from './EmptyState';
 export { ListRow } from './ListRow';
 export { Glow } from './Glow';
+export { CornerGlow } from './CornerGlow';
 export { TickRing } from './TickRing';
 export { Text, TextInput } from './Text';

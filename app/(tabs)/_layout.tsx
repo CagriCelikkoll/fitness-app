@@ -41,7 +41,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Ana Sayfa',
+          title: 'Bugün',
+          // v4.0a: başlık ekranın içinde ("BUGÜN", tarih, seri)
+          headerShown: false,
           tabBarIcon: ({ color }) => (
             <Activity color={color} size={TAB_ICON_SIZE} strokeWidth={1.75} />
           ),

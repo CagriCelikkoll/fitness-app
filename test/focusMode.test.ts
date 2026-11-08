@@ -16,6 +16,7 @@ import {
   nextAfterSet,
   nextUpText,
   prefillValues,
+  earlierCompletedSet,
   progressSegments,
   repsA11yLabel,
   setValueText,
@@ -162,7 +163,51 @@ describe('Bitir onayı', () => {
   });
 });
 
-describe('değerlerin hazır gelmesi: geçen sefer → hedef → boş', () => {
+describe('değerlerin hazır gelmesi: bu antrenmandaki önceki set → geçen sefer → hedef → boş', () => {
+  const s = (isCompleted: boolean, weightKg: number | null, reps: number | null, setType = 'normal') => ({
+    isCompleted,
+    setType,
+    weightKg,
+    reps,
+  });
+
+  it('Set 1 72,5 kg yapıldıysa Set 2’de 72,5 gelir (geçen seferin önüne geçer)', () => {
+    const sets = [s(true, 72.5, 7), s(false, 60, null), s(false, 60, null)];
+    expect(
+      prefillValues({
+        weightKg: 60,
+        reps: null,
+        earlier: earlierCompletedSet(sets, 1),
+        previous: { weightKg: 70, reps: 8 },
+        targetWeightKg: 60,
+        targetReps: '8-12',
+      })
+    ).toEqual({ weight: '72.5', reps: '7', weightSource: 'earlier', repsSource: 'earlier' });
+  });
+
+  it('önceki tamamlanmış set: en yakını, tamamlanmamışlar ve ısınma atlanır', () => {
+    const sets = [s(true, 40, 12, 'warmup'), s(true, 70, 8), s(false, null, null), s(true, 75, 6), s(false, null, null)];
+    expect(earlierCompletedSet(sets, 4)).toEqual(sets[3]);
+    expect(earlierCompletedSet(sets, 2)).toEqual(sets[1]);
+    expect(earlierCompletedSet(sets, 1)).toBeNull(); // ısınmanın değeri asıl sete taşınmaz
+    expect(earlierCompletedSet(sets, 0)).toBeNull();
+    expect(earlierCompletedSet(sets, 9)).toBeNull();
+  });
+
+  it('kullanıcının bu sette yazdığı, önceki setin önüne geçer', () => {
+    expect(
+      prefillValues({ weightKg: 80, reps: 5, earlier: { weightKg: 72.5, reps: 7 }, targetWeightKg: 60 })
+    ).toMatchObject({ weight: '80', reps: '5', weightSource: 'set', repsSource: 'set' });
+  });
+
+  it('önceki sette tekrar boşsa tekrar geçen seferden', () => {
+    expect(
+      prefillValues({ weightKg: null, reps: null, earlier: { weightKg: 50, reps: null }, previous: { weightKg: 45, reps: 10 } })
+    ).toMatchObject({ weight: '50', reps: '10', weightSource: 'earlier', repsSource: 'previous' });
+  });
+});
+
+describe('değerlerin hazır gelmesi: önceki set yokken geçen sefer → hedef → boş', () => {
   it('geçen sefer varsa o (başlangıçta yazılan hedef ağırlığın önüne geçer)', () => {
     expect(
       prefillValues({ weightKg: 60, reps: null, previous: { weightKg: 70, reps: 8 }, targetWeightKg: 60, targetReps: '8-12' })

@@ -3,12 +3,14 @@ import { View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 
 import { useColors, useContextTones } from '@/hooks/useTheme';
-import { tickGeometry } from '@/lib/tickRing';
+import { tickGeometry, type TickMode } from '@/lib/tickRing';
 import type { ContextKind } from '@/theme';
 
 interface TickRingProps {
-  /** 0–1 */
+  /** 0–1; `drain`'de kalan oran */
   progress: number;
+  /** `fill` (varsayılan) dolar; `drain` (dinlenme) saat yönünde söner */
+  mode?: TickMode;
   /** Çap: dinlenme ~270, ana sayfa ~80 */
   size: number;
   /** Çentik uzunluğu: dinlenme ~22, ana sayfa ~9 */
@@ -28,6 +30,7 @@ interface TickRingProps {
  */
 export function TickRing({
   progress,
+  mode = 'fill',
   size,
   tickLength,
   strokeWidth,
@@ -37,7 +40,10 @@ export function TickRing({
 }: TickRingProps) {
   const COLORS = useColors();
   const tones = useContextTones(color);
-  const ticks = useMemo(() => tickGeometry(size, tickLength, progress), [size, tickLength, progress]);
+  const ticks = useMemo(
+    () => tickGeometry(size, tickLength, progress, undefined, undefined, mode),
+    [size, tickLength, progress, mode]
+  );
   const sw = strokeWidth ?? Math.max(2, Math.round(size / 90));
 
   return (

@@ -22,14 +22,36 @@ export function litTicks(progress: number, count = TICK_COUNT): number {
 }
 
 /**
+ * - `fill`: 0'dan dolar; saat 12'den saat yönünde `progress` kadarı renkli.
+ * - `drain` (dinlenme): `progress` kalan oran; başta hepsi renkli, süre
+ *   azaldıkça saat 12'den saat yönünde söner, renkli kalan çentikler halkanın
+ *   sonunda (saat 12'ye kadar).
+ */
+export type TickMode = 'fill' | 'drain';
+
+/** Dinlenmede renkli kalacak oran: kalan / toplam. +15 sn toplamı büyütünce yeniden hesaplanır. */
+export function restRemainingFraction(remainingSeconds: number, totalSeconds: number): number {
+  if (!(totalSeconds > 0)) return 0;
+  return Math.min(1, Math.max(0, remainingSeconds / totalSeconds));
+}
+
+/**
  * Saat 12'den başlayıp saat yönünde. `size` çap, `length` çentik boyu,
  * `inset` dış kenardan boşluk (kalın çizginin ucu kesilmesin).
  */
-export function tickGeometry(size: number, length: number, progress: number, inset = 2, count = TICK_COUNT): Tick[] {
+export function tickGeometry(
+  size: number,
+  length: number,
+  progress: number,
+  inset = 2,
+  count = TICK_COUNT,
+  mode: TickMode = 'fill'
+): Tick[] {
   const c = size / 2;
   const outer = c - inset;
   const inner = outer - length;
   const lit = litTicks(progress, count);
+  const isOn = mode === 'drain' ? (i: number) => i >= count - lit : (i: number) => i < lit;
   return Array.from({ length: count }, (_, i) => {
     const a = (i / count) * 2 * Math.PI - Math.PI / 2;
     const cos = Math.cos(a);
@@ -39,7 +61,7 @@ export function tickGeometry(size: number, length: number, progress: number, ins
       y1: round(c + inner * sin),
       x2: round(c + outer * cos),
       y2: round(c + outer * sin),
-      on: i < lit,
+      on: isOn(i),
     };
   });
 }
