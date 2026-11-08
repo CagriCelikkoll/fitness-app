@@ -6,6 +6,7 @@ import {
   ScrollView,
   View,
 } from 'react-native';
+import { upperTr } from '@/lib/typography';
 import { Text, TextInput } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -500,8 +501,8 @@ function listItemKey(item: ExerciseListItem<Exercise>): string {
 /** Aramada ya da açılınca extra hareketlerin başlığı (v3.8) */
 export function OtherHeader() {
   return (
-    <Text className="text-muted text-xs font-semibold uppercase tracking-widest px-1 pt-4 pb-1">
-      {OTHER_EXERCISES_TITLE}
+    <Text className="text-muted text-xs font-bold tracking-widest px-1 pt-4 pb-1">
+      {upperTr(OTHER_EXERCISES_TITLE)}
     </Text>
   );
 }

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import { Appearance, useColorScheme, View } from 'react-native';
+import { Appearance, useColorScheme, View, type StyleProp, type ViewStyle } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import Storage from 'expo-sqlite/kv-store';
@@ -86,13 +86,18 @@ interface ThemeState {
   gymAccentAvailable: boolean;
 }
 
-const ThemeContext = createContext<ThemeState>({
+const DEFAULT_STATE: ThemeState = {
   mode: 'dark',
   scheme: 'dark',
   colors: DARK_COLORS,
   gymAccent: true,
   gymAccentAvailable: false,
-});
+};
+
+const ThemeContext = createContext<ThemeState>(DEFAULT_STATE);
+
+/** Koyu paletin aynı vurguyla hâli (`DarkSurface` için) */
+const DarkThemeContext = createContext<ThemeState>(DEFAULT_STATE);
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const { mode, gymAccent } = usePrefsStore();
@@ -120,6 +125,12 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [mode, scheme, available, gymAccent, gymColor]);
 
+  const darkState = useMemo<ThemeState>(() => {
+    if (scheme === 'dark') return state;
+    const accent = resolveAccent({ scheme: 'dark', gymFeatures: available, gymAccentEnabled: gymAccent, gymColor });
+    return { ...state, scheme: 'dark', colors: buildColors('dark', accent.tones) };
+  }, [state, scheme, available, gymAccent, gymColor]);
+
   const rootStyle = useMemo(() => [{ flex: 1 }, vars(cssVariables(state.colors))], [state.colors]);
 
   // Pencere zemini (klavye açılırken / ekran geçişinde görünen)
@@ -128,9 +139,37 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   }, [state.colors.bg]);
 
   return (
-    <ThemeContext.Provider value={state}>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <View style={rootStyle}>{children}</View>
+    <DarkThemeContext.Provider value={darkState}>
+      <ThemeContext.Provider value={state}>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <View style={rootStyle}>{children}</View>
+      </ThemeContext.Provider>
+    </DarkThemeContext.Provider>
+  );
+}
+
+/**
+ * Altındaki her şey koyu temada (v4.0a 6: açık temada ana sayfadaki
+ * "Sıradaki" kartı koyu kart). NativeWind sınıfları (`vars()`) ve satır içi
+ * renkler (`useColors`, `useContextTones`, ışık) birlikte koyuya geçer.
+ * Koyu temada etkisiz. `style` / `className` sarmalayan View'a gider.
+ */
+export function DarkSurface({
+  children,
+  className,
+  style,
+}: {
+  children: ReactNode;
+  className?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const dark = useContext(DarkThemeContext);
+  const varsStyle = useMemo(() => vars(cssVariables(dark.colors)), [dark.colors]);
+  return (
+    <ThemeContext.Provider value={dark}>
+      <View className={className} style={[varsStyle, style]}>
+        {children}
+      </View>
     </ThemeContext.Provider>
   );
 }
@@ -174,4 +213,16 @@ export function useGymTones(gymColor: string | null | undefined): AccentTones {
         : { fill: colors.accentFill, onFill: colors.accentFg, ink: colors.accent },
     [gymColor, scheme, colors]
   );
+}
+
+/**
+ * Bağlam renginde çerçeve (seçili set, bulunulan hareket; v4.0a 6). Koyu
+ * temada rengin kendisi; açık temada dolgu rengi beyaz / krem zeminde
+ * seçilmediği için yazı tonu (neon ve bağlam renkleri açık temada yalnızca
+ * dolgu).
+ */
+export function useContextOutline(kind: ContextKind | null | undefined): string {
+  const { scheme } = useTheme();
+  const tones = useContextTones(kind);
+  return scheme === 'light' ? tones.ink : tones.fill;
 }

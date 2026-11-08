@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { screenBottomInset, sheetBottomPadding } from '@/lib/safeArea';
+import { floatingTabBarLayout, screenBottomInset, sheetBottomPadding } from '@/lib/safeArea';
 
 /**
  * Alt güvenli alan kancaları (v3.6e). Kurallar `src/lib/safeArea.ts`'te.
@@ -44,4 +44,11 @@ export function useSheetBottomPadding(base?: number): number {
   const { bottom } = useSafeAreaInsets();
   const keyboard = useKeyboardVisible();
   return sheetBottomPadding(bottom, keyboard, base);
+}
+
+/** Havada duran alt menünün konumu ve sekme ekranlarının alt boşluğu (v4.0a) */
+export function useFloatingTabBarLayout(): { bottom: number; scenePadding: number; keyboardVisible: boolean } {
+  const { bottom } = useSafeAreaInsets();
+  const keyboard = useKeyboardVisible();
+  return { ...floatingTabBarLayout(bottom, keyboard), keyboardVisible: keyboard };
 }

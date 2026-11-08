@@ -440,7 +440,7 @@ function ProfileStep({
     >
       <StepTitle
         title="Profil"
-        subtitle="Vücut kitle indeksi ve bazal metabolizma hesapları için. İstersen sonra Ayarlar'dan da girebilirsin."
+        subtitle="Vücut kitle indeksi ve bazal metabolizma hesapları için. İstersen sonra Profil'den de girebilirsin."
       />
       <Card className="gap-4">
         <ProfileFields form={form} />
@@ -475,7 +475,7 @@ function TipsStep() {
         </View>
         <Text className="text-muted text-sm leading-5">
           Verilerin sadece bu telefonda. Telefon değiştirirsen ya da
-          uygulamayı silersen kaybolmasın diye ara sıra Ayarlar'dan yedek al.
+          uygulamayı silersen kaybolmasın diye ara sıra Profil'den yedek al.
         </Text>
       </Card>
     </>

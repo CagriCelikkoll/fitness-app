@@ -13,10 +13,9 @@
 import { and, asc, count, eq, isNotNull, max } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
-import { exercises, routineExercises, routines, sessionExercises, sets, workoutSessions } from '@/db/schema';
+import { exercises, routineExercises, routines, workoutSessions } from '@/db/schema';
 import { contextColorFor, type BodyContext } from '@/lib/contextColor';
-import { exerciseDisplayName } from '@/lib/exerciseCatalog';
-import { epley, findSessionRecordSetIds, type SessionSet } from '@/lib/exerciseProgress';
+import { loadRecordHistory, recordEvents, type RecordHistoryRow } from '@/lib/recordEvents';
 import { muscleLabel } from '@/lib/exerciseTaxonomy';
 import { toDateKey } from '@/lib/format';
 import { sessionVolumesQuery, startOfWeek } from '@/lib/weeklyVolume';
@@ -288,12 +287,7 @@ export function weekVolumePair(rows: readonly { date: string; volume: number }[]
 
 // ── Son rekor ───────────────────────────────────────────────────────────
 
-export interface RecordHistoryRow extends SessionSet {
-  exerciseId: string;
-  exerciseName: string;
-  sessionId: string;
-  sessionStartedAt: string;
-}
+export type { RecordHistoryRow } from '@/lib/recordEvents';
 
 export interface LatestRecord {
   exerciseName: string;
@@ -303,53 +297,16 @@ export interface LatestRecord {
 }
 
 /**
- * En son kırılan e1RM rekoru: seanslar kronolojik yürünür, her hareketin
- * önceki seanslardaki en iyisi baz; antrenman ekranındaki rozetle aynı kural
- * (`findSessionRecordSetIds`; ilk seans rekor sayılmaz). En yeni rekorlu
- * seansta birden çok varsa e1RM'i en büyük olan.
+ * En son kırılan e1RM rekoru (`recordEvents`; ilk seans rekor sayılmaz). En
+ * yeni rekorlu seansta birden çok varsa e1RM'i en büyük olan.
  */
 export function latestRecord(rows: readonly RecordHistoryRow[]): LatestRecord | null {
-  const sessionsInOrder = new Map<string, { startedAt: string; byExercise: Map<string, RecordHistoryRow[]> }>();
-  const sortedRows = [...rows].sort((a, b) =>
-    a.sessionStartedAt === b.sessionStartedAt ? 0 : a.sessionStartedAt < b.sessionStartedAt ? -1 : 1
-  );
-  for (const r of sortedRows) {
-    let s = sessionsInOrder.get(r.sessionId);
-    if (!s) {
-      s = { startedAt: r.sessionStartedAt, byExercise: new Map() };
-      sessionsInOrder.set(r.sessionId, s);
-    }
-    const list = s.byExercise.get(r.exerciseId) ?? [];
-    list.push(r);
-    s.byExercise.set(r.exerciseId, list);
-  }
-
-  const best = new Map<string, number>();
-  let latest: (LatestRecord & { e1rm: number }) | null = null;
-  for (const s of sessionsInOrder.values()) {
-    let sessionBest: (LatestRecord & { e1rm: number }) | null = null;
-    for (const [exerciseId, list] of s.byExercise) {
-      const prev = best.get(exerciseId) ?? null;
-      const ids = findSessionRecordSetIds(list, prev);
-      for (const r of list) {
-        if (!ids.has(r.id)) continue;
-        const e1rm = epley(r.weightKg, r.reps)!;
-        if (sessionBest == null || e1rm > sessionBest.e1rm) {
-          sessionBest = { exerciseName: r.exerciseName, weightKg: r.weightKg!, reps: r.reps!, at: s.startedAt, e1rm };
-        }
-      }
-      let top = prev;
-      for (const r of list) {
-        if (!r.isCompleted || r.setType !== 'normal') continue;
-        const e = epley(r.weightKg, r.reps);
-        if (e != null && (top == null || e > top)) top = e;
-      }
-      if (top != null) best.set(exerciseId, top);
-    }
-    if (sessionBest) latest = sessionBest;
-  }
-  if (!latest) return null;
-  return { exerciseName: latest.exerciseName, weightKg: latest.weightKg, reps: latest.reps, at: latest.at };
+  const events = recordEvents(rows);
+  const last = events[events.length - 1];
+  if (!last) return null;
+  let top = last;
+  for (const e of events) if (e.sessionId === last.sessionId && e.e1rm > top.e1rm) top = e;
+  return { exerciseName: top.exerciseName, weightKg: top.weightKg, reps: top.reps, at: top.at };
 }
 
 // ── Okuma ───────────────────────────────────────────────────────────────
@@ -419,32 +376,7 @@ export async function loadTodayData(db: Db, now: Date, links: readonly RoutineLi
   const volume = weekVolumePair(await sessionVolumesQuery(db, since), now);
 
   // Rekor: bütün bitmiş antrenmanların normal tamamlanmış setleri
-  const recordRows = await db
-    .select({
-      id: sets.id,
-      setNumber: sets.setNumber,
-      setType: sets.setType,
-      weightKg: sets.weightKg,
-      reps: sets.reps,
-      isCompleted: sets.isCompleted,
-      completedAt: sets.completedAt,
-      exerciseId: exercises.id,
-      name: exercises.name,
-      nameTr: exercises.nameTr,
-      sessionId: workoutSessions.id,
-      sessionStartedAt: workoutSessions.startedAt,
-    })
-    .from(sets)
-    .innerJoin(sessionExercises, eq(sets.sessionExerciseId, sessionExercises.id))
-    .innerJoin(workoutSessions, eq(sessionExercises.sessionId, workoutSessions.id))
-    .innerJoin(exercises, eq(sessionExercises.exerciseId, exercises.id))
-    .where(and(isNotNull(workoutSessions.endedAt), eq(sets.isCompleted, true), eq(sets.setType, 'normal')));
-  const record = latestRecord(
-    recordRows.map((r) => ({
-      ...r,
-      exerciseName: exerciseDisplayName({ id: r.exerciseId, name: r.name, nameTr: r.nameTr }),
-    }))
-  );
+  const record = latestRecord(await loadRecordHistory(db));
 
   return { next, volume, record };
 }

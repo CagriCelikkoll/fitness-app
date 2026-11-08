@@ -102,14 +102,14 @@ export default function HistoryScreen() {
               </View>
 
               <View className="flex-row flex-wrap gap-x-4 gap-y-1 mt-4 pt-4 border-t border-border">
-                <Text className="text-muted text-xs uppercase tracking-widest tabular-nums">
+                <Text className="text-muted text-[13px] tabular-nums">
                   {item.exerciseCount} egzersiz
                 </Text>
-                <Text className="text-muted text-xs uppercase tracking-widest tabular-nums">
+                <Text className="text-muted text-[13px] tabular-nums">
                   {item.setCount} set
                 </Text>
                 {item.totalVolume > 0 && (
-                  <Text className="text-fg text-xs font-semibold uppercase tracking-widest tabular-nums">
+                  <Text className="text-fg text-[13px] font-semibold tabular-nums">
                     {formatVolume(item.totalVolume)}
                   </Text>
                 )}

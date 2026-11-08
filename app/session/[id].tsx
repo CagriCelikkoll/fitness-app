@@ -409,7 +409,7 @@ function CardioRow({
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-1 bg-bg-surface border border-border rounded-2xl p-4">
-      <Text className="text-muted text-xs uppercase tracking-widest">
+      <Text className="text-muted text-[13px]">
         {label}
       </Text>
       <Text

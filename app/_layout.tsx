@@ -232,6 +232,14 @@ function RootStack() {
         options={{ title: 'Antrenman Geçmişi' }}
       />
       <Stack.Screen
+        name="muscles"
+        options={{ title: 'Kas haritası' }}
+      />
+      <Stack.Screen
+        name="settings/[group]"
+        options={{ title: 'Ayarlar' }}
+      />
+      <Stack.Screen
         name="session/[id]"
         options={{ title: 'Antrenman' }}
       />

@@ -145,7 +145,7 @@ export function ProgramRecommender({
       {goal != null && choice === 'custom' && (
         <Card>
           <Text className="text-fg text-base leading-6">
-            Antrenman sekmesinden kendi rutinlerini oluşturabilirsin. Hazır
+            Rutinler sekmesinden kendi rutinlerini oluşturabilirsin. Hazır
             programlara da istediğin zaman oradan göz atabilirsin.
           </Text>
         </Card>
@@ -236,7 +236,7 @@ function RecommendationCard({
         <View className="flex-row items-center gap-2 mt-1">
           <Check color={COLORS.accent} size={18} strokeWidth={3} />
           <Text className="text-accent text-sm font-semibold">
-            {template.dayCount} rutin Antrenman sekmesine eklendi
+            {template.dayCount} rutin Rutinler sekmesine eklendi
           </Text>
         </View>
       ) : (

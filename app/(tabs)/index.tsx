@@ -14,7 +14,7 @@ import { runConsentLaunchCheck, useHealthConsent } from '@/hooks/useHealthConsen
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useProfile } from '@/hooks/useProfile';
 import { useTrainerLinks } from '@/hooks/useTrainerLinks';
-import { useColors, useGymTones } from '@/hooks/useTheme';
+import { DarkSurface, useColors, useGymTones } from '@/hooks/useTheme';
 import { useScreenTopInset, useSheetBottomPadding } from '@/hooks/useSafeBottom';
 import { usePrograms, useRoutineLinks } from '@/hooks/usePrograms';
 import { useStartRoutine } from '@/hooks/useStartRoutine';
@@ -554,7 +554,7 @@ function WeekGoal({
           <View key={d.key} className="flex-1 items-center gap-1.5">
             <View
               className={`self-stretch h-1.5 rounded-full ${d.done ? 'bg-accent' : 'bg-bg-elevated'}`}
-              style={d.today ? { borderWidth: 2, borderColor: COLORS.accentFill, height: 10 } : undefined}
+              style={d.today ? { borderWidth: 2, borderColor: COLORS.accent, height: 10 } : undefined}
             />
             <Text className={`text-xs ${d.today ? 'text-fg font-extrabold' : 'text-muted'}`}>{d.short}</Text>
           </View>
@@ -568,7 +568,19 @@ function WeekGoal({
 // Sıradaki kartı
 // ============================================================================
 
-function NextCard({ activeSessionId, data }: { activeSessionId: string | null; data: TodayData | null }) {
+/**
+ * "Sıradaki" kartı. Açık temada koyu kart (v4.0a 6): içi koyu palette, köşe
+ * ışığı da görünür.
+ */
+function NextCard(props: { activeSessionId: string | null; data: TodayData | null }) {
+  return (
+    <DarkSurface>
+      <NextCardBody {...props} />
+    </DarkSurface>
+  );
+}
+
+function NextCardBody({ activeSessionId, data }: { activeSessionId: string | null; data: TodayData | null }) {
   const router = useRouter();
   const { start, starting } = useStartRoutine();
 

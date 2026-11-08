@@ -83,7 +83,7 @@ export default function TemplateDetailScreen() {
               await applyTemplate(db, template);
               Alert.alert(
                 'Eklendi',
-                `${template.dayCount} rutin Antrenman sekmesine eklendi.`,
+                `${template.dayCount} rutin Rutinler sekmesine eklendi.`,
                 [{ text: 'Tamam', onPress: () => router.dismissTo('/workout') }]
               );
             } catch (err) {

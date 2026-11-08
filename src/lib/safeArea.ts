@@ -37,3 +37,30 @@ export function screenBottomInset(route: string, inset: number, keyboardVisible:
 export function sheetBottomPadding(inset: number, keyboardVisible: boolean, base: number = SHEET_BASE_PADDING): number {
   return base + (keyboardVisible ? 0 : cleanInset(inset));
 }
+
+/**
+ * Havada duran alt menü (v4.0a Bölüm 5): kenarlardan 16, alttan gezinme
+ * çubuğu + 22, yükseklik 64. Sekme ekranlarının içerik alanı menünün
+ * üstünde biter (`sceneStyle.paddingBottom` = `scenePadding`); böylece
+ * listeler ve yüzen "+" düğmeleri menünün altında kalmaz. Klavye açıkken
+ * menü gizli, boşluk 0.
+ */
+export const TAB_BAR = { side: 16, gap: 22, height: 64, radius: 22 } as const;
+
+export function floatingTabBarLayout(inset: number, keyboardVisible: boolean): { bottom: number; scenePadding: number } {
+  const bottom = cleanInset(inset) + TAB_BAR.gap;
+  return { bottom, scenePadding: keyboardVisible ? 0 : bottom + TAB_BAR.height + 8 };
+}
+
+/**
+ * Etiketler 12 px'te tek satıra sığıyor mu? Sekme başına genişlik, en uzun
+ * etiketin yaklaşık genişliği (Archivo SemiBold 12 px ≈ 6,2 px / harf,
+ * ~0,52 em) ve 2 px pay. Tahmin; cihazda etiket yine de sığmazsa yazı
+ * yalnızca o kadar küçülür (`adjustsFontSizeToFit`). 6 sekmede ("Hareketler") 360 dp telefonda sığmıyor.
+ */
+export function tabLabelsFit(screenWidth: number, labels: readonly string[]): boolean {
+  if (labels.length === 0) return true;
+  const perTab = (screenWidth - TAB_BAR.side * 2) / labels.length;
+  const longest = Math.max(...labels.map((l) => l.length));
+  return longest * 6.2 + 2 <= perTab;
+}

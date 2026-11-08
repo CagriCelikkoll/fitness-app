@@ -75,7 +75,7 @@ export default function ManualVisitScreen() {
       <Stack.Screen options={{ title: 'Elle giriş' }} />
       <ScrollView contentContainerClassName="px-5 pt-4 pb-12 gap-4" keyboardShouldPersistTaps="handled">
         <Card className="gap-3">
-          <Text className="text-muted text-xs uppercase tracking-widest">Üye</Text>
+          <Text className="text-muted text-[13px]">Üye</Text>
           <TextInput
             value={query}
             onChangeText={setQuery}

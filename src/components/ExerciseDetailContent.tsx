@@ -137,7 +137,7 @@ export function ExerciseDetailContent({
         {highlights.length > 0 && <MuscleMap highlights={highlights} />}
         {primaryMuscles.length > 0 && (
           <View>
-            <Text className="text-muted text-xs uppercase tracking-widest">
+            <Text className="text-muted text-[13px]">
               Birincil
             </Text>
             <Text className="text-fg text-base mt-1">
@@ -147,7 +147,7 @@ export function ExerciseDetailContent({
         )}
         {secondaryMuscles.length > 0 && (
           <View>
-            <Text className="text-muted text-xs uppercase tracking-widest">
+            <Text className="text-muted text-[13px]">
               İkincil
             </Text>
             <Text className="text-fg text-base mt-1">

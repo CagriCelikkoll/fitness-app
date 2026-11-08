@@ -22,6 +22,8 @@ interface BarChartProps {
   startLabel?: string;
   endLabel?: string;
   height?: number;
+  /** Çubuk rengi; verilmezse vurgu (v4.0a İlerleme: metriğin bağlam rengi) */
+  color?: string;
 }
 
 const PAD = 8;
@@ -39,6 +41,7 @@ export function BarChart({
   startLabel,
   endLabel,
   height = 140,
+  color,
 }: BarChartProps) {
   const COLORS = useColors();
   const [width, setWidth] = useState(0);
@@ -89,7 +92,7 @@ export function BarChart({
                     width={barW}
                     height={h}
                     rx={Math.min(3, barW / 2)}
-                    fill={COLORS.accent}
+                    fill={color ?? COLORS.accent}
                     fillOpacity={b.pending ? 0.35 : 1}
                   />
                 );

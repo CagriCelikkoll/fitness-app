@@ -33,12 +33,12 @@ export function StatTile({
 
   return (
     <Card variant={variant} className={`justify-between ${className}`}>
-      <Text className={`text-xs uppercase tracking-widest ${labelColor}`}>
+      <Text className={`text-[13px] ${labelColor}`}>
         {label}
       </Text>
       <View className="flex-row items-baseline mt-3">
         <Text
-          className={`${VALUE_SIZE[size]} font-bold tabular-nums tracking-tight ${valueColor}`}
+          className={`${VALUE_SIZE[size]} font-display ${valueColor}`}
           numberOfLines={1}
           adjustsFontSizeToFit
         >

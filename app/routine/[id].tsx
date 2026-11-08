@@ -405,7 +405,7 @@ export default function RoutineEditorScreen() {
         >
           <Card className="gap-4">
             <View>
-              <Text className="text-muted text-xs uppercase tracking-widest mb-2">
+              <Text className="text-muted text-[13px] mb-2">
                 Rutin Adı
               </Text>
               <TextInput
@@ -417,7 +417,7 @@ export default function RoutineEditorScreen() {
               />
             </View>
             <View className="pt-4 border-t border-border">
-              <Text className="text-muted text-xs uppercase tracking-widest mb-2">
+              <Text className="text-muted text-[13px] mb-2">
                 Açıklama (opsiyonel)
               </Text>
               <TextInput

@@ -86,7 +86,7 @@ import { CHIP_TINT_ALPHA } from '@/components/ui/Chip';
 import { muscleLabels } from '@/lib/exerciseTaxonomy';
 import { saveSettings } from '@/lib/appSettings';
 import { useProgressionSetting } from '@/hooks/useProgressionSetting';
-import { useColors, useContextTones } from '@/hooks/useTheme';
+import { useColors, useContextOutline, useContextTones } from '@/hooks/useTheme';
 import { useScreenTopInset } from '@/hooks/useSafeBottom';
 import { FocusSheet } from '@/components/FocusSheet';
 import { RestTimerBar, useRestTimerController, type RestTimerController } from '@/components/RestTimer';
@@ -850,6 +850,7 @@ function FocusView({
   const COLORS = useColors();
   const db = useDb();
   const tones = useContextTones(color);
+  const outline = useContextOutline(color);
   const vibrate = useVibrateSetting();
   const data = useExerciseSessionData(sessionId, row.se.id, row.exercise);
   const toggle = useSetCompletion({
@@ -1041,7 +1042,7 @@ function FocusView({
                   selected ? 'border-2' : s.isCompleted ? 'border border-transparent' : 'border border-border'
                 }`}
                 style={{
-                  borderColor: selected ? tones.fill : undefined,
+                  borderColor: selected ? outline : undefined,
                   backgroundColor: s.isCompleted ? withAlpha(tones.fill, CHIP_TINT_ALPHA) : undefined,
                 }}
               >
@@ -1215,6 +1216,7 @@ function ListView({
   const COLORS = useColors();
   const router = useRouter();
   const tones = useContextTones(color);
+  const outline = useContextOutline(color);
   return (
     <ScrollView className="flex-1" contentContainerClassName="px-4 pt-5 gap-3 pb-8" keyboardShouldPersistTaps="handled">
       <Text className="font-display text-fg text-[26px] leading-[30px] px-1" accessibilityRole="header">
@@ -1230,7 +1232,7 @@ function ListView({
           <View
             key={r.se.id}
             className="rounded-[20px] bg-bg-surface border px-3.5 pt-3 pb-3"
-            style={{ borderColor: isCurrent ? tones.fill : COLORS.border }}
+            style={{ borderColor: isCurrent ? outline : COLORS.border }}
           >
             <View className="flex-row items-center gap-2">
               <Pressable

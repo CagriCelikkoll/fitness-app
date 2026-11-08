@@ -277,7 +277,7 @@ function ProgramUpdateCard({
   return (
     <Card variant="outline" className="gap-3">
       <View>
-        <Text className="text-accent text-xs font-semibold uppercase tracking-widest">
+        <Text className="text-accent text-[13px] font-semibold">
           {updateBadgeText(update.program)}
         </Text>
         <Text className="text-fg text-base font-semibold mt-1">
@@ -342,7 +342,7 @@ function RoutineCard({
               {routine.description}
             </Text>
           )}
-          <Text className="text-muted text-xs uppercase tracking-widest mt-3 tabular-nums">
+          <Text className="text-muted text-[13px] mt-3 tabular-nums">
             {exerciseCount} egzersiz
           </Text>
         </View>

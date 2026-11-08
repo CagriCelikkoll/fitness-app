@@ -298,7 +298,7 @@ export default function ProgramEditorScreen() {
         <ScrollView className="flex-1" contentContainerClassName="px-5 pt-4 gap-3 pb-32" keyboardShouldPersistTaps="handled">
           <Card className="gap-4">
             <View>
-              <Text className="text-muted text-xs uppercase tracking-widest mb-2">Program adı</Text>
+              <Text className="text-muted text-[13px] mb-2">Program adı</Text>
               <TextInput
                 value={name}
                 onChangeText={setName}
@@ -309,7 +309,7 @@ export default function ProgramEditorScreen() {
               />
             </View>
             <View className="pt-4 border-t border-border">
-              <Text className="text-muted text-xs uppercase tracking-widest mb-2">Açıklama (opsiyonel)</Text>
+              <Text className="text-muted text-[13px] mb-2">Açıklama (opsiyonel)</Text>
               <TextInput
                 value={description}
                 onChangeText={setDescription}
@@ -321,7 +321,7 @@ export default function ProgramEditorScreen() {
               />
             </View>
             <View className="pt-4 border-t border-border gap-2">
-              <Text className="text-muted text-xs uppercase tracking-widest">Kimler görür</Text>
+              <Text className="text-muted text-[13px]">Kimler görür</Text>
               <View className="flex-row gap-2 flex-wrap">
                 <Chip label="Yalnızca öğrencilerim" active={visibility === 'students'} onPress={() => setVisibility('students')} />
                 <Chip label="Salon programı" active={visibility === 'gym'} onPress={() => setVisibility('gym')} />
@@ -337,7 +337,7 @@ export default function ProgramEditorScreen() {
           {days.map((day, di) => (
             <Card key={day.key} className="gap-3">
               <View className="flex-row items-center gap-2">
-                <Text className="text-muted text-xs uppercase tracking-widest">{di + 1}. gün</Text>
+                <Text className="text-muted text-[13px]">{di + 1}. gün</Text>
                 <TextInput
                   value={day.name}
                   onChangeText={(v) => updateDay(day.key, (d) => ({ ...d, name: v }))}

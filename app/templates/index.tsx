@@ -45,7 +45,7 @@ export default function TemplatesScreen() {
                 <Text className="text-muted text-sm mt-1 leading-5">
                   {t.description}
                 </Text>
-                <Text className="text-muted text-xs uppercase tracking-widest mt-3 tabular-nums">
+                <Text className="text-muted text-[13px] mt-3 tabular-nums">
                   {t.dayCount} gün · {templateExerciseCount(t)} hareket
                 </Text>
               </View>
