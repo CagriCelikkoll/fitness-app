@@ -11,15 +11,17 @@ import { FloatingTabBar } from '@/components/FloatingTabBar';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import { useFloatingTabBarLayout } from '@/hooks/useSafeBottom';
 import { useColors, useGymTones } from '@/hooks/useTheme';
+import { TAB_TITLES, visibleTabs } from '@/lib/tabRoutes';
 import { FONT_FAMILIES } from '@/lib/typography';
 
 const ICON = { size: 22, strokeWidth: 1.8 } as const;
 
 /**
- * Sekmeler (v4.0a Bölüm 5): Bugün · (Salon) · Rutinler · Hareketler ·
- * İlerleme · Profil. Rota adları değişmedi (index, gym, workout, exercises,
- * progress, settings); derin bağlantılar ve `router.push`'lar aynı.
- * Menü havada (`FloatingTabBar`); ekran içeriği menünün üstünde biter.
+ * Sekmeler (v4.0a Bölüm 5, ek): üyede Bugün · Salon · Rutinler · İlerleme ·
+ * Profil; üye olmayanda Salon yerine Hareketler (`src/lib/tabRoutes.ts`).
+ * Rota adları değişmedi (index, gym, workout, exercises, progress, settings);
+ * derin bağlantılar ve `router.push`'lar aynı. Menü havada (`FloatingTabBar`);
+ * ekran içeriği menünün üstünde biter.
  */
 export default function TabsLayout() {
   const COLORS = useColors();
@@ -27,6 +29,7 @@ export default function TabsLayout() {
   const { primary } = useGymMembership();
   const gymTones = useGymTones(primary?.primaryColor);
   const { scenePadding } = useFloatingTabBarLayout();
+  const tabs = visibleTabs(primary != null);
   return (
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
@@ -43,7 +46,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Bugün',
+          title: TAB_TITLES.index,
           // v4.0a: başlık ekranın içinde ("BUGÜN", tarih, seri)
           headerShown: false,
           tabBarIcon: ({ color }) => <House color={color} {...ICON} />,
@@ -52,8 +55,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="gym"
         options={{
-          title: 'Salon',
-          href: primary ? undefined : null,
+          title: TAB_TITLES.gym,
+          href: tabs.includes('gym') ? undefined : null,
           tabBarActiveTintColor: gymTones.ink,
           tabBarIcon: ({ color }) => <Building2 color={color} {...ICON} />,
         }}
@@ -61,21 +64,22 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="workout"
         options={{
-          title: 'Rutinler',
+          title: TAB_TITLES.workout,
           tabBarIcon: ({ color }) => <Dumbbell color={color} {...ICON} />,
         }}
       />
       <Tabs.Screen
         name="exercises"
         options={{
-          title: 'Hareketler',
+          title: TAB_TITLES.exercises,
+          href: tabs.includes('exercises') ? undefined : null,
           tabBarIcon: ({ color }) => <ListChecks color={color} {...ICON} />,
         }}
       />
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'İlerleme',
+          title: TAB_TITLES.progress,
           // v4.0a: başlık ekranın içinde ("İLERLEME" + Hafta / Ay / Yıl)
           headerShown: false,
           tabBarIcon: ({ color }) => <TrendingUp color={color} {...ICON} />,
@@ -84,7 +88,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Profil',
+          title: TAB_TITLES.settings,
           // v4.0a: avatar, ad ve eşitleme durumu ekranın içinde
           headerShown: false,
           tabBarIcon: ({ color }) => <UserRound color={color} {...ICON} />,

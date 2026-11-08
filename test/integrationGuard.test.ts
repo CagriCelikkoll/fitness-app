@@ -84,7 +84,10 @@ describe('service role key uygulamaya girmiyor', () => {
 
     for (const [profile, { env = {} }] of Object.entries(eas.build)) {
       for (const [name, value] of Object.entries(env)) {
-        expect(name, `${profile}.${name}`).toMatch(/^EXPO_PUBLIC_/);
+        // Tek istisna: "Dinç Test" derlemesinin varyant adı (app.config.js), gizli değer değil
+        if (!(name === 'APP_VARIANT' && value === 'dahili')) {
+          expect(name, `${profile}.${name}`).toMatch(/^EXPO_PUBLIC_/);
+        }
         expect(value.startsWith('sb_secret_'), `${profile}.${name}`).toBe(false);
         expect(roleOf(value), `${profile}.${name}`).not.toBe('service_role');
         expect(testValues.some((t) => value.includes(t) || t.includes(value)), `${profile}.${name}`).toBe(false);

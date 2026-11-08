@@ -77,7 +77,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     p('Vücut ölçüleri, profil bilgileri ve uygulama ayarları eşitlenmez.'),
     p('**2. Salona katılırsan**'),
     p(
-      "Salon üyeliğini ve derslere katılımını salonun yöneticileri ve hocaları görebilir; diğer üyeler yalnızca kişi sayısını görür. Salon duyuruları ve katılacağın derslerdeki değişiklikler telefon bildirimi olarak gelir; Ayarlar'dan kapatabilirsin. Salon yöneticisinin yüklediği logo herkese açık bir adreste saklanır."
+      "Salon üyeliğini ve derslere katılımını salonun yöneticileri ve hocaları görebilir; diğer üyeler yalnızca kişi sayısını görür. Salon duyuruları ve katılacağın derslerdeki değişiklikler telefon bildirimi olarak gelir; Profil → Bildirimler'den kapatabilirsin. Salon yöneticisinin yüklediği logo herkese açık bir adreste saklanır."
     ),
     p(
       'Salon girişinde QR okutursan giriş ve çıkış saatlerin kaydedilir; salon yöneticisi ve izin verdiğin hocan görebilir. Diğer üyeler yalnızca salondaki toplam kişi sayısını görür.'
@@ -107,7 +107,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     ),
     p('**6. Saklama ve silme**'),
     p(
-      'Hesabın sen silene kadar saklanır. Ayarlar → Hesap ve salon → Hesabımı sil ile hesabını ve sunucudaki verilerini kalıcı olarak silebilirsin; sunucu yedeklerinden en geç 30 gün içinde silinir. Uygulamaya erişemiyorsan web sayfasındaki hesap silme yolunu izle.'
+      'Hesabın sen silene kadar saklanır. Profil → Gizlilik ve hesap → Hesabımı sil ile hesabını ve sunucudaki verilerini kalıcı olarak silebilirsin; sunucu yedeklerinden en geç 30 gün içinde silinir. Uygulamaya erişemiyorsan web sayfasındaki hesap silme yolunu izle.'
     ),
     p('**7. Hakların ve iletişim**'),
     p(
@@ -157,7 +157,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
 
 export const HEALTH_CONSENT_TEXT = {
   title: 'Vücut ölçülerinin işlenmesine açık rıza',
-  body: "Kilo, yağ oranı ve çevre ölçülerimin, ilerlememi takip edebilmem amacıyla yalnızca cihazımda saklanarak işlenmesine, Aydınlatma Metni'ni okuyarak açık rıza veriyorum. Bu rızayı istediğim zaman Ayarlar'dan geri alabileceğimi biliyorum.",
+  body: "Kilo, yağ oranı ve çevre ölçülerimin, ilerlememi takip edebilmem amacıyla yalnızca cihazımda saklanarak işlenmesine, Aydınlatma Metni'ni okuyarak açık rıza veriyorum. Bu rızayı istediğim zaman Profil → Gizlilik ve hesap'tan geri alabileceğimi biliyorum.",
   checkboxLabel: 'Onaylıyorum',
 } as const;
 

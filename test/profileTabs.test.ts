@@ -1,7 +1,7 @@
 /**
  * v4.0a Bölüm 5: havada duran alt menü, sekme adları, Profil.
  * - Menü geometrisi ve sekme ekranlarının alt boşluğu
- * - 6 sekmede etiketlerin sığması (rapor: 360 dp'de sığmıyor)
+ * - Üye / üye olmayan için sekme listesi; etiketler 360 dp'de sığıyor
  * - Profil satırları: eski Ayarlar sekmesinin hiçbir bölümü kaybolmadı
  * - Avatar harfi, dinlenme saati, eşitleme satırı
  */
@@ -19,6 +19,7 @@ import {
   profileSyncLine,
   restClock,
 } from '@/lib/settingsGroups';
+import { TAB_TITLES, visibleTabs } from '@/lib/tabRoutes';
 
 const ROOT = path.resolve(__dirname, '..');
 const read = (f: string) => readFileSync(path.join(ROOT, f), 'utf8');
@@ -32,18 +33,40 @@ describe('havada duran alt menü', () => {
     expect(floatingTabBarLayout(48, true).scenePadding).toBe(0);
   });
 
-  it('5 sekme 360 dp’de sığıyor, 6 sekme sığmıyor (rapor)', () => {
-    const five = ['Bugün', 'Rutinler', 'Hareketler', 'İlerleme', 'Profil'];
-    expect(tabLabelsFit(360, five)).toBe(true);
-    expect(tabLabelsFit(360, ['Bugün', 'Salon', ...five.slice(1)])).toBe(false);
+  const titles = (member: boolean) => visibleTabs(member).map((r) => TAB_TITLES[r]);
+
+  it('üye: Salon var, Hareketler yok; üye olmayan: tersi', () => {
+    expect(titles(true)).toEqual(['Bugün', 'Salon', 'Rutinler', 'İlerleme', 'Profil']);
+    expect(titles(false)).toEqual(['Bugün', 'Rutinler', 'Hareketler', 'İlerleme', 'Profil']);
   });
 
-  it('sekme adları ve sırası; özel menü bağlı', () => {
+  it('iki listede de 12 px etiketler 360 dp’de sığıyor; 6 sekme sığmazdı', () => {
+    expect(tabLabelsFit(360, titles(true))).toBe(true);
+    expect(tabLabelsFit(360, titles(false))).toBe(true);
+    expect(tabLabelsFit(360, ['Salon', ...titles(false)])).toBe(false);
+  });
+
+  it('etiket küçültme yok (12 px altı yazı olmaz)', () => {
+    const bar = read('src/components/FloatingTabBar.tsx');
+    expect(bar).not.toContain('adjustsFontSizeToFit');
+    expect(bar).not.toContain('minimumFontScale');
+    expect(bar).toContain('fontSize: 12');
+  });
+
+  it('menü bağlı; gizleme tek listeden', () => {
     const src = read('app/(tabs)/_layout.tsx');
-    const titles = [...src.matchAll(/title: '([^']+)'/g)].map((m) => m[1]);
-    expect(titles).toEqual(['Bugün', 'Salon', 'Rutinler', 'Hareketler', 'İlerleme', 'Profil']);
     expect(src).toContain('tabBar={(props) => <FloatingTabBar {...props} />}');
     expect(src).toContain('paddingBottom: scenePadding');
+    expect(src).toContain("href: tabs.includes('gym') ? undefined : null");
+    expect(src).toContain("href: tabs.includes('exercises') ? undefined : null");
+  });
+
+  it('üye hareket listesine Rutinler ekranından ulaşıyor (boş listede de)', () => {
+    const src = read('app/(tabs)/workout.tsx');
+    expect(src).toContain('<Link href="/exercise" asChild>');
+    expect(src.match(/<ExercisesEntry \/>/g)).toHaveLength(2);
+    expect(read('app/exercise/index.tsx')).toContain("from '../(tabs)/exercises'");
+    expect(read('app/_layout.tsx')).toContain('name="exercise/index"');
   });
 });
 

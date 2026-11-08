@@ -205,6 +205,10 @@ function RootStack() {
         options={{ title: 'Egzersiz' }}
       />
       <Stack.Screen
+        name="exercise/index"
+        options={{ title: 'Hareketler' }}
+      />
+      <Stack.Screen
         name="routine/[id]"
         options={{
           title: 'Rutin',

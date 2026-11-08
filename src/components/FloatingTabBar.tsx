@@ -71,9 +71,6 @@ export function FloatingTabBar({ state, descriptors, navigation }: FloatingTabBa
             {options.tabBarIcon?.({ focused, color, size: 22 })}
             <Text
               numberOfLines={1}
-              // Sığmazsa (6 sekme, dar ekran) yalnızca gerektiği kadar küçülür
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
               style={{
                 color,
                 fontSize: 12,

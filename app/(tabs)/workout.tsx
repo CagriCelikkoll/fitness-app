@@ -13,6 +13,7 @@ import { asc, count, eq } from 'drizzle-orm';
 import {
   Dumbbell,
   LayoutList,
+  ListChecks,
   Pencil,
   Play,
   Plus,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
+import { useGymMembership } from '@/hooks/useGymMembership';
 import {
   applyProgramUpdate,
   keepProgramRoutines,
@@ -41,6 +43,7 @@ import {
   updateBadgeText,
   type ProgramUpdate,
 } from '@/lib/programs';
+import { visibleTabs } from '@/lib/tabRoutes';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
   Card,
@@ -58,6 +61,9 @@ export default function WorkoutScreen() {
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
   const { start: startRoutine, starting } = useStartRoutine();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  // Salon üyesinde Hareketler sekmesi yok; liste buradan açılır
+  const { primary } = useGymMembership();
+  const showExercisesEntry = !visibleTabs(primary != null).includes('exercises');
 
   // Programdan eklenen rutinler (v3.6b): program güncellenince rozet.
   // Bayrak kapalıyken / salon yokken hiçbir şey okunmaz, istek atılmaz.
@@ -168,6 +174,12 @@ export default function WorkoutScreen() {
         </View>
       )}
 
+      {routineList.length === 0 && showExercisesEntry && (
+        <View className="px-5 pt-4">
+          <ExercisesEntry />
+        </View>
+      )}
+
       {routineList.length === 0 ? (
         <EmptyState
           className="flex-1"
@@ -205,6 +217,7 @@ export default function WorkoutScreen() {
                   }
                 />
               ))}
+              {showExercisesEntry && <ExercisesEntry />}
               <Link href="/templates" asChild>
                 <ListRow chevron className="px-1">
                   <View className="flex-row items-center">
@@ -256,6 +269,20 @@ export default function WorkoutScreen() {
         </Link>
       )}
     </View>
+  );
+}
+
+function ExercisesEntry() {
+  const COLORS = useColors();
+  return (
+    <Link href="/exercise" asChild>
+      <ListRow chevron className="px-1">
+        <View className="flex-row items-center">
+          <ListChecks color={COLORS.muted} size={17} strokeWidth={1.75} />
+          <Text className="text-muted text-sm ml-3">Hareketler</Text>
+        </View>
+      </ListRow>
+    </Link>
   );
 }
 

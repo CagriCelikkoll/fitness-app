@@ -55,8 +55,8 @@ export function floatingTabBarLayout(inset: number, keyboardVisible: boolean): {
 /**
  * Etiketler 12 px'te tek satıra sığıyor mu? Sekme başına genişlik, en uzun
  * etiketin yaklaşık genişliği (Archivo SemiBold 12 px ≈ 6,2 px / harf,
- * ~0,52 em) ve 2 px pay. Tahmin; cihazda etiket yine de sığmazsa yazı
- * yalnızca o kadar küçülür (`adjustsFontSizeToFit`). 6 sekmede ("Hareketler") 360 dp telefonda sığmıyor.
+ * ~0,52 em) ve 2 px pay. Tahmin. Bu yüzden menüde 5 sekme var
+ * (`src/lib/tabRoutes.ts`): 6 sekmede "Hareketler" 360 dp telefonda sığmıyordu.
  */
 export function tabLabelsFit(screenWidth: number, labels: readonly string[]): boolean {
   if (labels.length === 0) return true;

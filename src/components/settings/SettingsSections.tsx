@@ -30,6 +30,8 @@ import { Text, TextInput } from '@/components/ui/Text';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+
+import { isInternalChannel } from '@/lib/appVariant';
 import Storage from 'expo-sqlite/kv-store';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
@@ -1358,7 +1360,10 @@ export function AboutSection() {
   // v3.7: "Salon özellikleri (deneysel)" gizli anahtarı (sürüm satırına 7
   // dokunuş) kaldırıldı; hesap herkese açık, salon üyeliğe bağlı (DNC-06)
   const rows: { label: string; value: string; onPress?: () => void }[] = [
-    { label: 'Uygulama sürümü', value: Constants.expoConfig?.version ?? '—' },
+    {
+      label: 'Uygulama sürümü',
+      value: `${Constants.expoConfig?.version ?? '—'}${isInternalChannel(Updates.channel) ? ' · Test sürümü' : ''}`,
+    },
     { label: 'Çalışma zamanı', value: Updates.runtimeVersion || '—' },
     { label: 'Kanal', value: Updates.channel || '—' },
     { label: 'Güncelleme', value: updateIdText() },
