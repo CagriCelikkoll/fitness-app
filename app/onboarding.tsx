@@ -1,7 +1,7 @@
 /**
  * İlk açılış (karşılama) akışı: beş kısa adım.
  *
- * 1. Hoş geldin — ne işe yaradığı
+ * 1. Tanıtım — görselli üç sayfa (`OnboardingIntro`, v4.0b)
  * 2. Gizlilik — yasal metin bağlantıları ve vücut ölçüsü açık rızası
  *    (kutu boş gelir; işaretsiz "Devam" declined yazar, akış sürer)
  * 3. Profil — boy/doğum tarihi/cinsiyet (Ayarlar'daki formun aynısı)
@@ -16,11 +16,11 @@
  * Kime gösterileceğine ana sayfa karar veriyor (`app/(tabs)/index.tsx`);
  * Ayarlar → Hakkında'dan da açılabiliyor. "Atla" ya da "Başla" bayrağı
  * set edip Antrenman sekmesine gider. İlk adımdaki "Geri yükle"
- * Ayarlar'daki yedek akışını açar; başarılıysa bayrak set edilip ana
- * sayfaya gidilir.
+ * Ayarlar'daki yedek akışını açar, "Hesabım var, giriş yap" giriş ekranını;
+ * ikisi de başarılıysa bayrak set edilip ana sayfaya gidilir.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -29,32 +29,29 @@ import {
   View,
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import {
-  Check,
-  Dumbbell,
-  History,
-  TrendingUp,
-  Upload,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Check, ChevronLeft, Upload } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useBackupRestore } from '@/hooks/useBackupRestore';
+import { useSession } from '@/hooks/useSession';
 import { appSettings, type AppSettings } from '@/db/schema';
 import { markOnboardingDone } from '@/lib/onboarding';
+import { OnboardingIntro, ProgressDots } from '@/components/OnboardingIntro';
 import { ProgramRecommender, useProgramRecommender } from '@/components/ProgramRecommender';
 import { ProfileFields, useProfileForm } from '@/components/ProfileForm';
 import { ConsentCard } from '@/components/ConsentCard';
 import { setHealthConsent } from '@/hooks/useHealthConsent';
 import { useColors } from '@/hooks/useTheme';
-import { Card, PrimaryButton } from '@/components/ui';
+import { Card, IconButton, PrimaryButton, ScreenTitle } from '@/components/ui';
 
 const STEP_COUNT = 5;
+/** Tanıtımın kendi sayfa göstergesi var; noktalar sonraki adımları sayar */
+const FORM_STEP_COUNT = STEP_COUNT - 1;
 
 export default function OnboardingScreen() {
   const COLORS = useColors();
@@ -66,6 +63,7 @@ export default function OnboardingScreen() {
   );
 
   const [step, setStep] = useState(0);
+  const [introPage, setIntroPage] = useState(0);
   // Adımlar arasında gezinince seçimler kalsın diye durum burada
   const recommender = useProgramRecommender();
   const [finishing, setFinishing] = useState(false);
@@ -73,17 +71,18 @@ export default function OnboardingScreen() {
   const next = () => setStep((s) => Math.min(s + 1, STEP_COUNT - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
 
-  // Android geri tuşu 2-5. adımlarda bir önceki adıma döner ("Geri" ile
-  // aynı). 1. adımda dinleyici yok: varsayılan davranış (çıkış / Ayarlar'a
-  // dönüş) kalır. Ekrandan çıkınca ya da adım değişince temizlenir.
+  // Android geri tuşu bir önceki adıma / tanıtım sayfasına döner ("Geri"
+  // ile aynı). İlk sayfada dinleyici yok: varsayılan davranış (çıkış /
+  // Ayarlar'a dönüş) kalır. Ekrandan çıkınca ya da adım değişince temizlenir.
   useEffect(() => {
-    if (step === 0) return;
+    if (step === 0 && introPage === 0) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setStep((s) => Math.max(s - 1, 0));
+      if (step === 0) setIntroPage((p) => Math.max(p - 1, 0));
+      else setStep((s) => Math.max(s - 1, 0));
       return true;
     });
     return () => sub.remove();
-  }, [step]);
+  }, [step, introPage]);
 
   /** Atla ve Başla: bayrak set edilir, Antrenman sekmesine gidilir */
   const finish = async () => {
@@ -101,17 +100,36 @@ export default function OnboardingScreen() {
     router.dismissTo('/workout');
   };
 
-  // Eski uygulamadan yedekle geçen kullanıcı karşılamayı atlayıp verisine
-  // ulaşsın. Akış Ayarlar'dakiyle aynı; başarılıysa bayrak set edilip ana
-  // sayfaya gidilir.
-  const { importing, startRestore } = useBackupRestore(async () => {
+  const finishToHome = useCallback(async () => {
     try {
       await markOnboardingDone(Storage);
     } catch (err) {
       console.error('[ONBOARDING] Bayrak yazılamadı:', err);
     }
     router.dismissTo('/');
-  });
+  }, [router]);
+
+  // Eski uygulamadan yedekle geçen kullanıcı karşılamayı atlayıp verisine
+  // ulaşsın. Akış Ayarlar'dakiyle aynı; başarılıysa bayrak set edilip ana
+  // sayfaya gidilir.
+  const { importing, startRestore } = useBackupRestore(finishToHome);
+
+  // Hesabı olan kullanıcı girişten sonra verisine ulaşsın. Yalnızca buradan
+  // açılan girişte: kayıtlı oturum açılışta sonradan gelirse akış kesilmesin.
+  // Geçiş bittikten sonra (odaklanınca), giriş ekranının `back`'iyle çakışmaz.
+  const { available: accountAvailable, userId } = useSession();
+  const signInOpened = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!signInOpened.current || !userId) return;
+      signInOpened.current = false;
+      void finishToHome();
+    }, [userId, finishToHome])
+  );
+  const openSignIn = () => {
+    signInOpened.current = true;
+    router.push('/account/sign-in');
+  };
 
   // v2.2: vücut ölçüsü rızası. Kutu boş gelir; geri dönülünce son seçim
   // korunur. "Devam": işaretliyse granted, değilse declined; ikisinde de
@@ -135,34 +153,16 @@ export default function OnboardingScreen() {
 
   if (step === 0) {
     return (
-      <StepLayout
-        {...layout}
-        footer={
-          <>
-            <PrimaryButton label="Devam" onPress={next} />
-            <Pressable
-              onPress={() => void startRestore()}
-              disabled={importing}
-              accessibilityRole="button"
-              hitSlop={8}
-              className="self-center py-1 active:opacity-60"
-            >
-              <Text className="text-muted text-sm">
-                {importing ? (
-                  'Geri yükleniyor...'
-                ) : (
-                  <>
-                    Yedeğin var mı?{' '}
-                    <Text className="text-accent font-semibold">Geri yükle</Text>
-                  </>
-                )}
-              </Text>
-            </Pressable>
-          </>
-        }
-      >
-        <WelcomeStep />
-      </StepLayout>
+      <OnboardingIntro
+        page={introPage}
+        onPageChange={setIntroPage}
+        onDone={next}
+        onSkip={() => void finish()}
+        skipDisabled={finishing}
+        importing={importing}
+        onRestore={() => void startRestore()}
+        onSignIn={accountAvailable && !userId ? openSignIn : null}
+      />
     );
   }
 
@@ -256,56 +256,36 @@ function StepLayout({
 
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: insets.top }}>
-      <View className="flex-row items-center justify-between px-5 h-12">
-        {step > 0 ? (
-          <Pressable onPress={onBack} hitSlop={12} className="active:opacity-60">
-            <Text className="text-muted text-base font-medium">Geri</Text>
-          </Pressable>
-        ) : (
-          <View />
-        )}
+      <View className="flex-row items-center justify-between px-4 h-14">
+        <IconButton icon={ChevronLeft} accessibilityLabel="Geri" onPress={onBack} />
         <Pressable
           onPress={onSkip}
           disabled={skipDisabled}
-          hitSlop={12}
-          className="active:opacity-60"
+          accessibilityRole="button"
+          hitSlop={8}
+          className="h-11 px-3.5 justify-center active:opacity-60"
         >
-          <Text className="text-muted text-base font-medium">Atla</Text>
+          <Text className="text-muted text-sm font-bold">Atla</Text>
         </Pressable>
       </View>
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-5 pt-4 pb-6 gap-4"
+        contentContainerClassName="px-5 pt-2 pb-6 gap-4"
         keyboardShouldPersistTaps="handled"
       >
         {children}
       </ScrollView>
 
-      <View
-        className="px-5 pt-3 pb-4 gap-4 border-t border-border bg-bg"
-      >
-        <StepDots step={step} />
+      <View className="px-5 pt-3 pb-4 gap-4 bg-bg">
+        <ProgressDots
+          index={step - 1}
+          count={FORM_STEP_COUNT}
+          label={`Adım ${step} / ${FORM_STEP_COUNT}`}
+          className="justify-center"
+        />
         {footer}
       </View>
-    </View>
-  );
-}
-
-function StepDots({ step }: { step: number }) {
-  return (
-    <View
-      className="flex-row justify-center gap-2"
-      accessibilityLabel={`Adım ${step + 1} / ${STEP_COUNT}`}
-    >
-      {Array.from({ length: STEP_COUNT }, (_, i) => (
-        <View
-          key={i}
-          className={`h-2 rounded-full ${
-            i === step ? 'w-6 bg-accent' : 'w-2 bg-border'
-          }`}
-        />
-      ))}
     </View>
   );
 }
@@ -313,54 +293,11 @@ function StepDots({ step }: { step: number }) {
 function StepTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View className="mb-2">
-      <Text className="text-fg text-3xl font-bold tracking-tight">
-        {title}
-      </Text>
+      <ScreenTitle>{title}</ScreenTitle>
       {subtitle != null && (
         <Text className="text-muted text-sm leading-5 mt-2">{subtitle}</Text>
       )}
     </View>
-  );
-}
-
-// ============================================================================
-// 1) Hoş geldin
-// ============================================================================
-
-const WELCOME_POINTS: { icon: LucideIcon; text: string }[] = [
-  {
-    icon: Dumbbell,
-    text: 'Hazır programla başla ya da kendi rutinini kur',
-  },
-  {
-    icon: History,
-    text: 'Setlerini kaydet; bir sonraki antrenmanda önceki değerlerin hazır gelir',
-  },
-  {
-    icon: TrendingUp,
-    text: 'İlerlemeni, rekorlarını ve hangi kası ne kadar çalıştırdığını gör',
-  },
-];
-
-function WelcomeStep() {
-  const COLORS = useColors();
-  return (
-    <>
-      <StepTitle title="Hoş geldin 💪" />
-      {WELCOME_POINTS.map(({ icon: Icon, text }) => (
-        <Card key={text} className="flex-row items-center">
-          <View className="w-11 h-11 rounded-full bg-accent items-center justify-center">
-            <Icon color={COLORS.accentFg} size={20} />
-          </View>
-          <Text className="flex-1 ml-4 text-fg text-base leading-6">
-            {text}
-          </Text>
-        </Card>
-      ))}
-      <Text className="text-muted text-xs text-center mt-2">
-        Verilerin sadece bu telefonda saklanır, internet gerekmez.
-      </Text>
-    </>
   );
 }
 

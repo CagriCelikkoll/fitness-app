@@ -30,7 +30,8 @@ import {
   type RecommendedProgram,
   type TrainingGoal,
 } from '@/lib/programRecommendation';
-import { Card, Chip, SecondaryButton } from '@/components/ui';
+import { CARD_NAME_SIZES, upperTr } from '@/lib/typography';
+import { Card, Chip, DisplayName, SecondaryButton } from '@/components/ui';
 
 export function useProgramRecommender() {
   const db = useDb();
@@ -184,7 +185,9 @@ export function ProgramRecommender({
 
 function Heading({ title }: { title: string }) {
   return (
-    <Text className="text-fg text-3xl font-bold tracking-tight mb-2">{title}</Text>
+    <Text accessibilityRole="header" className="font-display text-fg text-2xl leading-[30px] mb-2">
+      {upperTr(title)}
+    </Text>
   );
 }
 
@@ -213,9 +216,9 @@ function RecommendationCard({
   return (
     <Card className="gap-3">
       <Text className="text-muted text-xs tracking-widest">{label}</Text>
-      <Text className="text-fg text-xl font-semibold tracking-tight">
+      <DisplayName inset={80} sizes={CARD_NAME_SIZES}>
         {template.name}
-      </Text>
+      </DisplayName>
       <Text className="text-fg text-sm leading-5">
         {program.daysPerWeek} gün: {program.scheduleLabel}
       </Text>
