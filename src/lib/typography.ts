@@ -133,6 +133,17 @@ export function nameFontSize(name: string, width: number, sizes: readonly number
   return smallest;
 }
 
+export const RECORD_HEADLINE_SIZES = [64, 60, 56, 48, 40, 34, 28] as const;
+
+/** Display fontunda ölçüldü: rakam + "kg × 12" karışımında en geniş 0,625 em */
+const RECORD_CHAR_EM = 0.63;
+
+/** "80 kg × 5" tek satıra sığan en büyük boyut (rekor sayfası) */
+export function recordHeadlineSize(text: string, width: number): number {
+  const needed = [...text].length * RECORD_CHAR_EM;
+  return RECORD_HEADLINE_SIZES.find((s) => s * needed <= width) ?? RECORD_HEADLINE_SIZES[RECORD_HEADLINE_SIZES.length - 1];
+}
+
 /** Ölçek (v4.0a 1.4). 12'nin altında yazı yok. */
 export const TYPE_SCALE = {
   screenTitle: 32,

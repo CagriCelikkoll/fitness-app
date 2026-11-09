@@ -20,10 +20,12 @@ import { useDb } from '@/hooks/useDb';
 import { useColors } from '@/hooks/useTheme';
 import { formatDuration, formatRelativeDate } from '@/lib/format';
 import { saveSessionNote } from '@/lib/notes';
+import { loadSessionRecordPage, type RecordPageData } from '@/lib/recordEvents';
 import { loadWorkoutSummary, plannedSetCount, recordText, type LoadedSummary } from '@/lib/workoutSummary';
 import { DisplayName, Glow, ListRow, PrimaryButton, SectionLabel, StatCard } from '@/components/ui';
 import { Text } from '@/components/ui/Text';
 import { NoteEditor } from '@/components/NoteEditor';
+import { RecordCelebration } from '@/components/RecordCelebration';
 
 export default function WorkoutSummaryScreen() {
   const COLORS = useColors();
@@ -32,6 +34,8 @@ export default function WorkoutSummaryScreen() {
   const topInset = useScreenTopInset();
   const { id, planned } = useLocalSearchParams<{ id: string; planned?: string }>();
   const [summary, setSummary] = useState<LoadedSummary | null | undefined>(undefined);
+  const [recordPage, setRecordPage] = useState<RecordPageData | null | undefined>(undefined);
+  const [recordSeen, setRecordSeen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,24 +52,52 @@ export default function WorkoutSummaryScreen() {
     };
   }, [db, id]);
 
-  const close = () => router.replace('/(tabs)/workout');
+  // Rekor sayfası okunamazsa antrenman özeti yine açılır
+  useEffect(() => {
+    let cancelled = false;
+    loadSessionRecordPage(db, id!)
+      .then((page) => {
+        if (!cancelled) setRecordPage(page);
+      })
+      .catch((err) => {
+        console.warn('[SUMMARY] Rekor okunamadı:', err);
+        if (!cancelled) setRecordPage(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, id]);
 
-  // Geri tuşu da "Kaydet ve kapat" gibi (aktif antrenman ekranı artık yok)
+  const close = () => router.replace('/(tabs)/workout');
+  const showRecord = recordPage != null && !recordSeen;
+
+  // Geri tuşu da "Kaydet ve kapat" gibi (aktif antrenman ekranı artık yok);
+  // rekor sayfasındayken özete geçer, not ve ayrıntılar atlanmasın
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      close();
+      if (showRecord) setRecordSeen(true);
+      else close();
       return true;
     });
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showRecord]);
 
-  if (summary === undefined) {
+  if (summary === undefined || recordPage === undefined) {
     return (
       <View className="flex-1 bg-bg items-center justify-center">
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <ActivityIndicator color={COLORS.accent} />
       </View>
+    );
+  }
+
+  if (showRecord) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+        <RecordCelebration page={recordPage} onContinue={() => setRecordSeen(true)} />
+      </>
     );
   }
 
