@@ -22,7 +22,12 @@ import { useRoutineActions } from '@/hooks/useRoutineActions';
 import { useRoutineCards } from '@/hooks/useRoutineCards';
 import { useStartRoutine } from '@/hooks/useStartRoutine';
 import { DarkSurface, useColors, useContextTones } from '@/hooks/useTheme';
-import type { WorkoutCover } from '@/lib/coverImage';
+import {
+  COVER_PAGE_HEIGHT,
+  COVER_PAGE_NAME_INSET,
+  COVER_PAGE_NAME_SIZES,
+  type WorkoutCover,
+} from '@/lib/coverImage';
 import {
   findRoutineInGroups,
   loadRoutineExercises,
@@ -30,11 +35,6 @@ import {
   type RoutineCardItem,
   type RoutineExerciseRow,
 } from '@/lib/routineCards';
-
-const COVER_HEIGHT = 460;
-const COVER_NAME_SIZES = [46, 38, 30] as const;
-/** Sayfa kenarları (20 + 20) */
-const COVER_NAME_INSET = 40;
 
 export default function RoutineCoverScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -132,12 +132,12 @@ function CoverBody({
   return (
     <View className="flex-1 bg-bg">
       <ScrollView className="flex-1" contentContainerClassName="pb-4">
-        <CoverImage cover={cover} variant="page" className="justify-end" style={{ height: COVER_HEIGHT }}>
+        <CoverImage cover={cover} variant="page" className="justify-end" style={{ height: COVER_PAGE_HEIGHT }}>
           <View className="px-5 gap-2.5">
             <Text className="text-xs font-bold tracking-widest" style={{ color: tones.ink }}>
               {label}
             </Text>
-            <DisplayName accessibilityRole="header" inset={COVER_NAME_INSET} sizes={COVER_NAME_SIZES}>
+            <DisplayName accessibilityRole="header" inset={COVER_PAGE_NAME_INSET} sizes={COVER_PAGE_NAME_SIZES}>
               {routine.name}
             </DisplayName>
             <Text className="text-fg text-sm">{routine.stats}</Text>

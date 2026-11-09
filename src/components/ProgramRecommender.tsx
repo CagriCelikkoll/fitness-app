@@ -26,6 +26,7 @@ import {
   GOAL_OPTIONS,
   getRecommendationGoal,
   recommendProgram,
+  setRecommendationDays,
   setRecommendationGoal,
   type RecommendedProgram,
   type TrainingGoal,
@@ -57,6 +58,13 @@ export function useProgramRecommender() {
     );
   };
 
+  const chooseDays = (c: TrainingDaysChoice) => {
+    setChoice(c);
+    setRecommendationDays(Storage, c).catch((err) =>
+      console.error('[RECOMMEND] Gün seçimi kaydedilemedi:', err)
+    );
+  };
+
   const addTemplate = async (program: RecommendedProgram) => {
     if (adding) return;
     const { template } = program;
@@ -82,7 +90,7 @@ export function useProgramRecommender() {
     goal,
     onGoal: chooseGoal,
     choice,
-    onChoose: setChoice,
+    onChoose: chooseDays,
     addedTemplateIds,
     adding,
     onAdd: (program: RecommendedProgram) => void addTemplate(program),

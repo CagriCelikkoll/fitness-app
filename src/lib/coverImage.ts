@@ -108,6 +108,13 @@ export function templateCover(templateId: string): WorkoutCover {
   return TEMPLATE_COVERS[templateId] ?? 'fullbody-farmer';
 }
 
+// ── Tam ekran kapak (rutin ve hazır program) ───────────────────────────
+
+export const COVER_PAGE_HEIGHT = 460;
+export const COVER_PAGE_NAME_SIZES = [46, 38, 30] as const;
+/** Sayfa kenarları (20 + 20) */
+export const COVER_PAGE_NAME_INSET = 40;
+
 // ── Karartma ───────────────────────────────────────────────────────────
 
 export interface GradientStop {

@@ -221,11 +221,11 @@ function RootStack() {
       />
       <Stack.Screen
         name="templates/index"
-        options={{ title: 'Hazır Programlar' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="templates/[id]"
-        options={{ title: 'Program' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="templates/recommend"

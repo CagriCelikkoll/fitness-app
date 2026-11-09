@@ -5,13 +5,11 @@ import {
   Pressable,
   SectionList,
   View,
-  type PressableProps,
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ChevronRight,
   LayoutList,
   ListChecks,
   MoreHorizontal,
@@ -19,11 +17,11 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
-  type LucideIcon,
 } from 'lucide-react-native';
 
 import { ChooseProgramCard } from '@/components/ChooseProgramCard';
 import { CoverImage } from '@/components/CoverImage';
+import { EntryRow } from '@/components/EntryRow';
 import { RoutineMenu, type RoutineTarget } from '@/components/RoutineMenu';
 import { useDb } from '@/hooks/useDb';
 import { useGymMembership } from '@/hooks/useGymMembership';
@@ -218,24 +216,6 @@ export default function WorkoutScreen() {
         onDelete={(routine) => confirmDelete(routine)}
       />
     </View>
-  );
-}
-
-/** Üstteki giriş satırları. `Link asChild` dokunuşu `rest` ile veriyor. */
-function EntryRow({ icon: Icon, label, brand = false, ...rest }: { icon: LucideIcon; label: string; brand?: boolean } & PressableProps) {
-  const COLORS = useColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      className={`flex-row items-center gap-3 px-4 h-14 rounded-2xl border active:opacity-70 ${
-        brand ? 'border-accent' : 'bg-bg-surface border-border'
-      }`}
-      {...rest}
-    >
-      <Icon color={brand ? COLORS.accent : COLORS.muted} size={19} strokeWidth={2} />
-      <Text className="flex-1 text-fg text-[15px] font-bold">{label}</Text>
-      <ChevronRight color={COLORS.muted} size={18} />
-    </Pressable>
   );
 }
 
