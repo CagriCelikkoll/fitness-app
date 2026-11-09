@@ -202,11 +202,11 @@ function RootStack() {
       />
       <Stack.Screen
         name="exercise/[id]"
-        options={{ title: 'Egzersiz' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="exercise/index"
-        options={{ title: 'Hareketler' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="routine/[id]"

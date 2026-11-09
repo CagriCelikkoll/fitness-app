@@ -236,3 +236,6 @@ export const DARK_COLORS: ThemeColors = buildColors('dark', DINC_ACCENT.dark);
  * zemin üstünde koyu modül bekliyor; koyu temada da afiş beyaz kalır.
  */
 export const QR_COLORS = { dark: '#000000', light: '#FFFFFF' } as const;
+
+/** Katalog çizimlerinin zemini (v4.0b Bölüm 8): çizimler açık renkli, iki temada aynı */
+export const EXERCISE_IMAGE_SURFACE = '#F2F1EC';

@@ -74,6 +74,7 @@ export default function TabsLayout() {
         name="exercises"
         options={{
           title: TAB_TITLES.exercises,
+          headerShown: false,
           href: tabs.includes('exercises') ? undefined : null,
           tabBarIcon: ({ color }) => <ListChecks color={color} {...ICON} />,
         }}

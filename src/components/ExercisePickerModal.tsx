@@ -348,7 +348,7 @@ function PreviewView({
         className="flex-1"
         contentContainerClassName="px-5 pt-4 gap-3 pb-6"
       >
-        <ExerciseDetailContent exercise={exercise} showProgress={false} />
+        <ExerciseDetailContent exercise={exercise} />
       </ScrollView>
 
       <View className="px-5 py-3 border-t border-border bg-bg">

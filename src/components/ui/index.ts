@@ -8,6 +8,7 @@ export { DisplayName } from './DisplayName';
 export { PrimaryButton, SecondaryButton, DangerButton } from './Buttons';
 export { IconButton } from './IconButton';
 export { Chip } from './Chip';
+export { SegmentedTabs } from './SegmentedTabs';
 export { EmptyState } from './EmptyState';
 export { ListRow } from './ListRow';
 export { Glow } from './Glow';

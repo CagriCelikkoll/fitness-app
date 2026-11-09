@@ -1,12 +1,12 @@
 /**
- * Egzersiz detayının içeriği — egzersiz detay ekranı ve egzersiz
- * seçicideki önizleme aynı bileşeni kullanıyor, iki kopya olmasın.
+ * Egzersiz detayının parçaları. Tam ekran detay (`app/exercise/[id].tsx`)
+ * bunları sekmelere dağıtıyor; seçicideki önizleme ve odak panelindeki "Nasıl
+ * yapılır" tek parça `ExerciseDetailContent`'i kullanıyor.
  *
- * Kaydırma kabı, başlık ve yükleme durumu çağıran tarafta: detay ekranı
- * Stack başlığını ayarlıyor, seçici kendi üst çubuğunu çiziyor.
+ * Kaydırma kabı, başlık ve yükleme durumu çağıran tarafta.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -16,13 +16,11 @@ import {
   View,
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Play } from 'lucide-react-native';
 
-import { useDb } from '@/hooks/useDb';
 import { exerciseDisplayName, exerciseOriginalName } from '@/lib/exerciseCatalog';
-import { useColors } from '@/hooks/useTheme';
+import { useColors, useTheme } from '@/hooks/useTheme';
 import type { Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseImageUrls } from '@/lib/exerciseImage';
 import {
@@ -38,62 +36,20 @@ import {
   parseMuscles,
 } from '@/lib/exerciseTaxonomy';
 import { exerciseHighlight } from '@/lib/muscleMap';
-import { getExerciseSetHistory } from '@/lib/exerciseHistory';
-import { getExerciseSessionNotes } from '@/lib/notes';
-import {
-  buildSessionPoints,
-  computeRecords,
-  type RecordValue,
-  type SessionPoint,
-} from '@/lib/exerciseProgress';
-import { formatDecimal, formatShortDate, formatVolume } from '@/lib/format';
 import { youtubeSearchUrl } from '@/lib/youtube';
+import { EXERCISE_IMAGE_SURFACE, imageFrameClass } from '@/theme';
 import {
   Card,
   Chip,
-  ListRow,
   SecondaryButton,
   SectionHeader,
-  StatTile,
 } from '@/components/ui';
-import { LineChart } from '@/components/LineChart';
 import { MuscleMap } from '@/components/MuscleMap';
 
-interface ExerciseDetailContentProps {
-  exercise: Exercise;
-  /**
-   * "İlerlemen" bölümü. Verisini useFocusEffect ile yenilediği için
-   * yalnızca ekran olarak açıldığında (Modal içinde değil) açık olmalı.
-   */
-  showProgress: boolean;
-}
-
-export function ExerciseDetailContent({
-  exercise,
-  showProgress,
-}: ExerciseDetailContentProps) {
+export function ExerciseDetailContent({ exercise }: { exercise: Exercise }) {
   const imageUrls = getExerciseImageUrls(exercise.imagePaths);
-  const primaryMuscles = muscleLabels(exercise.primaryMuscles);
-  const secondaryMuscles = muscleLabels(exercise.secondaryMuscles);
-  const highlights = exerciseHighlight(
-    parseMuscles(exercise.primaryMuscles),
-    parseMuscles(exercise.secondaryMuscles)
-  );
-  const resolved = resolveInstructions(exercise.id, exercise.instructions);
-  // Hareket id'sine bağlı: seçicide başka harekete geçince Türkçeye döner
-  const [originalFor, setOriginalFor] = useState<string | null>(null);
-  const showOriginal = resolved.isTranslated && originalFor === exercise.id;
-  const instructions = showOriginal
-    ? parseInstructions(exercise.instructions)
-    : resolved.steps;
   const displayName = exerciseDisplayName(exercise);
   const originalName = exerciseOriginalName(exercise);
-
-  const openVideo = () => {
-    Linking.openURL(youtubeSearchUrl(exercise.name)).catch((err) => {
-      console.warn('[YOUTUBE] Bağlantı açılamadı:', err);
-    });
-  };
 
   return (
     <>
@@ -112,26 +68,46 @@ export function ExerciseDetailContent({
         <ExerciseImages key={exercise.id} urls={imageUrls.slice(0, 2)} />
       )}
 
-      {/* Hızlı bilgiler */}
-      <View className="flex-row flex-wrap gap-2">
-        {exercise.equipment && (
-          <Chip
-            size="sm"
-            label={`Ekipman: ${equipmentLabel(exercise.equipment)}`}
-          />
-        )}
-        {exercise.mechanic && (
-          <Chip size="sm" label={mechanicLabel(exercise.mechanic)} />
-        )}
-        {exercise.force && (
-          <Chip size="sm" label={forceLabel(exercise.force)} />
-        )}
-        {exercise.level && (
-          <Chip size="sm" label={`Seviye: ${levelLabel(exercise.level)}`} />
-        )}
-      </View>
+      <ExerciseQuickInfo exercise={exercise} />
+      <ExerciseMuscles exercise={exercise} />
+      <ExerciseHowTo exercise={exercise} />
+    </>
+  );
+}
 
-      {/* Kaslar */}
+/** Ekipman, mekanik, kuvvet, seviye */
+export function ExerciseQuickInfo({ exercise }: { exercise: Exercise }) {
+  return (
+    <View className="flex-row flex-wrap gap-2">
+      {exercise.equipment && (
+        <Chip
+          size="sm"
+          label={`Ekipman: ${equipmentLabel(exercise.equipment)}`}
+        />
+      )}
+      {exercise.mechanic && (
+        <Chip size="sm" label={mechanicLabel(exercise.mechanic)} />
+      )}
+      {exercise.force && (
+        <Chip size="sm" label={forceLabel(exercise.force)} />
+      )}
+      {exercise.level && (
+        <Chip size="sm" label={`Seviye: ${levelLabel(exercise.level)}`} />
+      )}
+    </View>
+  );
+}
+
+/** Kas haritası, birincil ve ikincil kaslar */
+export function ExerciseMuscles({ exercise }: { exercise: Exercise }) {
+  const primaryMuscles = muscleLabels(exercise.primaryMuscles);
+  const secondaryMuscles = muscleLabels(exercise.secondaryMuscles);
+  const highlights = exerciseHighlight(
+    parseMuscles(exercise.primaryMuscles),
+    parseMuscles(exercise.secondaryMuscles)
+  );
+  return (
+    <>
       <SectionHeader title="Çalıştırılan Kaslar" className="mt-4" />
       <Card className="gap-4">
         {highlights.length > 0 && <MuscleMap highlights={highlights} />}
@@ -156,10 +132,28 @@ export function ExerciseDetailContent({
           </View>
         )}
       </Card>
+    </>
+  );
+}
 
-      {showProgress && <ExerciseProgressSection exerciseId={exercise.id} />}
+/** Video araması + talimatlar */
+export function ExerciseHowTo({ exercise }: { exercise: Exercise }) {
+  const resolved = resolveInstructions(exercise.id, exercise.instructions);
+  // Hareket id'sine bağlı: seçicide başka harekete geçince Türkçeye döner
+  const [originalFor, setOriginalFor] = useState<string | null>(null);
+  const showOriginal = resolved.isTranslated && originalFor === exercise.id;
+  const instructions = showOriginal
+    ? parseInstructions(exercise.instructions)
+    : resolved.steps;
 
-      {/* Nasıl yapılır: video araması + talimatlar */}
+  const openVideo = () => {
+    Linking.openURL(youtubeSearchUrl(exercise.name)).catch((err) => {
+      console.warn('[YOUTUBE] Bağlantı açılamadı:', err);
+    });
+  };
+
+  return (
+    <>
       <SectionHeader title="Nasıl Yapılır" className="mt-4" />
       <SecondaryButton label="Videolu anlatım" icon={Play} iconFill onPress={openVideo} />
       {instructions.length > 0 && (
@@ -212,12 +206,18 @@ const CROSSFADE_MS = 250;
  *   açıksa eski yan yana görünüm.
  * - Tek görselde de eski görünüm (tek kutu).
  * - Kutuya basınca duraklıyor / devam ediyor.
+ * - `light` (tam ekran detay, v4.0b Bölüm 8): iki temada da açık zeminli kart,
+ *   çizim kırpılmadan sığar.
  *
  * Yalnızca detay içeriğinde kullanılıyor; liste küçük resimleri sabit.
  */
-function ExerciseImages({ urls }: { urls: string[] }) {
+export function ExerciseImages({ urls, light = false }: { urls: string[]; light?: boolean }) {
   const COLORS = useColors();
+  const { scheme } = useTheme();
   const canAnimate = urls.length >= 2;
+  const frameClass = light ? imageFrameClass(scheme) : 'bg-bg-surface border border-border';
+  const frameStyle = light ? { backgroundColor: EXERCISE_IMAGE_SURFACE } : undefined;
+  const contentFit = light ? 'contain' : 'cover';
 
   // null: henüz okunmadı. Okunana kadar eski görünüm.
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -292,12 +292,13 @@ function ExerciseImages({ urls }: { urls: string[] }) {
         {urls.map((url, idx) => (
           <View
             key={idx}
-            className="flex-1 bg-bg-surface border border-border rounded-3xl overflow-hidden aspect-square"
+            className={`flex-1 rounded-3xl overflow-hidden aspect-square ${frameClass}`}
+            style={frameStyle}
           >
             <Image
               source={{ uri: url }}
               style={{ width: '100%', height: '100%' }}
-              contentFit="cover"
+              contentFit={contentFit}
               cachePolicy={EXERCISE_IMAGE_CACHE}
             />
           </View>
@@ -316,20 +317,20 @@ function ExerciseImages({ urls }: { urls: string[] }) {
       accessibilityLabel={
         paused ? 'Hareket animasyonunu oynat' : 'Hareket animasyonunu durdur'
       }
-      className="bg-bg-surface border border-border rounded-3xl overflow-hidden active:opacity-80"
-      style={{ aspectRatio: 4 / 3 }}
+      className={`rounded-3xl overflow-hidden active:opacity-80 ${frameClass}`}
+      style={[{ aspectRatio: 4 / 3 }, frameStyle]}
     >
       <Image
         source={{ uri: urls[0] }}
         style={StyleSheet.absoluteFill}
-        contentFit="cover"
+        contentFit={contentFit}
         cachePolicy={EXERCISE_IMAGE_CACHE}
       />
       <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
         <Image
           source={{ uri: urls[1] }}
           style={StyleSheet.absoluteFill}
-          contentFit="cover"
+          contentFit={contentFit}
           cachePolicy={EXERCISE_IMAGE_CACHE}
         />
       </Animated.View>
@@ -339,154 +340,5 @@ function ExerciseImages({ urls }: { urls: string[] }) {
         </View>
       )}
     </Pressable>
-  );
-}
-
-// ============================================================================
-// İlerlemen — rekorlar, metrik grafiği, son seanslar
-// ============================================================================
-
-type Metric = 'e1rm' | 'topWeight' | 'volume';
-
-const METRICS: { key: Metric; label: string }[] = [
-  { key: 'e1rm', label: '1RM' },
-  { key: 'topWeight', label: 'Ağırlık' },
-  { key: 'volume', label: 'Hacim' },
-];
-
-const formatKg = (v: number) => `${formatDecimal(v)} kg`;
-
-/** Seçili metriğin grafik noktaları; değeri olmayan seanslar atlanıyor */
-function metricPoints(points: SessionPoint[], metric: Metric) {
-  return points.flatMap((p) => {
-    const y = p[metric];
-    return y != null && y > 0 ? [{ x: p.date, y }] : [];
-  });
-}
-
-/** "90 kg × 5"; vücut ağırlığında "12 tekrar" */
-function formatBestSet(set: SessionPoint['bestSet']): string {
-  if (!set) return '—';
-  if (set.weightKg == null || set.weightKg <= 0) {
-    return set.reps != null ? `${set.reps} tekrar` : '—';
-  }
-  return `${formatDecimal(set.weightKg)} kg × ${set.reps ?? '-'}`;
-}
-
-/**
- * Kullanıcının bu egzersizde hiç tamamlanmış seti yoksa hiçbir şey
- * göstermez (kütüphanedeki hareketlerin çoğu için durum bu).
- *
- * Sorgu join içeriyor; useLiveQuery yalnızca FROM tablosunu dinlediği
- * için ekrana her dönüşte yeniden okunuyor.
- */
-function ExerciseProgressSection({ exerciseId }: { exerciseId: string }) {
-  const db = useDb();
-  const [points, setPoints] = useState<SessionPoint[] | null>(null);
-  // Not yazılmış seansların id'leri (son seanslar listesindeki 📝)
-  const [notedSessions, setNotedSessions] = useState<Set<string>>(new Set());
-  const [metric, setMetric] = useState<Metric>('e1rm');
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      getExerciseSetHistory(db, exerciseId).then((rows) => {
-        if (active) setPoints(buildSessionPoints(rows));
-      });
-      getExerciseSessionNotes(db, exerciseId)
-        .then((notes) => {
-          if (active) setNotedSessions(new Set(notes.keys()));
-        })
-        .catch((err) => {
-          console.warn('[NOTE] Notlar okunamadı:', err);
-        });
-      return () => {
-        active = false;
-      };
-    }, [db, exerciseId])
-  );
-
-  if (!points || points.length === 0) return null;
-
-  const records = computeRecords(points);
-  const recentSessions = points.slice(-5).reverse();
-
-  return (
-    <>
-      <SectionHeader title="İlerlemen" className="mt-4" />
-      <View className="flex-row gap-2">
-        <RecordTile label="Tahmini 1RM" record={records.e1rm} />
-        <RecordTile label="En Ağır" record={records.topWeight} />
-        <RecordTile label="En Yüksek Hacim" record={records.volume} volume />
-      </View>
-
-      <Card className="gap-4">
-        <View className="flex-row gap-2">
-          {METRICS.map((m) => (
-            <Chip
-              key={m.key}
-              label={m.label}
-              active={metric === m.key}
-              onPress={() => setMetric(m.key)}
-            />
-          ))}
-        </View>
-        <LineChart
-          points={metricPoints(points, metric)}
-          formatY={metric === 'volume' ? formatVolume : formatKg}
-          formatX={(x) => formatShortDate(x)}
-          height={180}
-          highlightMax
-          emptyText="Grafik için en az iki seans gerekli."
-        />
-      </Card>
-
-      <Card className="py-1">
-        {recentSessions.map((p, idx) => (
-          <ListRow
-            key={p.sessionId}
-            divider={idx > 0}
-            right={
-              <Text className="text-fg text-base font-semibold tabular-nums">
-                {formatBestSet(p.bestSet)}
-              </Text>
-            }
-          >
-            <Text className="text-muted text-base tabular-nums">
-              {formatShortDate(p.date)}
-              {notedSessions.has(p.sessionId) && '  📝'}
-            </Text>
-          </ListRow>
-        ))}
-      </Card>
-    </>
-  );
-}
-
-function RecordTile({
-  label,
-  record,
-  volume = false,
-}: {
-  label: string;
-  record: RecordValue | null;
-  /** Hacim: binlik ayraçlı tam sayı */
-  volume?: boolean;
-}) {
-  return (
-    <StatTile
-      label={label}
-      value={
-        record == null
-          ? '—'
-          : volume
-            ? Math.round(record.value).toLocaleString('tr-TR')
-            : formatDecimal(record.value)
-      }
-      unit={record == null ? undefined : 'kg'}
-      size="sm"
-      footnote={record == null ? undefined : formatShortDate(record.date)}
-      className="flex-1 p-4"
-    />
   );
 }

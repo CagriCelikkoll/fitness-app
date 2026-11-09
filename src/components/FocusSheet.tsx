@@ -47,7 +47,7 @@ export function FocusSheet({
           </View>
           {mode === 'info' && (
             <ScrollView contentContainerClassName="px-5 pb-4">
-              <ExerciseDetailContent exercise={exercise} showProgress={false} />
+              <ExerciseDetailContent exercise={exercise} />
             </ScrollView>
           )}
           {mode === 'note' && (
