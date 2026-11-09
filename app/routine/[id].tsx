@@ -47,6 +47,7 @@ import { newId } from '@/lib/id';
 import {
   DEFAULT_MAX_DECIMAL_DIGITS,
   MAX_WEIGHT_INTEGER_DIGITS,
+  decimalComma,
   digitsOnly,
   sanitizeDecimalInput,
   sanitizeRepRange,
@@ -649,7 +650,7 @@ function DraftExerciseCard({
           />
           <NumberField
             label="Ağırlık (kg)"
-            value={draft.targetWeightKg}
+            value={decimalComma(draft.targetWeightKg)}
             onChange={(v) =>
               onUpdate(
                 draft.id,

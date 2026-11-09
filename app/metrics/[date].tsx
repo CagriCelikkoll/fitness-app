@@ -37,6 +37,7 @@ import { DateInput } from '@/components/DateInput';
 import {
   DEFAULT_MAX_DECIMAL_DIGITS,
   dateKeyToParts,
+  decimalComma,
   formatDateKey,
   getDateInputError,
   partsToDateKey,
@@ -412,7 +413,7 @@ function MetricsEditorScreen() {
             <View className="flex-row gap-2">
               <DecimalField
                 label="Ağırlık (kg)"
-                value={form.weightKg}
+                value={decimalComma(form.weightKg)}
                 onChange={(v) => update('weightKg', v)}
                 placeholder="zorunlu"
               />

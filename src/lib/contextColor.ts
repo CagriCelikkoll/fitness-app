@@ -40,7 +40,7 @@ export interface ContextExercise {
 
 export type BodyContext = Extract<ContextKind, 'upper' | 'lower' | 'full'>;
 
-function musclesOf(value: ContextExercise['primaryMuscles']): string[] {
+export function musclesOf(value: ContextExercise['primaryMuscles']): string[] {
   if (value == null) return [];
   if (typeof value !== 'string') return [...value];
   try {
@@ -75,4 +75,17 @@ export function contextColorFor(exercises: readonly ContextExercise[]): BodyCont
   if (upper / total > CONTEXT_THRESHOLD) return 'upper';
   if (lower / total > CONTEXT_THRESHOLD) return 'lower';
   return 'full';
+}
+
+/**
+ * Tek hareketin rengi (v4.0b 1.7: odak modu ve "Sıradaki"). Karın, boyun ya
+ * da kardiyo gibi üst / alt ayrımı olmayan harekette antrenmanın rengi kalır.
+ */
+export function exerciseContextColor(
+  exercise: Omit<ContextExercise, 'sets'>,
+  fallback: BodyContext
+): BodyContext {
+  const single = [{ ...exercise, sets: 1 }];
+  const { upper, lower } = bodySetSplit(single);
+  return upper + lower > 0 ? contextColorFor(single) : fallback;
 }

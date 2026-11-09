@@ -4,6 +4,7 @@ export { StatCard } from './StatCard';
 export { SectionHeader } from './SectionHeader';
 export { SectionLabel } from './SectionLabel';
 export { ScreenTitle } from './ScreenTitle';
+export { DisplayName } from './DisplayName';
 export { PrimaryButton, SecondaryButton, DangerButton } from './Buttons';
 export { IconButton } from './IconButton';
 export { Chip } from './Chip';

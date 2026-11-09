@@ -1,13 +1,12 @@
 import { Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { TriangleAlert } from 'lucide-react-native';
 
+import { ExerciseThumb } from '@/components/ExerciseThumb';
 import { useColors, useTheme } from '@/hooks/useTheme';
 import type { ExerciseInfo } from '@/hooks/useExerciseLookup';
 import { imageFrameClass } from '@/theme';
-import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
 import { restText, setsRepsText, type ProgramExercise } from '@/lib/programs';
 
 /**
@@ -30,7 +29,6 @@ export function ProgramExerciseRow({
   const COLORS = useColors();
   const { scheme } = useTheme();
   const router = useRouter();
-  const cover = info ? getExerciseCoverUrl(info.imagePaths) : null;
 
   return (
     <Pressable
@@ -38,17 +36,19 @@ export function ProgramExerciseRow({
       disabled={!info}
       className={`flex-row py-3 active:opacity-70 ${divider ? 'border-t border-border' : ''}`}
     >
-      <View
-        className={`w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center ${imageFrameClass(scheme)}`}
-      >
-        {cover ? (
-          <Image source={{ uri: cover }} style={{ width: 56, height: 56 }} contentFit="cover" cachePolicy={EXERCISE_IMAGE_CACHE} />
-        ) : missing ? (
+      {missing ? (
+        <View
+          className={`w-14 h-14 rounded-2xl bg-bg-elevated items-center justify-center ${imageFrameClass(scheme)}`}
+        >
           <TriangleAlert color={COLORS.warning} size={20} />
-        ) : (
-          <Text className="text-muted text-xs">💪</Text>
-        )}
-      </View>
+        </View>
+      ) : (
+        <ExerciseThumb
+          imagePaths={info?.imagePaths ?? null}
+          category={info?.category}
+          primaryMuscles={info?.primaryMuscles}
+        />
+      )}
       <View className="flex-1 ml-4">
         <Text className={`text-base font-semibold ${missing ? 'text-muted' : 'text-fg'}`} numberOfLines={2}>
           {info?.name ?? (missing ? 'Kütüphanede bulunamadı' : '…')}

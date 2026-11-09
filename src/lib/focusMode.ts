@@ -8,6 +8,7 @@
  * "dinlenmeden sonra hangi harekete geçilsin" sorularının cevabı.
  */
 
+import { decimalComma } from './format';
 import { afterSetCompleted, supersetPositions, type SupersetPosition } from './superset';
 import { parseRepRange } from './progression';
 
@@ -323,12 +324,18 @@ export function stepReps(value: string, delta: number): string {
   return String(Math.max(0, base + delta));
 }
 
-/** "70 × 8"; değer yoksa "—" */
+/** "70 × 8", "22,5 × 10"; değer yoksa "—" */
 export function setValueText(weight: string | number | null | undefined, reps: string | number | null | undefined): string {
-  const w = weight == null || weight === '' ? null : String(weight);
+  const w = weight == null || weight === '' ? null : decimalComma(weight);
   const r = reps == null || reps === '' ? null : String(reps);
   if (w == null && r == null) return '—';
   return `${w ?? '–'} × ${r ?? '–'}`;
+}
+
+/** Set şeridi tek satır: uzun değerde boşluksuz ("22,5×10") */
+export function setChipText(weight: string | number | null | undefined, reps: string | number | null | undefined): string {
+  const text = setValueText(weight, reps);
+  return text.length > 7 ? text.replace(/ /g, '') : text;
 }
 
 /** Ekran okuyucu: "Ağırlık: 70 kilogram" / "Tekrar: 8" */

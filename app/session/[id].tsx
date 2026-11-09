@@ -35,6 +35,7 @@ import {
   type WorkoutSet,
 } from '@/db/schema';
 import {
+  decimalComma,
   formatDateTime,
   formatDuration,
   formatVolume,
@@ -333,7 +334,7 @@ function ExerciseDetailCard({
                 {set.setNumber}
               </Text>
               <Text className="text-fg text-base font-semibold tabular-nums flex-1 text-right">
-                {set.weightKg != null ? String(set.weightKg) : '—'}
+                {set.weightKg != null ? decimalComma(set.weightKg) : '—'}
               </Text>
               <Text className="text-fg text-base font-semibold tabular-nums flex-1 text-right">
                 {set.reps != null ? String(set.reps) : '—'}
@@ -361,7 +362,7 @@ function ExerciseDetailCard({
             )}
             {heaviest?.weightKg != null && (
               <Text className="text-muted text-xs tabular-nums">
-                En ağır: {heaviest.weightKg} kg
+                En ağır: {decimalComma(heaviest.weightKg)} kg
                 {heaviest.reps != null && ` × ${heaviest.reps}`}
               </Text>
             )}

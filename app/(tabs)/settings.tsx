@@ -228,7 +228,7 @@ function ProfileNumbers() {
 
   const items = [
     { value: String(sessions.length), label: 'antrenman', spoken: `${sessions.length} antrenman` },
-    { value: String(streak), label: 'hf seri', spoken: `${streak} hafta seri` },
+    { value: String(streak), label: 'hafta seri', spoken: `${streak} hafta seri` },
     { value: records == null ? '—' : String(records), label: 'rekor', spoken: `${records ?? 0} rekor` },
   ];
 

@@ -20,7 +20,7 @@ import { usePrograms, useRoutineLinks } from '@/hooks/usePrograms';
 import { useStartRoutine } from '@/hooks/useStartRoutine';
 import { useElapsedMs } from '@/components/RestTimer';
 import { formatElapsed } from '@/lib/focusMode';
-import { upperTr } from '@/lib/typography';
+import { CARD_NAME_SIZES, upperTr } from '@/lib/typography';
 import {
   loadTodayData,
   streakChipText,
@@ -50,6 +50,7 @@ import {
 } from '@/lib/workoutCalendar';
 import {
   Card,
+  DisplayName,
   Glow,
   ListRow,
   PrimaryButton,
@@ -395,16 +396,9 @@ function HomeContent() {
         contentContainerStyle={{ paddingTop: topInset + 20 }}
         contentContainerClassName="px-5 gap-4 pb-10"
       >
-        <GymRow />
-        <PrivacyNoticeCard />
-        <NamePromptCard />
-        <TrainerRequestCard />
-        {/* Duyuru kartı ve dersler Salon sekmesinde (v3.6c); burada yalnızca okunmamış uyarısı */}
-        <AnnouncementAlert />
-
-        {/* 1. Tarih, BUGÜN, seri çipi */}
-        <View className="flex-row items-center justify-between">
-          <View className="gap-1 flex-1">
+        {/* 1. Tarih, BUGÜN, seri çipi: her zaman en üstte, kartlar altında */}
+        <View className="flex-row items-center justify-between gap-3 min-h-[60px]">
+          <View className="gap-1 shrink">
             <Text className="text-muted text-[13px] font-semibold">{todayHeading(now)}</Text>
             <ScreenTitle>Bugün</ScreenTitle>
           </View>
@@ -419,6 +413,13 @@ function HomeContent() {
             </View>
           )}
         </View>
+
+        <GymRow />
+        <PrivacyNoticeCard />
+        <NamePromptCard />
+        <TrainerRequestCard />
+        {/* Duyuru kartı ve dersler Salon sekmesinde (v3.6c); burada yalnızca okunmamış uyarısı */}
+        <AnnouncementAlert />
 
         {/* 2. Haftalık hedef + gün şeridi */}
         <WeekGoal
@@ -572,6 +573,9 @@ function WeekGoal({
  * "Sıradaki" kartı. Açık temada koyu kart (v4.0a 6): içi koyu palette, köşe
  * ışığı da görünür.
  */
+/** Ekran kenarı (px-5) + kart içi (p-[18px]) + 1'er kenarlık */
+const CARD_NAME_INSET = 2 * (20 + 18 + 1);
+
 function NextCard(props: { activeSessionId: string | null; data: TodayData | null }) {
   return (
     <DarkSurface>
@@ -614,9 +618,9 @@ function NextCardBody({ activeSessionId, data }: { activeSessionId: string | nul
           <SectionLabel color={next.color}>{next.dayLabel ? `Sıradaki · ${next.dayLabel}` : 'Sıradaki'}</SectionLabel>
           {next.lastDone != null && <Text className="text-muted text-xs">{next.lastDone}</Text>}
         </View>
-        <Text accessibilityRole="header" className="font-display text-fg text-[30px] leading-[32px]">
-          {upperTr(next.name)}
-        </Text>
+        <DisplayName accessibilityRole="header" inset={CARD_NAME_INSET} sizes={CARD_NAME_SIZES}>
+          {next.name}
+        </DisplayName>
         <Text className="text-muted text-sm">{next.line}</Text>
         <PrimaryButton
           label={starting ? 'Başlatılıyor…' : 'Antrenmanı başlat'}
@@ -656,9 +660,9 @@ function ResumeCard({ sessionId }: { sessionId: string }) {
       <View className="p-[18px] gap-3">
         <SectionLabel>Devam eden antrenman</SectionLabel>
         {session && (
-          <Text accessibilityRole="header" className="font-display text-fg text-[30px] leading-[32px]">
-            {upperTr(session.name)}
-          </Text>
+          <DisplayName accessibilityRole="header" inset={CARD_NAME_INSET} sizes={CARD_NAME_SIZES}>
+            {session.name}
+          </DisplayName>
         )}
         <ResumeButton
           startedAt={session ? Date.parse(session.startedAt) : null}

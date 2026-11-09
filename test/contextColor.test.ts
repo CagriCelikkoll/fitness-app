@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { bodySetSplit, contextColorFor, LOWER_MUSCLES, UPPER_MUSCLES } from '@/lib/contextColor';
+import { bodySetSplit, contextColorFor, exerciseContextColor, LOWER_MUSCLES, UPPER_MUSCLES } from '@/lib/contextColor';
 import { MUSCLE_LABELS } from '@/lib/exerciseTaxonomy';
 
 const ex = (primaryMuscles: string[] | string, sets: number, category = 'strength') => ({ primaryMuscles, sets, category });
@@ -41,5 +44,33 @@ describe('bağlam rengi (v4.0a 1.2)', () => {
       const n = [UPPER_MUSCLES.has(muscle), LOWER_MUSCLES.has(muscle), excluded.has(muscle)].filter(Boolean).length;
       expect(n, muscle).toBe(1);
     }
+  });
+});
+
+describe('hareket bazlı renk (v4.0b 1.7)', () => {
+  const muscles = (primaryMuscles: string[] | string, category = 'strength') => ({ primaryMuscles, category });
+
+  it('hareketin kendi kası: RDL alt, preacher curl üst (antrenman rengi ne olursa olsun)', () => {
+    expect(exerciseContextColor(muscles(['hamstrings']), 'upper')).toBe('lower');
+    expect(exerciseContextColor(muscles(['biceps']), 'lower')).toBe('upper');
+    expect(exerciseContextColor(muscles('["hamstrings"]'), 'full')).toBe('lower');
+  });
+
+  it('üst + alt ana kas eşitse full', () => {
+    expect(exerciseContextColor(muscles(['quadriceps', 'shoulders']), 'upper')).toBe('full');
+  });
+
+  it('üst / alt ayrımı yoksa (karın, kardiyo, bozuk veri) antrenmanın rengi', () => {
+    expect(exerciseContextColor(muscles(['abdominals']), 'upper')).toBe('upper');
+    expect(exerciseContextColor(muscles(['quadriceps'], 'cardio'), 'lower')).toBe('lower');
+    expect(exerciseContextColor(muscles('bozuk'), 'full')).toBe('full');
+  });
+
+  it('odak modu ve Sıradaki hareketin rengini kullanıyor; tüm liste antrenmanın', () => {
+    const src = readFileSync(path.resolve(__dirname, '../app/session/active.tsx'), 'utf8');
+    expect(src).toContain('exerciseContextColor(current.exercise, workoutColor)');
+    expect(src).toContain('<Glow color={focusColor} />');
+    expect(src).toContain('color: exerciseContextColor(ex.exercise, workoutColor)');
+    expect(src).toMatch(/<ListView[^]*?color=\{workoutColor\}/);
   });
 });

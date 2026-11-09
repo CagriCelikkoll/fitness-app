@@ -8,7 +8,17 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { FONT_FAMILIES, MIN_FONT_SIZE, TYPE_SCALE, familyForWeight, resolveFontFamily, upperTr } from '@/lib/typography';
+import {
+  CARD_NAME_SIZES,
+  FONT_FAMILIES,
+  MIN_FONT_SIZE,
+  TYPE_SCALE,
+  familyForWeight,
+  nameCase,
+  nameFontSize,
+  resolveFontFamily,
+  upperTr,
+} from '@/lib/typography';
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -61,6 +71,55 @@ describe('Türkçe büyük harf', () => {
     expect(upperTr('dinlenme')).toBe('DİNLENME');
     expect(upperTr('Bugün')).toBe('BUGÜN');
     expect(upperTr('Hareket 2 / 7 · Set 2 / 4')).toBe('HAREKET 2 / 7 · SET 2 / 4');
+  });
+});
+
+describe('hareket / rutin adları (v4.0b 1.5)', () => {
+  it('büyük harfe çevrilmez, yalnızca ilk harf', () => {
+    expect(nameCase('Romanian deadlift (RDL)')).toBe('Romanian deadlift (RDL)');
+    expect(nameCase('itiş günü')).toBe('İtiş günü');
+    expect(nameCase('  ısınma')).toBe('Isınma');
+  });
+
+  it('boyut kademesi: kısa 36, uzun 30, çok uzun 26 (360 dp, kenarlar 20)', () => {
+    const width = 320;
+    expect(nameFontSize('Squat', width)).toBe(36);
+    expect(nameFontSize('Bench press (barbell)', width)).toBe(36);
+    expect(nameFontSize('Preacher curl (barbell)', width)).toBe(30);
+    expect(nameFontSize('Romanian deadlift (RDL)', width)).toBe(26);
+  });
+
+  it('kart için ayrı kademe; dar ekranda küçülür', () => {
+    expect(nameFontSize('Push', 282, CARD_NAME_SIZES)).toBe(30);
+    expect(nameFontSize('Concentration', 320)).toBe(30);
+    expect(nameFontSize('Concentration', 280)).toBe(26);
+  });
+
+  it('katalogdaki hiçbir ad 320 dp ekranda bile kelime ortasından bölünmez', () => {
+    const catalog = JSON.parse(readFileSync(path.join(ROOT, 'assets/seed/exercise-catalog.json'), 'utf8')) as Record<
+      string,
+      { tr?: string }
+    >;
+    const names = Object.values(catalog).flatMap((e) => (e.tr ? [e.tr] : []));
+    expect(names.length).toBeGreaterThan(150);
+    const width = 320 - 40;
+    for (const name of names) {
+      const charWidth = nameFontSize(name, width) * 0.8;
+      for (const word of name.split(/\s+/)) expect([...word].length * charWidth, name).toBeLessThanOrEqual(width);
+    }
+  });
+
+  it('adlar büyük harfe çevrilmiyor; ekranlar DisplayName kullanıyor', () => {
+    const screens = ['app/session/active.tsx', 'app/session/summary.tsx', 'app/(tabs)/index.tsx'];
+    for (const file of screens) {
+      const text = readFileSync(path.join(ROOT, file), 'utf8');
+      expect(text, file).toContain('<DisplayName');
+      expect(text, file).not.toMatch(/upperTr\((next\.name|session\.name|sessionName|summary\.name|exerciseDisplayName)/);
+    }
+    const name = readFileSync(path.join(ROOT, 'src/components/ui/DisplayName.tsx'), 'utf8');
+    expect(name).toContain('textBreakStrategy="simple"');
+    expect(name).toContain('android_hyphenationFrequency="none"');
+    expect(name).toContain('numberOfLines={NAME_MAX_LINES}');
   });
 });
 

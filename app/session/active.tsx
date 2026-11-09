@@ -32,6 +32,7 @@ import {
   DEFAULT_MAX_DECIMAL_DIGITS,
   MAX_REP_DIGITS,
   MAX_WEIGHT_INTEGER_DIGITS,
+  decimalComma,
   digitsOnly,
   sanitizeDecimalInput,
 } from '@/lib/format';
@@ -70,6 +71,7 @@ import {
   earlierCompletedSet,
   progressSegments,
   repsA11yLabel,
+  setChipText,
   setValueText,
   stepReps,
   stepWeight,
@@ -79,9 +81,9 @@ import {
   workoutProgress,
   type FocusExercise,
 } from '@/lib/focusMode';
-import { contextColorFor } from '@/lib/contextColor';
+import { contextColorFor, exerciseContextColor, type BodyContext } from '@/lib/contextColor';
 import { withAlpha } from '@/lib/color';
-import { upperTr } from '@/lib/typography';
+import { CARD_NAME_SIZES } from '@/lib/typography';
 import { CHIP_TINT_ALPHA } from '@/components/ui/Chip';
 import { muscleLabels } from '@/lib/exerciseTaxonomy';
 import { saveSettings } from '@/lib/appSettings';
@@ -92,7 +94,7 @@ import { FocusSheet } from '@/components/FocusSheet';
 import { RestTimerBar, useRestTimerController, type RestTimerController } from '@/components/RestTimer';
 import { RestScreen, WorkoutClock, type RestLastSet, type RestNextCard } from '@/components/RestScreen';
 import { NoteEditor } from '@/components/NoteEditor';
-import { Glow, IconButton, PrimaryButton, SecondaryButton, SectionLabel } from '@/components/ui';
+import { DisplayName, Glow, IconButton, PrimaryButton, SecondaryButton, SectionLabel } from '@/components/ui';
 import type { ContextKind } from '@/theme';
 
 /**
@@ -202,7 +204,7 @@ function SessionContent({ sessionId, restController }: { sessionId: string; rest
   );
 
   // Antrenmanın bağlam rengi (v4.0a 1.2): kas gruplarına göre
-  const workoutColor = useMemo<ContextKind>(
+  const workoutColor = useMemo<BodyContext>(
     () =>
       contextColorFor(
         (seData ?? []).map((r) => ({
@@ -463,7 +465,7 @@ function SessionContent({ sessionId, restController }: { sessionId: string; rest
           value: sameExercise
             ? setValueText(nextSet.weightKg ?? last.weightKg, nextSet.reps ?? last.reps)
             : setValueText(nextSet.weightKg, nextSet.reps),
-          color: contextColorFor([{ primaryMuscles: ex.exercise.primaryMuscles, category: ex.exercise.category, sets: 1 }]),
+          color: exerciseContextColor(ex.exercise, workoutColor),
         };
       }
     }
@@ -521,9 +523,12 @@ function SessionContent({ sessionId, restController }: { sessionId: string; rest
     </View>
   );
 
+  // Odak modunda ışık, etiket, çizgi ve düğme o anki hareketin renginde (v4.0b)
+  const focusColor = current ? exerciseContextColor(current.exercise, workoutColor) : workoutColor;
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-      {mode === 'focus' && <Glow color={workoutColor} />}
+      {mode === 'focus' && <Glow color={focusColor} />}
       {topBar}
 
       {mode === 'focus' ? (
@@ -535,7 +540,7 @@ function SessionContent({ sessionId, restController }: { sessionId: string; rest
           rows={seData}
           focusExercises={focusExercises}
           supersets={supersets}
-          color={workoutColor}
+          color={focusColor}
           weightUnit={settings?.weightUnit ?? 'kg'}
           onSetCompleted={(id) => handleSetCompleted(id, safeIndex)}
           onCompleted={handleFocusCompleted}
@@ -951,11 +956,11 @@ function FocusView({
         </View>
 
         <View className="px-5 pt-6 gap-2.5">
-          <SectionLabel color={color}>{label}</SectionLabel>
-          <View className="flex-row items-start gap-2">
-            <Text className="font-display text-fg text-[34px] leading-[36px] flex-1" accessibilityRole="header">
-              {upperTr(exerciseDisplayName(row.exercise))}
-            </Text>
+          {/* İkonlar etiket satırında: uzun ad tam genişliği kullansın, kelime bölünmesin */}
+          <View className="flex-row items-center gap-2">
+            <View className="flex-1">
+              <SectionLabel color={color}>{label}</SectionLabel>
+            </View>
             <IconButton icon={Info} accessibilityLabel="Nasıl yapılır" onPress={() => setSheet('info')} />
             <IconButton
               icon={NotebookPen}
@@ -964,6 +969,9 @@ function FocusView({
               onPress={() => setSheet('note')}
             />
           </View>
+          <DisplayName accessibilityRole="header" inset={2 * 20}>
+            {exerciseDisplayName(row.exercise)}
+          </DisplayName>
           {muscles.length > 0 && <Text className="text-muted text-sm">{muscles.join(' · ')}</Text>}
         </View>
 
@@ -971,7 +979,7 @@ function FocusView({
         <View className="flex-row gap-2.5 mx-4 mt-5">
           <ValueBox
             caption={`Ağırlık · ${unitLabel}`}
-            value={weight}
+            value={decimalComma(weight)}
             a11yLabel={weightA11yLabel(weight, weightUnit)}
             keyboardType="decimal-pad"
             editable={editable}
@@ -1030,7 +1038,9 @@ function FocusView({
           {sets.map((s, i) => {
             const selected = setIndex === i;
             const record = data.recordSetIds.has(s.id);
-            const value = s.isCompleted ? setValueText(s.weightKg, s.reps) : selected ? setValueText(weight, reps) : setValueText(s.weightKg, s.reps);
+            const shownWeight = !s.isCompleted && selected ? weight : s.weightKg;
+            const shownReps = !s.isCompleted && selected ? reps : s.reps;
+            const value = setValueText(shownWeight, shownReps);
             return (
               <Pressable
                 key={s.id}
@@ -1038,7 +1048,7 @@ function FocusView({
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 accessibilityLabel={`Set ${s.setNumber}${s.isCompleted ? ', tamamlandı' : ''}${record ? ', rekor' : ''}, ${value}`}
-                className={`w-[84px] min-h-[52px] rounded-[14px] items-center justify-center px-1.5 py-2 active:opacity-70 ${
+                className={`min-w-[84px] min-h-[52px] rounded-[14px] items-center justify-center px-2 py-2 active:opacity-70 ${
                   selected ? 'border-2' : s.isCompleted ? 'border border-transparent' : 'border border-border'
                 }`}
                 style={{
@@ -1054,8 +1064,8 @@ function FocusView({
                   {s.isCompleted ? ' ✓' : ''}
                   {record ? ' 🏆' : ''}
                 </Text>
-                <Text className={`font-display text-[15px] ${s.isCompleted || selected ? 'text-fg' : 'text-muted'}`}>
-                  {value}
+                <Text numberOfLines={1} className={`font-display text-[15px] ${s.isCompleted || selected ? 'text-fg' : 'text-muted'}`}>
+                  {setChipText(shownWeight, shownReps)}
                 </Text>
               </Pressable>
             );
@@ -1219,9 +1229,9 @@ function ListView({
   const outline = useContextOutline(color);
   return (
     <ScrollView className="flex-1" contentContainerClassName="px-4 pt-5 gap-3 pb-8" keyboardShouldPersistTaps="handled">
-      <Text className="font-display text-fg text-[26px] leading-[30px] px-1" accessibilityRole="header">
-        {upperTr(sessionName)}
-      </Text>
+      <DisplayName accessibilityRole="header" inset={2 * (16 + 4)} sizes={CARD_NAME_SIZES} className="px-1">
+        {sessionName}
+      </DisplayName>
       {rows.map((r, i) => {
         const ex = focusExercises[i];
         const done = ex ? ex.sets.filter((s) => s.isCompleted).length : 0;
@@ -1389,7 +1399,9 @@ function SetRow({ set, previousSet, restSeconds, vibrate, isRecord, isRecordComp
     if (set.reps != null) setReps(String(set.reps));
   }, [set.weightKg, set.reps]);
 
-  const previousLabel = previousSet ? `${previousSet.weightKg ?? '-'} × ${previousSet.reps ?? '-'}` : '—';
+  const previousLabel = previousSet
+    ? `${previousSet.weightKg != null ? decimalComma(previousSet.weightKg) : '-'} × ${previousSet.reps ?? '-'}`
+    : '—';
 
   // RIR: tamamlanmış sette, girilmemişse ince seçici sırası; girilmişse
   // "RIR 2" etiketi (basınca seçici yeniden açılır). Set geri alınınca
@@ -1446,9 +1458,9 @@ function SetRow({ set, previousSet, restSeconds, vibrate, isRecord, isRecordComp
           )}
         </View>
         <TextInput
-          value={weight}
+          value={decimalComma(weight)}
           onChangeText={updateWeight}
-          placeholder={previousSet?.weightKg ? String(previousSet.weightKg) : '-'}
+          placeholder={previousSet?.weightKg ? decimalComma(previousSet.weightKg) : '-'}
           placeholderTextColor={COLORS.faint}
           keyboardType="decimal-pad"
           editable={!set.isCompleted}

@@ -20,9 +20,8 @@ import { useDb } from '@/hooks/useDb';
 import { useColors } from '@/hooks/useTheme';
 import { formatDuration, formatRelativeDate } from '@/lib/format';
 import { saveSessionNote } from '@/lib/notes';
-import { upperTr } from '@/lib/typography';
 import { loadWorkoutSummary, plannedSetCount, recordText, type LoadedSummary } from '@/lib/workoutSummary';
-import { Glow, ListRow, PrimaryButton, SectionLabel, StatCard } from '@/components/ui';
+import { DisplayName, Glow, ListRow, PrimaryButton, SectionLabel, StatCard } from '@/components/ui';
 import { Text } from '@/components/ui/Text';
 import { NoteEditor } from '@/components/NoteEditor';
 
@@ -86,9 +85,9 @@ export default function WorkoutSummaryScreen() {
           <SectionLabel>Antrenman tamam</SectionLabel>
           {summary ? (
             <>
-              <Text accessibilityRole="header" className="font-display text-fg text-[44px] leading-[46px]">
-                {upperTr(summary.name)}
-              </Text>
+              <DisplayName accessibilityRole="header" inset={2 * (16 + 8)}>
+                {summary.name}
+              </DisplayName>
               <Text className="text-muted text-[15px]">
                 {formatRelativeDate(summary.startedAt)}
                 {summary.durationSeconds != null ? ` · ${formatDuration(summary.durationSeconds)}` : ''}

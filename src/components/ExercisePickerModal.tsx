@@ -9,15 +9,13 @@ import {
 import { upperTr } from '@/lib/typography';
 import { Text, TextInput } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import { inArray } from 'drizzle-orm';
 import { Check, ChevronLeft, Info, Search, X } from 'lucide-react-native';
 
+import { ExerciseThumb } from '@/components/ExerciseThumb';
 import { useDb } from '@/hooks/useDb';
-import { useColors, useTheme } from '@/hooks/useTheme';
-import { imageFrameClass } from '@/theme';
+import { useColors } from '@/hooks/useTheme';
 import { exercises, type Exercise } from '@/db/schema';
-import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
 import {
   EXERCISE_FILTER_OPTIONS,
   categoryLabel,
@@ -417,8 +415,6 @@ function PickerRow({
   onPreview: () => void;
 }) {
   const COLORS = useColors();
-  const { scheme } = useTheme();
-  const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
   const muscles = muscleLabels(exercise.primaryMuscles);
   const displayName = exerciseDisplayName(exercise);
   const originalName = exerciseOriginalName(exercise);
@@ -435,22 +431,11 @@ function PickerRow({
     >
       {/* Görsel + tik (seçiliyse köşede) */}
       <View>
-        <View
-          className={`w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center ${imageFrameClass(scheme)}`}
-        >
-          {coverUrl ? (
-            <Image
-              source={{ uri: coverUrl }}
-              style={{ width: 56, height: 56 }}
-              contentFit="cover"
-              cachePolicy={EXERCISE_IMAGE_CACHE}
-            />
-          ) : (
-            <Text className="text-muted text-xs">
-              {exercise.category === 'cardio' ? '🏃' : '💪'}
-            </Text>
-          )}
-        </View>
+        <ExerciseThumb
+          imagePaths={exercise.imagePaths}
+          category={exercise.category}
+          primaryMuscles={exercise.primaryMuscles}
+        />
         {selected && (
           <View className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent items-center justify-center border-2 border-bg-surface">
             <Check color={COLORS.accentFg} size={11} strokeWidth={3.5} />

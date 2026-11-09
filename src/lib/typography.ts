@@ -77,6 +77,62 @@ export function upperTr(text: string): string {
   return text.replace(/i/g, 'İ').replace(/ı/g, 'I').toUpperCase();
 }
 
+/**
+ * Hareket / rutin / program adı (v4.0b 1.5): büyük harfe çevrilmez (adlar
+ * karışık dilde, "DEADLİFT" gibi yanlış çıkıyor); yalnızca ilk harf büyük.
+ */
+export function nameCase(name: string): string {
+  const text = name.trim();
+  return upperTr(text.charAt(0)) + text.slice(1);
+}
+
+export const NAME_SIZES = [36, 30, 26] as const;
+/** Kart içindeki ad (dar alan) */
+export const CARD_NAME_SIZES = [30, 26, 22] as const;
+
+export const NAME_MAX_LINES = 3;
+
+/**
+ * Archivo Expanded ExtraBold'da karakter başına en geniş ortalama (katalogdaki
+ * 7+ harfli kelimelerde ölçülen en büyük değer 0,795 em). Kasıtlı olarak
+ * yüksek: kelimenin satıra sığmayıp ortasından kırılmasındansa bir kademe
+ * küçük yazı.
+ */
+const NAME_CHAR_EM = 0.8;
+
+/** Kelime kelime dizince satır sayısı; satıra sığmayan kelime varsa Infinity */
+function estimatedLines(words: readonly string[], fontSize: number, width: number): number {
+  const charWidth = fontSize * NAME_CHAR_EM;
+  const maxChars = Math.floor(width / charWidth);
+  if (maxChars < 1) return Infinity;
+  let lines = 1;
+  let used = 0;
+  for (const word of words) {
+    const len = [...word].length;
+    if (len > maxChars) return Infinity;
+    if (used === 0) used = len;
+    else if (used + 1 + len <= maxChars) used += 1 + len;
+    else {
+      lines += 1;
+      used = len;
+    }
+  }
+  return lines;
+}
+
+/**
+ * Adın yazı boyutu: kelimeler bölünmeden büyük boyutta en fazla 2 satıra
+ * sığıyorsa o; sığmıyorsa bir kademe küçük. En küçük kademede 3 satıra kadar.
+ */
+export function nameFontSize(name: string, width: number, sizes: readonly number[] = NAME_SIZES): number {
+  const words = name.trim().split(/\s+/);
+  const smallest = sizes[sizes.length - 1]!;
+  for (const size of sizes) {
+    if (size !== smallest && estimatedLines(words, size, width) <= 2) return size;
+  }
+  return smallest;
+}
+
 /** Ölçek (v4.0a 1.4). 12'nin altında yazı yok. */
 export const TYPE_SCALE = {
   screenTitle: 32,

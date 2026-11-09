@@ -19,6 +19,7 @@ import {
   earlierCompletedSet,
   progressSegments,
   repsA11yLabel,
+  setChipText,
   setValueText,
   stepReps,
   stepWeight,
@@ -28,6 +29,8 @@ import {
   workoutProgress,
   type FocusExercise,
 } from '@/lib/focusMode';
+import { decimalComma } from '@/lib/format';
+import { formatSetSummary } from '@/lib/rir';
 
 let seq = 0;
 function ex(name: string, done: boolean[], supersetGroup: number | null = null): FocusExercise {
@@ -266,5 +269,18 @@ describe('ayar düğmeleri ve metinler', () => {
     expect(repsA11yLabel('8')).toBe('Tekrar: 8');
     expect(setValueText(70, 8)).toBe('70 × 8');
     expect(setValueText(null, null)).toBe('—');
+  });
+
+  it('kilo biçimi virgüllü; şeritte uzun değer boşluksuz (v4.0b 1.6)', () => {
+    expect(setValueText(22.5, 10)).toBe('22,5 × 10');
+    expect(setValueText('22.5', 10)).toBe('22,5 × 10');
+    expect(setValueText('22,5', 10)).toBe('22,5 × 10');
+    expect(setChipText(22.5, 10)).toBe('22,5×10');
+    expect(setChipText(70, 8)).toBe('70 × 8');
+    expect(setChipText(100, 10)).toBe('100×10');
+    expect(setChipText(null, null)).toBe('—');
+    expect(decimalComma(1.25)).toBe('1,25');
+    expect(decimalComma('')).toBe('');
+    expect(formatSetSummary(22.5, 8, null)).toBe('22,5kg × 8');
   });
 });
