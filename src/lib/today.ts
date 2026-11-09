@@ -187,7 +187,7 @@ export interface RoutineExerciseInfo {
 }
 
 /** Rutin başlatılınca hedef yoksa açılan set sayısı (`startSession.ts`) */
-const DEFAULT_SETS = 3;
+export const DEFAULT_SETS = 3;
 const WORK_SECONDS_PER_SET = 40;
 const WARMUP_MINUTES = 5;
 

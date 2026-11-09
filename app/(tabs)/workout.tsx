@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   SectionList,
   View,
@@ -10,26 +9,22 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { eq } from 'drizzle-orm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronRight,
-  Copy,
   LayoutList,
   ListChecks,
   MoreHorizontal,
-  Pencil,
   Play,
   Plus,
   RefreshCw,
   Sparkles,
-  Trash2,
   type LucideIcon,
 } from 'lucide-react-native';
 
 import { ChooseProgramCard } from '@/components/ChooseProgramCard';
 import { CoverImage } from '@/components/CoverImage';
+import { RoutineMenu, type RoutineTarget } from '@/components/RoutineMenu';
 import { useDb } from '@/hooks/useDb';
 import { useGymMembership } from '@/hooks/useGymMembership';
 import {
@@ -38,9 +33,9 @@ import {
   usePrograms,
   useRoutineLinks,
 } from '@/hooks/usePrograms';
-import { useSheetBottomPadding } from '@/hooks/useSafeBottom';
+import { useRoutineActions } from '@/hooks/useRoutineActions';
+import { useRoutineCards } from '@/hooks/useRoutineCards';
 import { DarkSurface, useColors, useContextTones } from '@/hooks/useTheme';
-import { routines } from '@/db/schema';
 import { useStartRoutine } from '@/hooks/useStartRoutine';
 import {
   programUpdates,
@@ -50,9 +45,6 @@ import {
   type ProgramUpdate,
 } from '@/lib/programs';
 import {
-  duplicateRoutine,
-  groupRoutines,
-  loadRoutineCards,
   routineKindLabel,
   type RoutineCardItem,
   type RoutineGroupMember,
@@ -71,8 +63,6 @@ import {
 } from '@/components/ui';
 import type { WorkoutCover } from '@/lib/coverImage';
 
-type RoutineTarget = Pick<RoutineCardItem, 'id' | 'name'>;
-
 export default function WorkoutScreen() {
   const COLORS = useColors();
   const router = useRouter();
@@ -83,6 +73,7 @@ export default function WorkoutScreen() {
   const { start: startRoutine, starting } = useStartRoutine();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [menuRoutine, setMenuRoutine] = useState<RoutineTarget | null>(null);
+  const { confirmDelete, copy } = useRoutineActions();
   // Salon üyesinde Hareketler sekmesi yok; liste buradan açılır
   const { primary } = useGymMembership();
   const showExercisesEntry = !visibleTabs(primary != null).includes('exercises');
@@ -97,53 +88,7 @@ export default function WorkoutScreen() {
     }, [programLinks.length, refreshIfStale])
   );
 
-  // Kart verisi birkaç tablodan geliyor: odaklanınca (hareket planı ve
-  // antrenman değişmiş olabilir) ve rutin tablosu değişince (silme, kopyalama,
-  // eşitleme) yeniden okunur
-  const { updatedAt: routinesChangedAt } = useLiveQuery(db.select({ id: routines.id }).from(routines));
-  const [routineList, setRoutineList] = useState<RoutineCardItem[] | null>(null);
-  const loadSeq = useRef(0);
-  const reload = useCallback(() => {
-    const seq = ++loadSeq.current;
-    loadRoutineCards(db, new Date())
-      .then((rows) => {
-        if (seq === loadSeq.current) setRoutineList(rows);
-      })
-      .catch((err) => console.error('[ROUTINES] Liste okunamadı:', err));
-  }, [db]);
-  useFocusEffect(reload);
-  useEffect(() => {
-    if (routinesChangedAt) reload();
-  }, [routinesChangedAt, reload]);
-
-  const groups = useMemo(
-    () => (routineList ? groupRoutines(routineList, { links: programLinks, programs }) : []),
-    [routineList, programLinks, programs]
-  );
-
-  const handleDelete = (routine: RoutineTarget) => {
-    Alert.alert(
-      'Rutini Sil',
-      `"${routine.name}" rutinini silmek istediğine emin misin?`,
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            await db.delete(routines).where(eq(routines.id, routine.id));
-          },
-        },
-      ]
-    );
-  };
-
-  const handleCopy = (routine: RoutineTarget) => {
-    duplicateRoutine(db, routine.id).catch((err) => {
-      console.error('[ROUTINES] Kopyalanamadı:', err);
-      Alert.alert('Hata', String(err));
-    });
-  };
+  const { routineList, groups } = useRoutineCards({ links: programLinks, programs });
 
   const openEditor = (routineId: string) => router.push({ pathname: '/routine/[id]', params: { id: routineId } });
 
@@ -258,7 +203,7 @@ export default function WorkoutScreen() {
             cover={member.cover}
             programUpdated={updatedRoutineIds.has(member.item.id)}
             starting={starting}
-            onOpen={() => openEditor(member.item.id)}
+            onOpen={() => router.push({ pathname: '/routine/cover/[id]', params: { id: member.item.id } })}
             onStart={() => void startRoutine(member.item)}
             onMenu={() => setMenuRoutine(member.item)}
           />
@@ -269,8 +214,8 @@ export default function WorkoutScreen() {
         routine={menuRoutine}
         onClose={() => setMenuRoutine(null)}
         onEdit={openEditor}
-        onCopy={handleCopy}
-        onDelete={handleDelete}
+        onCopy={(routine) => copy(routine)}
+        onDelete={(routine) => confirmDelete(routine)}
       />
     </View>
   );
@@ -420,69 +365,3 @@ function RoutineCoverCardBody({ routine, cover, programUpdated, starting, onOpen
   );
 }
 
-/** ⋯ menüsü. Android `Alert` üçten çok düğme göstermiyor, alttan sayfa. */
-function RoutineMenu({
-  routine,
-  onClose,
-  onEdit,
-  onCopy,
-  onDelete,
-}: {
-  routine: RoutineTarget | null;
-  onClose: () => void;
-  onEdit: (routineId: string) => void;
-  onCopy: (routine: RoutineTarget) => void;
-  onDelete: (routine: RoutineTarget) => void;
-}) {
-  const COLORS = useColors();
-  const sheetPadding = useSheetBottomPadding();
-
-  // Önce sayfa kapanır, işlem sonraki karede: ekran modalın arkasında açılmasın
-  const choose = (action: (target: RoutineTarget) => void) => {
-    if (!routine) return;
-    const target = routine;
-    onClose();
-    requestAnimationFrame(() => action(target));
-  };
-
-  return (
-    <Modal visible={routine != null} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/60 justify-end">
-        <Pressable className="flex-1" onPress={onClose} accessibilityLabel="Menüyü kapat" />
-        <View className="bg-bg rounded-t-3xl border-t border-border px-3 pt-4" style={{ paddingBottom: sheetPadding + 8 }}>
-          <Text className="text-fg text-lg font-bold px-3 pb-2" numberOfLines={1}>
-            {routine ? nameCase(routine.name) : ''}
-          </Text>
-          <MenuRow icon={Pencil} label="Düzenle" color={COLORS.text} onPress={() => choose((r) => onEdit(r.id))} />
-          <MenuRow icon={Copy} label="Kopyala" color={COLORS.text} onPress={() => choose(onCopy)} />
-          <MenuRow icon={Trash2} label="Sil" color={COLORS.danger} danger onPress={() => choose(onDelete)} />
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function MenuRow({
-  icon: Icon,
-  label,
-  color,
-  danger = false,
-  onPress,
-}: {
-  icon: LucideIcon;
-  label: string;
-  color: string;
-  danger?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      className="flex-row items-center gap-3 px-3 h-14 rounded-2xl active:bg-bg-elevated"
-    >
-      <Icon color={color} size={20} strokeWidth={2} />
-      <Text className={`text-base font-semibold ${danger ? 'text-danger' : 'text-fg'}`}>{label}</Text>
-    </Pressable>
-  );
-}

@@ -216,6 +216,10 @@ function RootStack() {
         }}
       />
       <Stack.Screen
+        name="routine/cover/[id]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="templates/index"
         options={{ title: 'Hazır Programlar' }}
       />

@@ -16,14 +16,19 @@ import { exercises, routineExercises, routines, workoutSessions } from '@/db/sch
 import { uniqueName } from '@/lib/applyTemplate';
 import type { BodyContext } from '@/lib/contextColor';
 import { assignCovers, coverFor, type CoverKind, type WorkoutCover } from '@/lib/coverImage';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
+import { decimalComma } from '@/lib/format';
 import { newId } from '@/lib/id';
+import { getLastSessionForExercise } from '@/lib/lastSession';
 import {
+  DEFAULT_SETS,
   lastDoneText,
   routineColor,
   routineCoverKind,
   routineMinutes,
   type RoutineExerciseInfo,
 } from '@/lib/today';
+import { upperTr } from '@/lib/typography';
 import { WORKOUT_TEMPLATES, templateRoutineName, type WorkoutTemplate } from '@/lib/workoutTemplates';
 
 export interface RoutineCardItem {
@@ -33,6 +38,8 @@ export interface RoutineCardItem {
   exerciseCount: number;
   /** "7 hareket · ~55 dk · son: 3 gün önce" */
   line: string;
+  /** Kapak ekranı: "7 hareket · ~55 dk · 22 set" */
+  stats: string;
   color: BodyContext;
   kind: CoverKind;
 }
@@ -52,6 +59,11 @@ export function routineCardLine(list: readonly RoutineExerciseInfo[], estimated:
   const parts = [`${list.length} hareket`, `~${routineMinutes(list, estimated)} dk`];
   if (lastDone != null) parts.push(lastDone);
   return parts.join(' · ');
+}
+
+export function routineStatsLine(list: readonly RoutineExerciseInfo[], estimated: number | null): string {
+  const setCount = list.reduce((sum, e) => sum + (e.targetSets ?? DEFAULT_SETS), 0);
+  return `${list.length} hareket · ~${routineMinutes(list, estimated)} dk · ${setCount} set`;
 }
 
 /** Arşivlenmemiş bütün rutinler, ada göre */
@@ -100,6 +112,7 @@ export async function loadRoutineCards(db: Db, now: Date): Promise<RoutineCardIt
       description: r.description,
       exerciseCount: list.length,
       line: routineCardLine(list, r.estimated, lastDoneText(lastBy.get(r.id) ?? null, now)),
+      stats: routineStatsLine(list, r.estimated),
       color: routineColor(list),
       kind: routineCoverKind(list),
     };
@@ -257,6 +270,84 @@ export function groupRoutines<T extends { id: string; name: string; kind: CoverK
     });
   }
   return groups;
+}
+
+// ── Rutin kapağı (Bölüm 5) ──────────────────────────────────────────────
+
+export function findRoutineInGroups<T extends { id: string }>(
+  groups: readonly RoutineGroup<T>[],
+  routineId: string
+): { group: RoutineGroup<T>; member: RoutineGroupMember<T> } | null {
+  for (const group of groups) {
+    const member = group.members.find((m) => m.item.id === routineId);
+    if (member) return { group, member };
+  }
+  return null;
+}
+
+/**
+ * "4 GÜN · Upper / Lower · GÜN 1"; programda değilse "ÜST VÜCUT". Program adı
+ * büyük harfe çevrilmez (Bölüm 1.5: "SPLİT" gibi yanlış çıkıyor).
+ */
+export function routineCoverLabel(kind: CoverKind, group: { dayCount: number | null; title: string }, dayIndex: number | null): string {
+  if (group.dayCount == null || dayIndex == null) return upperTr(routineKindLabel(kind));
+  return `${group.dayCount} GÜN · ${group.title} · GÜN ${dayIndex + 1}`;
+}
+
+export interface RoutineExercisePlan {
+  targetSets: number | null;
+  targetReps: string | null;
+  targetDurationSeconds: number | null;
+  targetDistanceKm: number | null;
+  category: string | null;
+}
+
+/** "4 × 6–8 · son 80 kg"; kardiyoda "20 dk · 5 km" */
+export function routineExerciseLine(plan: RoutineExercisePlan, lastWeightKg: number | null): string {
+  if (plan.category === 'cardio') {
+    const parts: string[] = [];
+    if (plan.targetDurationSeconds != null) parts.push(`${Math.round(plan.targetDurationSeconds / 60)} dk`);
+    if (plan.targetDistanceKm != null) parts.push(`${decimalComma(plan.targetDistanceKm)} km`);
+    return parts.length > 0 ? parts.join(' · ') : 'Kardiyo';
+  }
+  const setCount = plan.targetSets ?? DEFAULT_SETS;
+  const target = plan.targetReps ? `${setCount} × ${plan.targetReps.replace('-', '–')}` : `${setCount} set`;
+  return lastWeightKg != null && lastWeightKg > 0 ? `${target} · son ${decimalComma(lastWeightKg)} kg` : target;
+}
+
+export interface RoutineExerciseRow {
+  id: string;
+  name: string;
+  imagePaths: string | null;
+  category: string | null;
+  primaryMuscles: string | null;
+  line: string;
+}
+
+/** Rutinin hareketleri; "son": son antrenmandaki en ağır tamamlanmış normal set */
+export async function loadRoutineExercises(db: Db, routineId: string): Promise<RoutineExerciseRow[]> {
+  const rows = await db
+    .select({ plan: routineExercises, exercise: exercises })
+    .from(routineExercises)
+    .innerJoin(exercises, eq(routineExercises.exerciseId, exercises.id))
+    .where(eq(routineExercises.routineId, routineId))
+    .orderBy(asc(routineExercises.orderIndex));
+
+  return Promise.all(
+    rows.map(async ({ plan, exercise }) => {
+      const last = await getLastSessionForExercise(db, exercise.id, null);
+      const weights = (last?.sets ?? []).map((s) => s.weightKg ?? 0);
+      const lastWeight = weights.length > 0 ? Math.max(...weights) : null;
+      return {
+        id: plan.id,
+        name: exerciseDisplayName(exercise),
+        imagePaths: exercise.imagePaths,
+        category: exercise.category,
+        primaryMuscles: exercise.primaryMuscles,
+        line: routineExerciseLine({ ...plan, category: exercise.category }, lastWeight),
+      };
+    })
+  );
 }
 
 // ── Kopyalama ───────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { ActivityIndicator, FlatList, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Link } from 'expo-router';
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, count, countDistinct, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { ChevronRight, History, Play } from 'lucide-react-native';
@@ -18,6 +18,8 @@ import { Card, EmptyState, PrimaryButton } from '@/components/ui';
 export default function HistoryScreen() {
   const COLORS = useColors();
   const db = useDb();
+  // Rutin kapağındaki "Geçmiş": yalnızca o rutinle yapılanlar
+  const { routineId } = useLocalSearchParams<{ routineId?: string }>();
 
   // Tamamlanmış seanslar + tek sorguda özet metrikler
   const { data: sessionList } = useLiveQuery(
@@ -45,10 +47,17 @@ export default function HistoryScreen() {
           eq(sets.isCompleted, true)
         )
       )
-      .where(isNotNull(workoutSessions.endedAt))
+      .where(
+        and(
+          isNotNull(workoutSessions.endedAt),
+          routineId ? eq(workoutSessions.routineId, routineId) : undefined
+        )
+      )
       .groupBy(workoutSessions.id)
-      .orderBy(desc(workoutSessions.startedAt))
+      .orderBy(desc(workoutSessions.startedAt)),
+    [routineId]
   );
+  const titleOverride = routineId ? <Stack.Screen options={{ title: 'Rutin geçmişi' }} /> : null;
 
   if (!sessionList) {
     return (
@@ -61,15 +70,22 @@ export default function HistoryScreen() {
   if (sessionList.length === 0) {
     return (
       <View className="flex-1 bg-bg">
+        {titleOverride}
         <EmptyState
           className="flex-1"
           icon={History}
-          title="Henüz tamamlanmış antrenman yok."
-          description="Bir rutini başlatıp bitirdiğinde antrenmanın burada listelenecek."
+          title={routineId ? 'Bu rutinle henüz antrenman yok.' : 'Henüz tamamlanmış antrenman yok.'}
+          description={
+            routineId
+              ? 'Bu rutini bitirdiğinde burada listelenecek.'
+              : 'Bir rutini başlatıp bitirdiğinde antrenmanın burada listelenecek.'
+          }
           action={
-            <Link href="/(tabs)/workout" asChild>
-              <PrimaryButton label="Antrenmana Başla" icon={Play} iconFill />
-            </Link>
+            routineId ? undefined : (
+              <Link href="/(tabs)/workout" asChild>
+                <PrimaryButton label="Antrenmana Başla" icon={Play} iconFill />
+              </Link>
+            )
           }
         />
       </View>
@@ -78,6 +94,7 @@ export default function HistoryScreen() {
 
   return (
     <View className="flex-1 bg-bg">
+      {titleOverride}
       <FlatList
         data={sessionList}
         keyExtractor={(item) => item.id}

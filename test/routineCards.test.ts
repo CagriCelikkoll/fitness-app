@@ -10,17 +10,24 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { asc, eq } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
-import { routineExercises, routines, workoutSessions } from '@/db/schema';
+import { routineExercises, routines, sessionExercises, sets, syncOutbox, workoutSessions } from '@/db/schema';
 import type { CoverKind } from '@/lib/coverImage';
 import {
   OWN_ROUTINES_TITLE,
   duplicateRoutine,
+  findRoutineInGroups,
   groupRoutines,
   loadRoutineCards,
+  loadRoutineExercises,
   routineCardLine,
+  routineCoverLabel,
+  routineExerciseLine,
   routineKindLabel,
+  routineStatsLine,
 } from '@/lib/routineCards';
 import { getTemplate, templateRoutineName } from '@/lib/workoutTemplates';
+import { FakeSyncServer } from './helpers/fakeSyncServer';
+import { closePhones, expectOk, newRoutine, outboxCount, phone, sync, synced } from './helpers/syncPhones';
 import { createTestDb, seedExercise, type TestDb } from './helpers/testDb';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -201,6 +208,153 @@ describe('veritabanı', () => {
   });
 });
 
+describe('kopyalama ve eşitleme', () => {
+  afterEach(closePhones);
+
+  it('kopya giden kutusuna girer, sunucudan ikinci telefona iner', async () => {
+    const server = new FakeSyncServer();
+    const a = await phone();
+    const b = await phone();
+    const sourceId = await newRoutine(a.db, 'Üst', 2);
+    await expectOk(sync(a, server));
+    expect(await outboxCount(a.db)).toBe(0);
+
+    const copyId = await duplicateRoutine(a.db, sourceId);
+
+    const outbox = await a.db.select().from(syncOutbox);
+    const planIds = (await a.db.select().from(routineExercises).where(eq(routineExercises.routineId, copyId))).map((p) => p.id);
+    expect(outbox.filter((o) => o.tableName === 'routines').map((o) => o.rowId)).toEqual([copyId]);
+    expect(outbox.filter((o) => o.tableName === 'routine_exercises').map((o) => o.rowId).sort()).toEqual([...planIds].sort());
+
+    await expectOk(sync(a, server));
+    expect(await outboxCount(a.db)).toBe(0);
+
+    await expectOk(sync(b, server));
+    const onB = await b.db.select().from(routines).where(eq(routines.id, copyId));
+    expect(onB.map((r) => r.name)).toEqual(['Üst (kopya)']);
+    expect(await b.db.select().from(routineExercises).where(eq(routineExercises.routineId, copyId))).toHaveLength(2);
+    expect(await synced(b.db)).toEqual(await synced(a.db));
+  });
+
+  it('kopyalanan kendi bağlantısını taşımaz: kaynağın planı eşitlemede dokunulmadan kalır', async () => {
+    const server = new FakeSyncServer();
+    const a = await phone();
+    const sourceId = await newRoutine(a.db, 'Üst', 2);
+    await expectOk(sync(a, server));
+    await duplicateRoutine(a.db, sourceId);
+    const outbox = await a.db.select().from(syncOutbox);
+    const sourcePlan = (await a.db.select().from(routineExercises).where(eq(routineExercises.routineId, sourceId))).map((p) => p.id);
+    expect(outbox.some((o) => o.rowId === sourceId || sourcePlan.includes(o.rowId))).toBe(false);
+  });
+});
+
+describe('rutin kapağı', () => {
+  it('etiket: programda gün, değilse bölge; program adı büyük harfe çevrilmez', () => {
+    expect(routineCoverLabel('upper', { dayCount: 4, title: 'Upper / Lower' }, 0)).toBe('4 GÜN · Upper / Lower · GÜN 1');
+    expect(routineCoverLabel('upper', { dayCount: 5, title: '5 Günlük Bölgesel Split' }, 2)).toBe('5 GÜN · 5 Günlük Bölgesel Split · GÜN 3');
+    expect(routineCoverLabel('lower', { dayCount: null, title: OWN_ROUTINES_TITLE }, null)).toBe('ALT VÜCUT');
+  });
+
+  it('kapak listedekiyle aynı', () => {
+    const days = daysOf('split4');
+    const groups = groupRoutines(days);
+    for (const { id } of days) {
+      const found = findRoutineInGroups(groups, id)!;
+      expect(found.group.key).toBe('template:split4');
+      expect(found.member.cover).toBe(groups[0]!.members.find((m) => m.item.id === id)!.cover);
+    }
+    expect(findRoutineInGroups(groups, 'yok')).toBeNull();
+  });
+
+  const plan = { targetSets: 4, targetReps: '6-8', targetDurationSeconds: null, targetDistanceKm: null, category: 'strength' };
+
+  it('hareket satırı', () => {
+    expect(routineExerciseLine(plan, 80)).toBe('4 × 6–8 · son 80 kg');
+    expect(routineExerciseLine(plan, 62.5)).toBe('4 × 6–8 · son 62,5 kg');
+    expect(routineExerciseLine({ ...plan, targetReps: '10' }, null)).toBe('4 × 10');
+    expect(routineExerciseLine({ ...plan, targetReps: null, targetSets: null }, 0)).toBe('3 set');
+  });
+
+  it('kardiyo satırı', () => {
+    const cardio = { ...plan, targetSets: null, targetReps: null, category: 'cardio' };
+    expect(routineExerciseLine({ ...cardio, targetDurationSeconds: 1200, targetDistanceKm: 5.5 }, null)).toBe('20 dk · 5,5 km');
+    expect(routineExerciseLine(cardio, null)).toBe('Kardiyo');
+  });
+
+  it('özet satırı: süre elle girilmişse o, set toplamı', () => {
+    const rows = [
+      { targetSets: 4, restSeconds: 90, primaryMuscles: '["chest"]', category: 'strength' },
+      { targetSets: null, restSeconds: 90, primaryMuscles: '["chest"]', category: 'strength' },
+    ];
+    expect(routineStatsLine(rows, 55)).toBe('2 hareket · ~55 dk · 7 set');
+  });
+
+  describe('veritabanı', () => {
+    let t: TestDb;
+    afterEach(() => t.close());
+
+    it('"son": son antrenmandaki en ağır tamamlanmış normal set; plan sırası korunur', async () => {
+      t = createTestDb();
+      const db = t.db;
+      const bench = await seedExercise(db, { id: 'bench', imagePaths: '["a.jpg"]' });
+      const row = await seedExercise(db, { id: 'row', name: 'Row' });
+      await db.insert(routines).values({ id: 'r', name: 'Üst' });
+      await db.insert(routineExercises).values([
+        { id: 'p1', routineId: 'r', exerciseId: row, orderIndex: 0, targetSets: 3, targetReps: '8' },
+        { id: 'p2', routineId: 'r', exerciseId: bench, orderIndex: 1, targetSets: 4, targetReps: '6-8' },
+      ]);
+      const addSession = async (id: string, day: number, weights: [number, boolean, 'normal' | 'warmup'][]) => {
+        await db.insert(workoutSessions).values({
+          id,
+          name: 'Üst',
+          routineId: 'r',
+          startedAt: new Date(2026, 10, day, 18).toISOString(),
+          endedAt: new Date(2026, 10, day, 19).toISOString(),
+        });
+        await db.insert(sessionExercises).values({ id: `${id}-e`, sessionId: id, exerciseId: bench, orderIndex: 0 });
+        await db.insert(sets).values(
+          weights.map(([weightKg, isCompleted, setType], i) => ({
+            id: `${id}-${i}`,
+            sessionExerciseId: `${id}-e`,
+            setNumber: i + 1,
+            weightKg,
+            reps: 8,
+            isCompleted,
+            setType,
+          }))
+        );
+      };
+      await addSession('eski', 1, [[100, true, 'normal']]);
+      await addSession('yeni', 8, [[75, true, 'normal'], [80, true, 'normal'], [90, false, 'normal'], [120, true, 'warmup']]);
+
+      const rows = await loadRoutineExercises(db, 'r');
+      expect(rows.map((r) => r.id)).toEqual(['p1', 'p2']);
+      expect(rows[0]!.line).toBe('3 × 8');
+      expect(rows[1]!.line).toBe('4 × 6–8 · son 80 kg');
+      expect(rows[1]!.imagePaths).toBe('["a.jpg"]');
+    });
+  });
+
+  const cover = read('app/routine/cover/[id].tsx');
+
+  it('ekran: işlemler, Paylaş yok, Başla listenin altında (üstüne binmiyor)', () => {
+    for (const piece of ['label="Geçmiş"', 'label="Düzenle"', 'label="Kopyala"', 'label="Sil"', "'Başla'", '<ExerciseThumb', '<DisplayName']) {
+      expect(cover, piece).toContain(piece);
+    }
+    expect(cover).not.toContain('Paylaş');
+    expect(cover.indexOf('</ScrollView>')).toBeLessThan(cover.indexOf("'Başla'"));
+    expect(cover).not.toContain('insets.bottom');
+  });
+
+  it('sekmeden kapağa; Geçmiş rutine süzülüyor', () => {
+    expect(read('app/(tabs)/workout.tsx')).toContain("pathname: '/routine/cover/[id]'");
+    const history = read('app/history.tsx');
+    expect(history).toContain('eq(workoutSessions.routineId, routineId)');
+    expect(history).toContain('[routineId]');
+    expect(read('app/_layout.tsx')).toContain('name="routine/cover/[id]"');
+  });
+});
+
 describe('ekran', () => {
   const screen = read('app/(tabs)/workout.tsx');
 
@@ -211,7 +365,10 @@ describe('ekran', () => {
   });
 
   it('⋯ işlemleri; boş durum ana sayfadaki kart', () => {
-    for (const piece of ['label="Düzenle"', 'label="Kopyala"', 'label="Sil"', '<ChooseProgramCard']) expect(screen, piece).toContain(piece);
+    const menu = read('src/components/RoutineMenu.tsx');
+    for (const piece of ['label="Düzenle"', 'label="Kopyala"', 'label="Sil"']) expect(menu, piece).toContain(piece);
+    expect(screen).toContain('<RoutineMenu');
+    expect(screen).toContain('<ChooseProgramCard');
     expect(read('app/(tabs)/index.tsx')).toContain('<ChooseProgramCard');
   });
 
