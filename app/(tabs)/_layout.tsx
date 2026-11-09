@@ -65,6 +65,8 @@ export default function TabsLayout() {
         name="workout"
         options={{
           title: TAB_TITLES.workout,
+          // v4.0b: başlık ekranın içinde ("RUTİNLER" + yeni rutin)
+          headerShown: false,
           tabBarIcon: ({ color }) => <Dumbbell color={color} {...ICON} />,
         }}
       />

@@ -64,7 +64,10 @@ describe('havada duran alt menü', () => {
   it('üye hareket listesine Rutinler ekranından ulaşıyor (boş listede de)', () => {
     const src = read('app/(tabs)/workout.tsx');
     expect(src).toContain('<Link href="/exercise" asChild>');
-    expect(src.match(/<ExercisesEntry \/>/g)).toHaveLength(2);
+    // tek liste: giriş satırları rutin yokken de (`ListEmptyComponent`) üstte
+    expect(src.match(/<ExercisesEntry \/>/g)).toHaveLength(1);
+    expect(src.indexOf('<ExercisesEntry />')).toBeGreaterThan(src.indexOf('ListHeaderComponent'));
+    expect(src).toContain('ListEmptyComponent');
     expect(read('app/exercise/index.tsx')).toContain("from '../(tabs)/exercises'");
     expect(read('app/_layout.tsx')).toContain('name="exercise/index"');
   });

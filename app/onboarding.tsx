@@ -320,7 +320,7 @@ function PrivacyStep({
     <>
       <StepTitle
         title="Gizlilik"
-        subtitle="Verilerin yalnızca bu telefonda durur. Hesap yok, sunucu yok."
+        subtitle="Verilerin önce bu telefonda durur; hesap açmazsan hiçbir yere gönderilmez."
       />
       <View className="flex-row flex-wrap gap-x-5 gap-y-2">
         <Pressable onPress={() => openDoc('privacy')} hitSlop={6} className="active:opacity-60">
@@ -411,8 +411,9 @@ function TipsStep() {
           <Text className="text-fg text-lg font-semibold">Yedek al</Text>
         </View>
         <Text className="text-muted text-sm leading-5">
-          Verilerin sadece bu telefonda. Telefon değiştirirsen ya da
-          uygulamayı silersen kaybolmasın diye ara sıra Profil'den yedek al.
+          Verilerin önce bu telefonda durur; hesap açmazsan hiçbir yere
+          gönderilmez. Telefon değiştirirsen ya da uygulamayı silersen
+          kaybolmasın diye ara sıra Profil'den yedek al.
         </Text>
       </Card>
     </>

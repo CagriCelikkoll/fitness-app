@@ -5,7 +5,7 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { desc, eq, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
-import { ChevronRight, Flame, Play, Scale, ShieldCheck, Sparkles, Target, UserRound } from 'lucide-react-native';
+import { ChevronRight, Flame, Play, Scale, ShieldCheck, Target, UserRound } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useWeeklyGoal } from '@/hooks/useWeeklyGoal';
@@ -20,7 +20,8 @@ import { usePrograms, useRoutineLinks } from '@/hooks/usePrograms';
 import { useStartRoutine } from '@/hooks/useStartRoutine';
 import { useElapsedMs } from '@/components/RestTimer';
 import { formatElapsed } from '@/lib/focusMode';
-import { CARD_NAME_SIZES, upperTr } from '@/lib/typography';
+import { CARD_NAME_SIZES } from '@/lib/typography';
+import { ChooseProgramCard } from '@/components/ChooseProgramCard';
 import {
   loadTodayData,
   streakChipText,
@@ -585,7 +586,6 @@ function NextCard(props: { activeSessionId: string | null; data: TodayData | nul
 }
 
 function NextCardBody({ activeSessionId, data }: { activeSessionId: string | null; data: TodayData | null }) {
-  const router = useRouter();
   const { start, starting } = useStartRoutine();
 
   // Devam eden antrenman: "Antrenmana dön · 24:10"
@@ -593,22 +593,7 @@ function NextCardBody({ activeSessionId, data }: { activeSessionId: string | nul
   if (!data) return <View className="h-[200px] rounded-3xl bg-bg-surface border border-border" />;
 
   const next = data.next;
-  if (!next) {
-    return (
-      <View className="rounded-3xl overflow-hidden bg-bg-surface border border-border">
-        <CornerGlow />
-        <View className="p-[18px] gap-3">
-          <SectionLabel>Sıradaki</SectionLabel>
-          <Text accessibilityRole="header" className="font-display text-fg text-[30px] leading-[32px]">
-            {upperTr('Programını seç')}
-          </Text>
-          <Text className="text-muted text-sm">Hazır programlardan birini seç ya da sana uygun olanı önerelim.</Text>
-          <PrimaryButton label="Bana program öner" icon={Sparkles} onPress={() => router.push('/templates/recommend')} />
-          <SecondaryButton label="Hazır programlar" onPress={() => router.push('/templates')} />
-        </View>
-      </View>
-    );
-  }
+  if (!next) return <ChooseProgramCard label="Sıradaki" />;
 
   return (
     <View className="rounded-3xl overflow-hidden bg-bg-surface border border-border">

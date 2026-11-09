@@ -14,7 +14,8 @@ import { and, asc, count, eq, isNotNull, max } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
 import { exercises, routineExercises, routines, workoutSessions } from '@/db/schema';
-import { contextColorFor, type BodyContext } from '@/lib/contextColor';
+import { contextColorFor, type BodyContext, type ContextExercise } from '@/lib/contextColor';
+import { coverKindFor, type CoverKind } from '@/lib/coverImage';
 import { loadRecordHistory, recordEvents, type RecordHistoryRow } from '@/lib/recordEvents';
 import { muscleLabel } from '@/lib/exerciseTaxonomy';
 import { toDateKey } from '@/lib/format';
@@ -239,10 +240,16 @@ export function routineSummaryLine(list: readonly RoutineExerciseInfo[], estimat
   return parts.join(' · ');
 }
 
+function asContextExercises(list: readonly RoutineExerciseInfo[]): ContextExercise[] {
+  return list.map((e) => ({ primaryMuscles: e.primaryMuscles, category: e.category, sets: e.targetSets ?? DEFAULT_SETS }));
+}
+
 export function routineColor(list: readonly RoutineExerciseInfo[]): BodyContext {
-  return contextColorFor(
-    list.map((e) => ({ primaryMuscles: e.primaryMuscles, category: e.category, sets: e.targetSets ?? DEFAULT_SETS }))
-  );
+  return contextColorFor(asContextExercises(list));
+}
+
+export function routineCoverKind(list: readonly RoutineExerciseInfo[]): CoverKind {
+  return coverKindFor(asContextExercises(list));
 }
 
 /** "son: 4 gün önce" — takvim günü farkı; hiç yapılmadıysa null */

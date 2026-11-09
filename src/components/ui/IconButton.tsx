@@ -7,8 +7,8 @@ interface IconButtonProps extends Omit<PressableProps, 'children' | 'accessibili
   icon: LucideIcon;
   /** Zorunlu (v4.0a 1.5): ekran okuyucu ikonu okuyamaz */
   accessibilityLabel: string;
-  /** `surface`: kart içi dolgu (varsayılan), `ghost`: zeminsiz */
-  variant?: 'surface' | 'ghost';
+  /** `surface`: kart içi dolgu (varsayılan), `ghost`: zeminsiz, `brand`: vurgu dolgulu */
+  variant?: 'surface' | 'ghost' | 'brand';
   /** İkon rengi; varsayılan ana metin */
   color?: string;
   iconSize?: number;
@@ -26,7 +26,8 @@ export function IconButton({
   ...rest
 }: IconButtonProps) {
   const COLORS = useColors();
-  const bg = variant === 'surface' ? 'bg-bg-elevated' : '';
+  const bg = variant === 'surface' ? 'bg-bg-elevated' : variant === 'brand' ? 'bg-accent' : '';
+  const iconColor = color ?? (variant === 'brand' ? COLORS.accentFg : COLORS.text);
   return (
     <Pressable
       accessibilityRole="button"
@@ -38,7 +39,7 @@ export function IconButton({
       } ${className}`}
       {...rest}
     >
-      <Icon color={color ?? COLORS.text} size={iconSize} strokeWidth={2} />
+      <Icon color={iconColor} size={iconSize} strokeWidth={2} />
     </Pressable>
   );
 }
