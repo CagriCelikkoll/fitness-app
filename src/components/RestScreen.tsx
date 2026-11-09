@@ -228,7 +228,7 @@ function NextCard({ next }: { next: RestNextCard }) {
       >
         <View className="flex-1 pr-3 gap-1">
           <SectionLabel color={next.color}>{`Sıradaki · ${next.setLabel}`}</SectionLabel>
-          <Text className="text-fg text-base font-bold" numberOfLines={1}>
+          <Text className="text-fg text-base font-bold" numberOfLines={2}>
             {next.name}
           </Text>
         </View>

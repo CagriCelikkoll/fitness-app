@@ -22,7 +22,7 @@ import { Chip, DisplayName, IconButton, SegmentedTabs } from '@/components/ui';
 import { Text } from '@/components/ui/Text';
 import { exercises, type Exercise } from '@/db/schema';
 import { useDb } from '@/hooks/useDb';
-import { useColors } from '@/hooks/useTheme';
+import { DarkSurface, useColors } from '@/hooks/useTheme';
 import { exerciseContextColor } from '@/lib/contextColor';
 import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { getExerciseImageUrls } from '@/lib/exerciseImage';
@@ -34,6 +34,8 @@ import { CARD_NAME_SIZES } from '@/lib/typography';
 const NAME_INSET = 40;
 /** Görsel yoksa ad, geri düğmesinin altından başlasın */
 const BACK_BUTTON_SPACE = 52;
+/** 44'lük düğmenin yarısı: tam daire */
+const BACK_BUTTON_RADIUS = 22;
 
 export default function ExerciseDetailScreen() {
   const COLORS = useColors();
@@ -75,9 +77,9 @@ function ExerciseDetailBody({ exercise }: { exercise: Exercise }) {
         contentContainerStyle={{ paddingTop: insets.top + 8 + (imageUrls.length > 0 ? 0 : BACK_BUTTON_SPACE) }}
       >
         {imageUrls.length > 0 && (
-          <View className="px-4">
-            <ExerciseImages urls={imageUrls} light />
-          </View>
+          <DarkSurface className="px-4">
+            <ExerciseImages urls={imageUrls} />
+          </DarkSurface>
         )}
 
         <View className="px-5 pt-4 gap-3">
@@ -101,7 +103,7 @@ function ExerciseDetailBody({ exercise }: { exercise: Exercise }) {
 
           {tab === 'howto' && (
             <>
-              <ExerciseHowTo exercise={exercise} />
+              <ExerciseHowTo exercise={exercise} showTitle={false} />
               <ExerciseQuickInfo exercise={exercise} />
               <ExerciseMuscles exercise={exercise} />
             </>
@@ -112,7 +114,18 @@ function ExerciseDetailBody({ exercise }: { exercise: Exercise }) {
       </ScrollView>
 
       <View pointerEvents="box-none" className="absolute left-0 top-0 px-6" style={{ paddingTop: insets.top + 16 }}>
-        <IconButton icon={ChevronLeft} variant="ghost" iconSize={22} accessibilityLabel="Geri" onPress={() => router.back()} className="bg-bg/60" />
+        {/* Fotoğrafın üstünde iki temada da koyu, yarı saydam daire */}
+        <DarkSurface>
+          <IconButton
+            icon={ChevronLeft}
+            variant="ghost"
+            iconSize={22}
+            accessibilityLabel="Geri"
+            onPress={() => router.back()}
+            className="bg-bg/70"
+            style={{ borderRadius: BACK_BUTTON_RADIUS }}
+          />
+        </DarkSurface>
       </View>
     </View>
   );

@@ -184,7 +184,7 @@ describe('paletler × iki tema (AA)', () => {
       faint: '#8E8E93',
       accent: '#D7FF3E',
       accentFill: '#D7FF3E',
-      accentFg: '#0A0A0B',
+      accentFg: '#08080A',
       warm: '#FF9A3C',
       danger: '#FF5A5A',
       success: '#D7FF3E',

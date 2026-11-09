@@ -135,6 +135,8 @@ export interface ProgramInput {
 
 export interface RoutineGroupMember<T> {
   item: T;
+  /** Grupta program öneki olmadan ("Ön zincir"); veritabanındaki ad `item.name` */
+  displayName: string;
   cover: WorkoutCover;
   /** Programdaki gün (0'dan); "Rutinlerim"de null */
   dayIndex: number | null;
@@ -156,9 +158,16 @@ const MIN_GROUP_DAYS = 2;
 /** Aynı programı iki kez ekleyince verilen " (2)" soneki */
 const withoutCopySuffix = (name: string) => name.replace(/ \(\d+\)$/, '');
 
+/** Yalnızca görünüm: önek yoksa (kullanıcı adı değiştirmiş) ad olduğu gibi */
+function withoutPrefix(name: string, prefix: string): string {
+  return name.startsWith(prefix) && name.length > prefix.length ? name.slice(prefix.length) : name;
+}
+
 interface Draft<T> {
   key: string;
   title: string;
+  /** Rutin adlarının başındaki program öneki */
+  namePrefix: string;
   dayCount: number;
   days: { item: T; dayIndex: number }[];
 }
@@ -178,6 +187,8 @@ function linkedDrafts<T extends { id: string }>(
     drafts.push({
       key: `program:${program.id}`,
       title: program.name,
+      // `programRoutineName` biçimi: "Program – Gün · Hoca"
+      namePrefix: `${program.name.trim()} – `,
       dayCount: program.payload?.days.length ?? days.length,
       days,
     });
@@ -220,6 +231,8 @@ function templateDrafts<T extends { id: string; name: string }>(
     drafts.push({
       key: `template:${best.template.id}`,
       title: best.template.name,
+      // `templateRoutineName` biçimi: "Kısa ad — Gün"
+      namePrefix: `${best.template.shortName} — `,
       dayCount: best.template.dayCount,
       days: best.days,
     });
@@ -253,7 +266,12 @@ export function groupRoutines<T extends { id: string; name: string; kind: CoverK
         dayCount: draft.dayCount,
         members: [...draft.days]
           .sort((a, b) => a.dayIndex - b.dayIndex || a.item.name.localeCompare(b.item.name, 'tr'))
-          .map((d) => ({ item: d.item, dayIndex: d.dayIndex, cover: covers.get(d.item.id)! })),
+          .map((d) => ({
+            item: d.item,
+            displayName: withoutPrefix(d.item.name, draft.namePrefix),
+            dayIndex: d.dayIndex,
+            cover: covers.get(d.item.id)!,
+          })),
       };
     });
 
@@ -264,6 +282,7 @@ export function groupRoutines<T extends { id: string; name: string; kind: CoverK
       dayCount: null,
       members: [...pending.values()].map((item) => ({
         item,
+        displayName: item.name,
         dayIndex: null,
         cover: coverFor(item.id, item.kind),
       })),

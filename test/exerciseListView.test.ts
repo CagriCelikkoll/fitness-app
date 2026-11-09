@@ -10,7 +10,6 @@ import {
   recentBestLabel,
   showRecentExercises,
 } from '@/lib/exerciseListView';
-import { EXERCISE_IMAGE_SURFACE } from '@/theme';
 import { createCompletedSession, createSession, createTestDb, seedExercise, type TestDb } from './helpers/testDb';
 
 const read = (path: string) => readFileSync(path, 'utf8');
@@ -123,7 +122,7 @@ describe('ekranlar', () => {
     for (const part of ['<ExerciseHowTo', '<ExerciseQuickInfo', '<ExerciseMuscles', '<ExerciseGrowthTab', '<ExerciseHistoryTab']) {
       expect(detail, part).toContain(part);
     }
-    expect(detail).toContain('<ExerciseImages urls={imageUrls} light />');
+    expect(detail).toContain('<ExerciseImages urls={imageUrls} />');
     expect(detail).toContain('active color={color}');
     const content = read('src/components/ExerciseDetailContent.tsx');
     expect(content).toContain('youtubeSearchUrl(exercise.name)');
@@ -141,9 +140,5 @@ describe('ekranlar', () => {
     for (const file of ['src/components/ExercisePickerModal.tsx', 'src/components/FocusSheet.tsx']) {
       expect(read(file), file).toContain('<ExerciseDetailContent exercise={exercise} />');
     }
-  });
-
-  it('görsel zemini iki temada açık', () => {
-    expect(EXERCISE_IMAGE_SURFACE).toBe('#F2F1EC');
   });
 });

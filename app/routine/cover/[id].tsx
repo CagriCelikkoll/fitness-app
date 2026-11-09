@@ -75,6 +75,7 @@ export default function RoutineCoverScreen() {
         {found ? (
           <CoverBody
             routine={found.member.item}
+            displayName={found.member.displayName}
             cover={found.member.cover}
             label={routineCoverLabel(found.member.item.kind, found.group, found.member.dayIndex)}
             exercises={exercises}
@@ -104,6 +105,7 @@ export default function RoutineCoverScreen() {
 
 function CoverBody({
   routine,
+  displayName,
   cover,
   label,
   exercises,
@@ -114,6 +116,7 @@ function CoverBody({
   onDelete,
 }: {
   routine: RoutineCardItem;
+  displayName: string;
   cover: WorkoutCover;
   label: string;
   exercises: RoutineExerciseRow[] | null;
@@ -138,7 +141,7 @@ function CoverBody({
               {label}
             </Text>
             <DisplayName accessibilityRole="header" inset={COVER_PAGE_NAME_INSET} sizes={COVER_PAGE_NAME_SIZES}>
-              {routine.name}
+              {displayName}
             </DisplayName>
             <Text className="text-fg text-sm">{routine.stats}</Text>
           </View>

@@ -89,7 +89,7 @@ export interface ThemeColors extends BasePalette {
   onContext: string;
 }
 
-const INK_DARK = '#0A0A0B';
+const INK_DARK = '#08080A';
 const INK_LIGHT = '#FFFFFF';
 
 export const PALETTES: Record<ColorScheme, BasePalette> = {
@@ -103,11 +103,11 @@ export const PALETTES: Record<ColorScheme, BasePalette> = {
     faint: '#8E8E93',
     warning: '#FF9A3C',
     danger: '#FF5A5A',
-    dangerFg: '#0A0A0B',
+    dangerFg: '#08080A',
     success: '#D7FF3E',
-    successFg: '#0A0A0B',
+    successFg: '#08080A',
     pr: CONTEXT_COLORS.record,
-    prFg: '#0A0A0B',
+    prFg: '#08080A',
   },
   light: {
     bg: '#F2F1EC',
@@ -122,9 +122,9 @@ export const PALETTES: Record<ColorScheme, BasePalette> = {
     danger: '#C62828',
     dangerFg: '#FFFFFF',
     success: '#D7FF3E',
-    successFg: '#0A0A0B',
+    successFg: '#08080A',
     pr: CONTEXT_COLORS.record,
-    prFg: '#0A0A0B',
+    prFg: '#08080A',
   },
 };
 
@@ -236,6 +236,3 @@ export const DARK_COLORS: ThemeColors = buildColors('dark', DINC_ACCENT.dark);
  * zemin üstünde koyu modül bekliyor; koyu temada da afiş beyaz kalır.
  */
 export const QR_COLORS = { dark: '#000000', light: '#FFFFFF' } as const;
-
-/** Katalog çizimlerinin zemini (v4.0b Bölüm 8): çizimler açık renkli, iki temada aynı */
-export const EXERCISE_IMAGE_SURFACE = '#F2F1EC';

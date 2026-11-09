@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   LayoutList,
   ListChecks,
@@ -33,6 +32,7 @@ import {
 } from '@/hooks/usePrograms';
 import { useRoutineActions } from '@/hooks/useRoutineActions';
 import { useRoutineCards } from '@/hooks/useRoutineCards';
+import { useScreenTopInset } from '@/hooks/useSafeBottom';
 import { DarkSurface, useColors, useContextTones } from '@/hooks/useTheme';
 import { useStartRoutine } from '@/hooks/useStartRoutine';
 import {
@@ -65,7 +65,7 @@ export default function WorkoutScreen() {
   const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
-  const insets = useSafeAreaInsets();
+  const topInset = useScreenTopInset();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
   const { start: startRoutine, starting } = useStartRoutine();
@@ -138,9 +138,10 @@ export default function WorkoutScreen() {
         keyExtractor={(member) => member.item.id}
         stickySectionHeadersEnabled={false}
         contentContainerClassName="px-5 gap-3 pb-6"
+        contentContainerStyle={{ paddingTop: topInset + 12 }}
         ListHeaderComponent={
           <View className="gap-3">
-            <View className="flex-row items-center justify-between" style={{ paddingTop: insets.top + 12 }}>
+            <View className="flex-row items-center justify-between">
               <ScreenTitle>Rutinler</ScreenTitle>
               <IconButton
                 icon={Plus}
@@ -172,13 +173,18 @@ export default function WorkoutScreen() {
               />
             ))}
 
-            <Link href="/templates/recommend" asChild>
-              <EntryRow icon={Sparkles} label="Bana program öner" brand />
-            </Link>
+            {/* Boş durumda aynı iki giriş kartın içinde (`ChooseProgramCard`) */}
+            {routineList.length > 0 && (
+              <Link href="/templates/recommend" asChild>
+                <EntryRow icon={Sparkles} label="Bana program öner" brand />
+              </Link>
+            )}
             {showExercisesEntry && <ExercisesEntry />}
-            <Link href="/templates" asChild>
-              <EntryRow icon={LayoutList} label="Hazır programlar" />
-            </Link>
+            {routineList.length > 0 && (
+              <Link href="/templates" asChild>
+                <EntryRow icon={LayoutList} label="Hazır programlar" />
+              </Link>
+            )}
           </View>
         }
         ListEmptyComponent={
@@ -198,6 +204,7 @@ export default function WorkoutScreen() {
         renderItem={({ item: member }: { item: RoutineGroupMember<RoutineCardItem> }) => (
           <RoutineCoverCard
             routine={member.item}
+            displayName={member.displayName}
             cover={member.cover}
             programUpdated={updatedRoutineIds.has(member.item.id)}
             starting={starting}
@@ -289,6 +296,7 @@ function RoutineCoverCard(props: RoutineCoverCardProps) {
 
 interface RoutineCoverCardProps {
   routine: RoutineCardItem;
+  displayName: string;
   cover: WorkoutCover;
   programUpdated: boolean;
   starting: boolean;
@@ -297,7 +305,7 @@ interface RoutineCoverCardProps {
   onMenu: () => void;
 }
 
-function RoutineCoverCardBody({ routine, cover, programUpdated, starting, onOpen, onStart, onMenu }: RoutineCoverCardProps) {
+function RoutineCoverCardBody({ routine, displayName, cover, programUpdated, starting, onOpen, onStart, onMenu }: RoutineCoverCardProps) {
   const tones = useContextTones(routine.color);
   const canStart = routine.exerciseCount > 0 && !starting;
   const label = routineKindLabel(routine.kind);
@@ -305,14 +313,14 @@ function RoutineCoverCardBody({ routine, cover, programUpdated, starting, onOpen
     <Pressable
       onPress={onOpen}
       accessibilityRole="button"
-      accessibilityLabel={`${routine.name}. ${label}. ${routine.line}`}
+      accessibilityLabel={`${displayName}. ${label}. ${routine.line}`}
       className="active:opacity-90"
     >
       <CoverImage cover={cover} variant="card" className="rounded-3xl min-h-[150px] justify-end">
         <View className="p-4 pr-[72px] gap-1">
           <SectionLabel color={routine.color}>{programUpdated ? `${label} · Program güncellendi` : label}</SectionLabel>
           <DisplayName inset={COVER_CARD_NAME_INSET} sizes={COVER_CARD_NAME_SIZES}>
-            {routine.name}
+            {displayName}
           </DisplayName>
           <Text className="text-fg text-[13px]" numberOfLines={1}>
             {routine.line}
@@ -322,7 +330,7 @@ function RoutineCoverCardBody({ routine, cover, programUpdated, starting, onOpen
         <IconButton
           icon={MoreHorizontal}
           variant="ghost"
-          accessibilityLabel={`${routine.name} işlemleri`}
+          accessibilityLabel={`${displayName} işlemleri`}
           onPress={onMenu}
           className="absolute top-2 right-2 bg-bg/60"
         />
@@ -330,7 +338,7 @@ function RoutineCoverCardBody({ routine, cover, programUpdated, starting, onOpen
           onPress={onStart}
           disabled={!canStart}
           accessibilityRole="button"
-          accessibilityLabel={`${routine.name} antrenmanını başlat`}
+          accessibilityLabel={`${displayName} antrenmanını başlat`}
           accessibilityState={{ disabled: !canStart }}
           hitSlop={6}
           className={`absolute bottom-4 right-4 w-12 h-12 rounded-full items-center justify-center active:opacity-80 ${

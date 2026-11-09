@@ -84,7 +84,7 @@ export function PrimaryButton({ color, ...props }: ButtonProps & { color?: Conte
       tone={
         color
           ? { container: '', text: '', iconColor: ctx.onFill, backgroundColor: ctx.fill, textColor: ctx.onFill }
-          : { container: 'bg-accent', text: 'text-accent-fg', iconColor: COLORS.accentFg }
+          : { container: 'bg-accent', text: 'text-accent-fg', iconColor: COLORS.accentFg, textColor: COLORS.accentFg }
       }
     />
   );

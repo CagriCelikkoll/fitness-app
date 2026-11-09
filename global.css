@@ -16,19 +16,19 @@
   --color-muted: 161 161 166;
   --color-faint: 142 142 147;
   --color-accent: 215 255 62;
-  --color-accent-fg: 10 10 11;
+  --color-accent-fg: 8 8 10;
   --color-accent-ink: 215 255 62;
   --color-warning: 255 154 60;
   --color-danger: 255 90 90;
-  --color-danger-fg: 10 10 11;
+  --color-danger-fg: 8 8 10;
   --color-success: 215 255 62;
-  --color-success-fg: 10 10 11;
+  --color-success-fg: 8 8 10;
   --color-pr: 255 200 61;
-  --color-pr-fg: 10 10 11;
+  --color-pr-fg: 8 8 10;
   --color-upper: 46 197 255;
   --color-lower: 255 138 61;
   --color-full: 215 255 62;
   --color-rest: 155 140 255;
   --color-record: 255 200 61;
-  --color-on-context: 10 10 11;
+  --color-on-context: 8 8 10;
 }

@@ -2,8 +2,10 @@
  * Bağlam rengi (v4.0a 1.2) — saf: bir rutinin / antrenmanın rengi kas
  * gruplarından.
  *
- * Setlerin %65'inden fazlası üst vücut kaslarındaysa `upper`, alt vücut
- * kaslarındaysa `lower`, değilse `full`. Karın, core, boyun ve kardiyo
+ * Setlerin %85'inden fazlası üst vücut kaslarındaysa `upper`, alt vücut
+ * kaslarındaysa `lower`, değilse `full` (%65 iken bacak hareketi olan ön /
+ * arka zincir ve full body günleri "üst vücut" çıkıyordu; hazır programlarda
+ * tek bölgeli günler %100, karışık günler en çok %80). Karın, core, boyun ve kardiyo
  * hesaba katılmaz. Bir hareketin birden çok ana kası varsa setleri bunlar
  * arasında eşit bölünür (yalnızca ana kaslar; yardımcılar sayılmaz).
  * Dinlenme her zaman `rest`, rekor her zaman `record` (ekranlar doğrudan).
@@ -27,7 +29,7 @@ export const UPPER_MUSCLES = new Set([
 /** Alt: quadriceps, hamstring, kalça, baldır, adductor / abductor */
 export const LOWER_MUSCLES = new Set(['quadriceps', 'hamstrings', 'glutes', 'calves', 'adductors', 'abductors']);
 
-export const CONTEXT_THRESHOLD = 0.65;
+export const CONTEXT_THRESHOLD = 0.85;
 
 export interface ContextExercise {
   /** Ana kaslar (exercises.primary_muscles; JSON dizi ya da dizi) */

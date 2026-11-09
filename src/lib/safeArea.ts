@@ -27,6 +27,14 @@ function cleanInset(inset: number): number {
   return Number.isFinite(inset) && inset > 0 ? inset : 0;
 }
 
+/**
+ * Başlıksız ekranın üst boşluğu. Android'de inset 0 gelirse (eski cihazlar)
+ * durum çubuğunun kendi yüksekliği: başlık çubuğun altına girmesin.
+ */
+export function screenTopInset(inset: number, statusBarHeight: number | undefined): number {
+  return Math.max(cleanInset(inset), cleanInset(statusBarHeight ?? 0));
+}
+
 /** Yığın ekranının içerik kabına verilecek alt boşluk */
 export function screenBottomInset(route: string, inset: number, keyboardVisible: boolean): number {
   if (keyboardVisible || SELF_INSET_ROUTES.includes(route)) return 0;

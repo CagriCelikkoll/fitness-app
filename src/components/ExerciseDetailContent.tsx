@@ -20,7 +20,7 @@ import { Image } from 'expo-image';
 import { Play } from 'lucide-react-native';
 
 import { exerciseDisplayName, exerciseOriginalName } from '@/lib/exerciseCatalog';
-import { useColors, useTheme } from '@/hooks/useTheme';
+import { useColors } from '@/hooks/useTheme';
 import type { Exercise } from '@/db/schema';
 import { EXERCISE_IMAGE_CACHE, getExerciseImageUrls } from '@/lib/exerciseImage';
 import {
@@ -37,7 +37,6 @@ import {
 } from '@/lib/exerciseTaxonomy';
 import { exerciseHighlight } from '@/lib/muscleMap';
 import { youtubeSearchUrl } from '@/lib/youtube';
-import { EXERCISE_IMAGE_SURFACE, imageFrameClass } from '@/theme';
 import {
   Card,
   Chip,
@@ -137,7 +136,7 @@ export function ExerciseMuscles({ exercise }: { exercise: Exercise }) {
 }
 
 /** Video araması + talimatlar */
-export function ExerciseHowTo({ exercise }: { exercise: Exercise }) {
+export function ExerciseHowTo({ exercise, showTitle = true }: { exercise: Exercise; showTitle?: boolean }) {
   const resolved = resolveInstructions(exercise.id, exercise.instructions);
   // Hareket id'sine bağlı: seçicide başka harekete geçince Türkçeye döner
   const [originalFor, setOriginalFor] = useState<string | null>(null);
@@ -154,7 +153,7 @@ export function ExerciseHowTo({ exercise }: { exercise: Exercise }) {
 
   return (
     <>
-      <SectionHeader title="Nasıl Yapılır" className="mt-4" />
+      {showTitle && <SectionHeader title="Nasıl Yapılır" className="mt-4" />}
       <SecondaryButton label="Videolu anlatım" icon={Play} iconFill onPress={openVideo} />
       {instructions.length > 0 && (
         <Card className="gap-4">
@@ -206,18 +205,15 @@ const CROSSFADE_MS = 250;
  *   açıksa eski yan yana görünüm.
  * - Tek görselde de eski görünüm (tek kutu).
  * - Kutuya basınca duraklıyor / devam ediyor.
- * - `light` (tam ekran detay, v4.0b Bölüm 8): iki temada da açık zeminli kart,
- *   çizim kırpılmadan sığar.
+ *
+ * Görseller kartı doldurur (`cover`): fotoğraflar kartla aynı oranda değil,
+ * `contain` üstte ve altta zemin şeridi bırakıyor.
  *
  * Yalnızca detay içeriğinde kullanılıyor; liste küçük resimleri sabit.
  */
-export function ExerciseImages({ urls, light = false }: { urls: string[]; light?: boolean }) {
+export function ExerciseImages({ urls }: { urls: string[] }) {
   const COLORS = useColors();
-  const { scheme } = useTheme();
   const canAnimate = urls.length >= 2;
-  const frameClass = light ? imageFrameClass(scheme) : 'bg-bg-surface border border-border';
-  const frameStyle = light ? { backgroundColor: EXERCISE_IMAGE_SURFACE } : undefined;
-  const contentFit = light ? 'contain' : 'cover';
 
   // null: henüz okunmadı. Okunana kadar eski görünüm.
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -292,13 +288,12 @@ export function ExerciseImages({ urls, light = false }: { urls: string[]; light?
         {urls.map((url, idx) => (
           <View
             key={idx}
-            className={`flex-1 rounded-3xl overflow-hidden aspect-square ${frameClass}`}
-            style={frameStyle}
+            className="flex-1 bg-bg-surface border border-border rounded-3xl overflow-hidden aspect-square"
           >
             <Image
               source={{ uri: url }}
               style={{ width: '100%', height: '100%' }}
-              contentFit={contentFit}
+              contentFit="cover"
               cachePolicy={EXERCISE_IMAGE_CACHE}
             />
           </View>
@@ -317,20 +312,20 @@ export function ExerciseImages({ urls, light = false }: { urls: string[]; light?
       accessibilityLabel={
         paused ? 'Hareket animasyonunu oynat' : 'Hareket animasyonunu durdur'
       }
-      className={`rounded-3xl overflow-hidden active:opacity-80 ${frameClass}`}
-      style={[{ aspectRatio: 4 / 3 }, frameStyle]}
+      className="bg-bg-surface border border-border rounded-3xl overflow-hidden active:opacity-80"
+      style={{ aspectRatio: 4 / 3 }}
     >
       <Image
         source={{ uri: urls[0] }}
         style={StyleSheet.absoluteFill}
-        contentFit={contentFit}
+        contentFit="cover"
         cachePolicy={EXERCISE_IMAGE_CACHE}
       />
       <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
         <Image
           source={{ uri: urls[1] }}
           style={StyleSheet.absoluteFill}
-          contentFit={contentFit}
+          contentFit="cover"
           cachePolicy={EXERCISE_IMAGE_CACHE}
         />
       </Animated.View>

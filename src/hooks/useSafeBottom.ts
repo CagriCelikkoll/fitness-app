@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Keyboard } from 'react-native';
+import { Keyboard, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { floatingTabBarLayout, screenBottomInset, sheetBottomPadding } from '@/lib/safeArea';
+import { floatingTabBarLayout, screenBottomInset, screenTopInset, sheetBottomPadding } from '@/lib/safeArea';
 
 /**
  * Alt güvenli alan kancaları (v3.6e). Kurallar `src/lib/safeArea.ts`'te.
@@ -36,7 +36,7 @@ export function useScreenBottomInset(): (route: string) => number {
  * çubuğunun altı. Yalnızca üst; alt boşluk yine kökten.
  */
 export function useScreenTopInset(): number {
-  return useSafeAreaInsets().top;
+  return screenTopInset(useSafeAreaInsets().top, StatusBar.currentHeight);
 }
 
 /** Alttan açılan sayfanın (Modal) alt boşluğu */

@@ -10,19 +10,19 @@ const ex = (primaryMuscles: string[] | string, sets: number, category = 'strengt
 
 describe('bağlam rengi (v4.0a 1.2)', () => {
   it('üst vücut ağırlıklı → upper', () => {
-    expect(contextColorFor([ex(['chest'], 4), ex(['lats'], 4), ex(['biceps'], 3), ex(['quadriceps'], 2)])).toBe('upper');
+    expect(contextColorFor([ex(['chest'], 4), ex(['lats'], 4), ex(['biceps'], 3), ex(['quadriceps'], 1)])).toBe('upper');
   });
 
   it('alt vücut ağırlıklı → lower', () => {
-    expect(contextColorFor([ex(['quadriceps'], 4), ex(['hamstrings'], 4), ex(['calves'], 3), ex(['shoulders'], 2)])).toBe('lower');
+    expect(contextColorFor([ex(['quadriceps'], 4), ex(['hamstrings'], 4), ex(['calves'], 3), ex(['shoulders'], 1)])).toBe('lower');
   });
 
-  it('karışık → full; eşik %65 (tam %65 yetmez)', () => {
+  it('karışık → full; eşik %85 (tam %85 yetmez)', () => {
     expect(contextColorFor([ex(['chest'], 3), ex(['glutes'], 3)])).toBe('full');
-    // 13 / 20 = 0.65 → full
-    expect(contextColorFor([ex(['chest'], 13), ex(['glutes'], 7)])).toBe('full');
-    // 14 / 20 = 0.70 → upper
-    expect(contextColorFor([ex(['chest'], 14), ex(['glutes'], 6)])).toBe('upper');
+    // 17 / 20 = 0.85 → full
+    expect(contextColorFor([ex(['chest'], 17), ex(['glutes'], 3)])).toBe('full');
+    // 18 / 20 = 0.90 → upper
+    expect(contextColorFor([ex(['chest'], 18), ex(['glutes'], 2)])).toBe('upper');
   });
 
   it('karın, core ve kardiyo hesaba katılmaz', () => {
