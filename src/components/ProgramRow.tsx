@@ -1,4 +1,4 @@
-import { Text } from 'react-native';
+import { Text } from '@/components/ui/Text';
 
 import { programSummary, type GymProgram } from '@/lib/programs';
 import { trainerTitle } from '@/lib/trainers';

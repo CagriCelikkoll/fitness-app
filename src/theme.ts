@@ -1,13 +1,19 @@
 /**
- * Renk paletleri ve token'lar — tek doğruluk kaynağı (v3.5).
+ * Renk paletleri ve token'lar — tek doğruluk kaynağı (v3.5, değerler v4.0a).
  *
- * İki katman:
+ * Üç katman:
  * - Tema (açık / koyu): zemin, yüzey, metin, kenarlık ve anlamsal renkler
  *   (başarı, tehlike, uyarı, rekor). Salon renginden bağımsız.
- * - Vurgu: Dinç limonu ya da salonun rengi. Her tema için üç ton:
+ * - Vurgu (brand): Dinç neonu ya da salonun rengi. Her tema için üç ton:
  *   `fill` (dolgu: birincil düğme, seçili çip), `onFill` (dolgu üstündeki
- *   metin), `ink` (zemin üstünde metin / ikon / grafik / kenarlık).
- *   Koyu temada limonun üçü de bugünkü değerler.
+ *   metin), `ink` (zemin üstünde metin / ikon / grafik / kenarlık). Açık
+ *   temada neon yazı olamaz: `ink` = brandText (#4A6400).
+ * - Bağlam renkleri (v4.0a): üst vücut, alt vücut, full body, dinlenme,
+ *   rekor. İki temada aynı ton; açık temada yalnızca dolgu (`contextTones`).
+ *
+ * v4.0a token adları ↔ buradaki adlar (sınıf adları değişmesin diye):
+ * surface2 = `elevated`, line = `border`, textMuted = `muted`,
+ * textFaint = `faint`, brand = `accentFill`, brandText = `accent` (ink).
  *
  * Kullanım:
  * - NativeWind sınıfları CSS değişkenlerinden (`cssVariables`, kökte
@@ -29,16 +35,17 @@ export type ColorScheme = 'light' | 'dark';
 export interface BasePalette {
   bg: string; // zemin
   surface: string; // kart
-  elevated: string; // kart içi kart, input, basılı durum
-  border: string; // ince ayraç
+  elevated: string; // surface2: kart içi buton, input, basılı durum
+  border: string; // line: kart kenarlığı, ince ayraç
   text: string;
-  muted: string; // ikincil metin
+  muted: string; // textMuted: ikincil metin
+  faint: string; // textFaint: en soluk metin (bundan açık metin yok)
   warning: string; // uyarı metni, kardiyo
   danger: string; // sil, hata
   dangerFg: string; // tehlike dolgusu üstündeki metin
   success: string; // tamamlanan set dolgusu
   successFg: string;
-  pr: string; // rekor rozeti dolgusu
+  pr: string; // rekor rozeti dolgusu (= bağlam rengi record)
   prFg: string;
 }
 
@@ -48,68 +55,102 @@ export interface AccentTones {
   ink: string;
 }
 
+/** Bağlam (v4.0a 1.1): antrenmanın / ekranın anlamı */
+export type ContextKind = 'upper' | 'lower' | 'full' | 'rest' | 'record';
+
+/** Bağlam renkleri; iki temada aynı ton */
+export const CONTEXT_COLORS: Record<ContextKind, string> = {
+  upper: '#2EC5FF',
+  lower: '#FF8A3D',
+  full: '#D7FF3E',
+  rest: '#9B8CFF',
+  record: '#FFC83D',
+};
+
 /** Ekranların kullandığı düz renk nesnesi (`useColors()`) */
 export interface ThemeColors extends BasePalette {
-  /** Zemin üstünde vurgu: metin, ikon, grafik, kenarlık */
+  /** Zemin üstünde vurgu: metin, ikon, grafik, kenarlık (brandText) */
   accent: string;
-  /** Vurgu dolgusu: birincil düğme, Switch izi, seçili çip */
+  /** Vurgu dolgusu: birincil düğme, Switch izi, seçili çip (brand) */
   accentFill: string;
-  /** Vurgu dolgusu üstündeki metin / ikon */
+  /** Vurgu dolgusu üstündeki metin / ikon (onBrand) */
   accentFg: string;
   /** Kardiyo (eski adı; `warning` ile aynı) */
   warm: string;
   /** Soluk ikon / devre dışı öğe (ör. sınırdaki gezinme okları) */
   disabledIcon: string;
+  /** Bağlam renkleri (dolgu, ışık, çentik, çubuk) */
+  upper: string;
+  lower: string;
+  full: string;
+  rest: string;
+  record: string;
+  /** Bağlam dolgusu üstündeki yazı */
+  onContext: string;
 }
 
-const INK_DARK = '#0A0A0B';
+const INK_DARK = '#08080A';
 const INK_LIGHT = '#FFFFFF';
 
 export const PALETTES: Record<ColorScheme, BasePalette> = {
-  // Bugünkü görünüm; değerler değişmez
   dark: {
-    bg: '#0A0A0B',
-    surface: '#141416',
-    elevated: '#1E1E21',
-    border: '#2A2A2F',
-    text: '#FAFAFA',
-    muted: '#8A8A90',
+    bg: '#08080A',
+    surface: '#121216',
+    elevated: '#1E1E24',
+    border: '#24242A',
+    text: '#F2F2F0',
+    muted: '#A1A1A6',
+    faint: '#8E8E93',
     warning: '#FF9A3C',
     danger: '#FF5A5A',
-    dangerFg: '#0A0A0B',
+    dangerFg: '#08080A',
     success: '#D7FF3E',
-    successFg: '#0A0A0B',
-    pr: '#D7FF3E',
-    prFg: '#0A0A0B',
+    successFg: '#08080A',
+    pr: CONTEXT_COLORS.record,
+    prFg: '#08080A',
   },
   light: {
-    bg: '#F4F4F5',
+    bg: '#F2F1EC',
     surface: '#FFFFFF',
-    elevated: '#EBEBEE',
-    border: '#D4D4D9',
-    text: '#0A0A0B',
-    muted: '#5C5C63',
+    elevated: '#F2F1EC',
+    border: '#E3E1D9',
+    text: '#16161A',
+    muted: '#5E5E66',
+    // Spec açık tema için textFaint vermiyor: zeminlerde ≥ 4.5 kalan en açık ton
+    faint: '#66666E',
     warning: '#9A4A0A',
     danger: '#C62828',
     dangerFg: '#FFFFFF',
     success: '#D7FF3E',
-    successFg: '#0A0A0B',
-    pr: '#D7FF3E',
-    prFg: '#0A0A0B',
+    successFg: '#08080A',
+    pr: CONTEXT_COLORS.record,
+    prFg: '#08080A',
   },
 };
 
-/** Dinç vurgusu. Açık temada limon metin olarak okunmaz: koyu zeytin. */
+/** Dinç neonu (brand). Açık temada neon yazı olamaz: brandText. */
 export const DINC_LIME = '#D7FF3E';
+export const BRAND_TEXT_LIGHT = '#4A6400';
 export const DINC_ACCENT: Record<ColorScheme, AccentTones> = {
   dark: { fill: DINC_LIME, onFill: INK_DARK, ink: DINC_LIME },
-  light: { fill: DINC_LIME, onFill: INK_DARK, ink: '#4D6B00' },
+  light: { fill: DINC_LIME, onFill: INK_DARK, ink: BRAND_TEXT_LIGHT },
 };
 
 /** Metnin okunması gereken zeminler */
 export function textBackgrounds(scheme: ColorScheme): string[] {
   const p = PALETTES[scheme];
   return [p.bg, p.surface, p.elevated];
+}
+
+/**
+ * Bağlam renginin bu temadaki tonları. Dolgu her temada rengin kendisi
+ * (üstünde koyu yazı); `ink` (zemin üstünde yazı / ikon) koyu temada renk,
+ * açık temada ana metin rengi (1.1: bağlam renkleri açık temada yazı
+ * rengi olmaz). Işık (`Glow`) açık temada yok.
+ */
+export function contextTones(kind: ContextKind, scheme: ColorScheme): AccentTones {
+  const fill = CONTEXT_COLORS[kind];
+  return { fill, onFill: INK_DARK, ink: scheme === 'dark' ? fill : PALETTES.light.text };
 }
 
 /**
@@ -144,6 +185,8 @@ export function buildColors(scheme: ColorScheme, accent: AccentTones): ThemeColo
     accentFg: accent.onFill,
     warm: p.warning,
     disabledIcon: p.border,
+    ...CONTEXT_COLORS,
+    onContext: INK_DARK,
   };
 }
 
@@ -156,6 +199,7 @@ export function cssVariables(colors: ThemeColors): Record<`--${string}`, string>
     '--color-border': hexToRgbChannels(colors.border),
     '--color-text': hexToRgbChannels(colors.text),
     '--color-muted': hexToRgbChannels(colors.muted),
+    '--color-faint': hexToRgbChannels(colors.faint),
     '--color-accent': hexToRgbChannels(colors.accentFill),
     '--color-accent-fg': hexToRgbChannels(colors.accentFg),
     '--color-accent-ink': hexToRgbChannels(colors.accent),
@@ -166,6 +210,12 @@ export function cssVariables(colors: ThemeColors): Record<`--${string}`, string>
     '--color-success-fg': hexToRgbChannels(colors.successFg),
     '--color-pr': hexToRgbChannels(colors.pr),
     '--color-pr-fg': hexToRgbChannels(colors.prFg),
+    '--color-upper': hexToRgbChannels(colors.upper),
+    '--color-lower': hexToRgbChannels(colors.lower),
+    '--color-full': hexToRgbChannels(colors.full),
+    '--color-rest': hexToRgbChannels(colors.rest),
+    '--color-record': hexToRgbChannels(colors.record),
+    '--color-on-context': hexToRgbChannels(colors.onContext),
   };
 }
 

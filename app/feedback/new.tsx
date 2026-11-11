@@ -6,7 +6,8 @@
  */
 
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { CircleCheck, ImagePlus, X } from 'lucide-react-native';
@@ -111,7 +112,7 @@ export default function NewFeedbackScreen() {
         </Text>
 
         <Card className="gap-3">
-          <Text className="text-muted text-xs uppercase tracking-widest">Konu</Text>
+          <Text className="text-muted text-[13px]">Konu</Text>
           <View className="flex-row flex-wrap gap-2">
             {FEEDBACK_CATEGORIES.map((c) => (
               <Chip key={c.key} label={c.label} active={category === c.key} onPress={() => setCategory(c.key)} />

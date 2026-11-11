@@ -130,7 +130,7 @@ export function shouldExplainPushPermission(granted: boolean, asked: boolean): b
 
 export const PUSH_PERMISSION_TEXT = {
   title: 'Bildirimlere izin verelim mi?',
-  body: 'Salonundan yeni duyuru geldiğinde ve katılacağın ders iptal edildiğinde ya da değiştiğinde haber verelim. Ayarlar → Antrenman tercihleri’nden kapatabilirsin.',
+  body: 'Salonundan yeni duyuru geldiğinde ve katılacağın ders iptal edildiğinde ya da değiştiğinde haber verelim. Profil → Bildirimler’den kapatabilirsin.',
   later: 'Şimdi değil',
   allow: 'İzin ver',
 } as const;

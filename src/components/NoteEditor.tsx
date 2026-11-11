@@ -14,7 +14,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, TextInput, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { NotebookPen } from 'lucide-react-native';
 import { useColors } from '@/hooks/useTheme';
 

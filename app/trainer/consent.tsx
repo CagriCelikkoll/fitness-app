@@ -12,7 +12,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { UserRound } from 'lucide-react-native';
 
@@ -76,7 +77,7 @@ export default function TrainerConsentScreen() {
     }
     await refresh();
     if (accept) {
-      Alert.alert('İzin verildi', `${trainerTitle(link.trainerName)} artık devamını görebilir. İzni Ayarlar → Hocalarım'dan geri alabilirsin.`);
+      Alert.alert('İzin verildi', `${trainerTitle(link.trainerName)} artık devamını görebilir. İzni Profil → Gizlilik ve hesap → Hocalarım'dan geri alabilirsin.`);
     }
     close();
   };

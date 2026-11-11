@@ -18,5 +18,13 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
     environment: 'node',
+    // Kararlılık (v4.0a): varsayılan işçi sayısı (çekirdek − 1 = 15) Windows'ta
+    // diski ve CPU'yu tıkıyordu; tek başına 30 ms süren dosya taramaları ve
+    // eşitleme testleri tam koşuda 5–16 sn'ye çıkıp rastgele zaman aşımına
+    // düşüyordu (her koşuda başka bir test). Yarı çekirdekle tam koşu hem
+    // daha hızlı hem kararlı. Süre sınırı da yük dalgalanmasına pay olarak
+    // 15 sn (asılı kalan test yine yakalanır; en yavaş test ~2,5 sn).
+    maxWorkers: '50%',
+    testTimeout: 15_000,
   },
 });

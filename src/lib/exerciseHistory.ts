@@ -16,6 +16,7 @@ import {
   sessionExercises,
   sets,
   workoutSessions,
+  type Exercise,
 } from '@/db/schema';
 import {
   buildSessionPoints,
@@ -85,6 +86,30 @@ export async function getPreviousBestE1rm(
     if (e1rm != null && (best == null || e1rm > best)) best = e1rm;
   }
   return best;
+}
+
+export interface RecentlyUsedExercise {
+  exercise: Exercise;
+  /** Bütün sayılan setlerdeki en yüksek ağırlık; ağırlıksızsa null */
+  bestWeightKg: number | null;
+}
+
+/** Hareketler listesindeki "Son kullandıkların": en son çalışılan önce */
+export async function getRecentlyUsedExercises(db: Db, limit: number): Promise<RecentlyUsedExercise[]> {
+  const lastDate = sql<string>`max(${workoutSessions.startedAt})`;
+  return db
+    .select({
+      exercise: exercises,
+      bestWeightKg: sql<number | null>`max(${sets.weightKg})`,
+    })
+    .from(sets)
+    .innerJoin(sessionExercises, eq(sets.sessionExerciseId, sessionExercises.id))
+    .innerJoin(workoutSessions, eq(sessionExercises.sessionId, workoutSessions.id))
+    .innerJoin(exercises, eq(sessionExercises.exerciseId, exercises.id))
+    .where(and(...countedSetConditions(), eq(exercises.isArchived, false)))
+    .groupBy(exercises.id)
+    .orderBy(desc(lastDate))
+    .limit(limit);
 }
 
 export interface RecentExerciseRecords {

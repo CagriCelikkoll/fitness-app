@@ -1,33 +1,33 @@
 /**
- * İlerleme sekmesi — vücut ölçümleri.
+ * İlerleme sekmesi (v4.0a Bölüm 4).
  *
- * Yukarıdan aşağıya: güncel durum, türetilmiş metrikler, 90 günlük
- * ağırlık grafiği, haftalık hacim, haftalık kas haritası, rekorlar,
- * ölçüm geçmişi. Profil (boy/doğum tarihi/cinsiyet)
- * artık Ayarlar sekmesinde; burada yalnızca eksikse oraya yönlendiren
- * bir satır görünüyor.
- *
- * Bilinçli olarak yalnızca ölçüm ve hesap gösteriliyor; hedef kilo,
- * kalori açığı gibi yönlendirmeler yok.
+ * Yukarıdan aşağıya: "İLERLEME" + Hafta / Ay / Yıl; 2×2 kart (toplam hacim,
+ * antrenman günü, süre, rekor; seçili kart renkle dolu ve grafiği belirler);
+ * seçili metriğin çubuk grafiği; "Bu hafta kas başına set" (→ Kas haritası);
+ * egzersiz rekorları (tahmini 1RM, egzersiz grafiğine gider); vücut ölçüleri
+ * (açık rızayla); en altta antrenman takvimi. Hesaplar `src/lib/progressStats.ts`.
  *
  * Vücut ölçüsü kartları açık rızaya bağlı (bkz. `consent.ts`); rıza yokken
- * yerlerinde rıza kartı, antrenman kartları (hacim, kas haritası, rekorlar)
- * her zaman görünür.
+ * yerlerinde rıza kartı. Bilinçli olarak yalnızca ölçüm ve hesap gösteriliyor;
+ * hedef kilo, kalori açığı gibi yönlendirmeler yok.
  */
 
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, isNotNull } from 'drizzle-orm';
+import { WorkoutCalendar } from '@/components/WorkoutCalendar';
 import { ChevronRight, Plus, Settings as SettingsIcon } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exerciseDisplayName } from '@/lib/exerciseCatalog';
 import { useHealthConsent } from '@/hooks/useHealthConsent';
-import { useColors } from '@/hooks/useTheme';
+import { useScreenTopInset } from '@/hooks/useSafeBottom';
+import { useColors, useContextTones } from '@/hooks/useTheme';
 import { ConsentCard } from '@/components/ConsentCard';
-import { appSettings, bodyMetrics, type BodyMetric } from '@/db/schema';
+import { appSettings, bodyMetrics, workoutSessions, type BodyMetric } from '@/db/schema';
 import {
   bmiCategory,
   calculateAge,
@@ -41,21 +41,26 @@ import {
   formatDecimal,
   formatShortDate,
   formatSignedKg,
-  formatVolume,
   toDateKey,
 } from '@/lib/format';
 import { muscleLabel } from '@/lib/exerciseTaxonomy';
-import { muscleVolume, volumeHighlight } from '@/lib/muscleMap';
+import { muscleVolume } from '@/lib/muscleMap';
 import {
   getRecentExerciseRecords,
   type RecentExerciseRecords,
 } from '@/lib/exerciseHistory';
 import {
-  dateKeyToLocalDate,
-  getWeeklyVolume,
-  WEEKLY_VOLUME_WEEKS,
-  type WeekVolume,
-} from '@/lib/weeklyVolume';
+  METRIC_COLORS,
+  PROGRESS_PERIODS,
+  loadProgressData,
+  muscleBars,
+  progressChart,
+  progressStats,
+  type MuscleBar,
+  type ProgressData,
+  type ProgressMetric,
+  type ProgressPeriod,
+} from '@/lib/progressStats';
 import {
   toMuscleSets,
   weeklyMuscleSetsQuery,
@@ -63,14 +68,15 @@ import {
 } from '@/lib/weeklyMuscles';
 import {
   Card,
-  EmptyState,
+  Glow,
   ListRow,
   SectionHeader,
+  StatCard,
   StatTile,
 } from '@/components/ui';
+import { upperTr } from '@/lib/typography';
 import { BarChart } from '@/components/BarChart';
 import { LineChart } from '@/components/LineChart';
-import { MuscleMap } from '@/components/MuscleMap';
 
 interface Profile {
   heightCm: number | null;
@@ -82,6 +88,9 @@ export default function ProgressScreen() {
   const COLORS = useColors();
   const db = useDb();
   const consent = useHealthConsent();
+  const topInset = useScreenTopInset();
+  const [period, setPeriod] = useState<ProgressPeriod>('week');
+  const [metric, setMetric] = useState<ProgressMetric>('volume');
 
   const { data: settingsRows, updatedAt: settingsLoadedAt } = useLiveQuery(
     db.select().from(appSettings).where(eq(appSettings.id, 1)).limit(1)
@@ -113,12 +122,35 @@ export default function ProgressScreen() {
 
   return (
     <View className="flex-1 bg-bg">
-      <ScrollView contentContainerClassName="px-5 pt-4 gap-3 pb-28">
+      <Glow color={METRIC_COLORS[metric]} />
+      <ScrollView
+        contentContainerStyle={{ paddingTop: topInset + 20 }}
+        contentContainerClassName="px-5 gap-3 pb-28"
+      >
+        <View className="flex-row items-center gap-3 mb-2">
+          <View className="flex-1">
+            <Text
+              accessibilityRole="header"
+              className="font-display text-fg text-[32px] leading-[38px]"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {upperTr('İlerleme')}
+            </Text>
+          </View>
+          <PeriodPicker value={period} onChange={setPeriod} />
+        </View>
+
+        <ProgressOverview period={period} metric={metric} onMetric={setMetric} />
+        <MuscleSetsCard />
+        <RecordsCard />
+
         {/* v2.2: vücut ölçüleri (güncel kilo, VKİ / bel-boy / bazal
             metabolizma, grafik, geçmiş) yalnızca açık rızayla. Rıza
-            yokken yerine tek rıza kartı; antrenman kartları her zaman. */}
+            yokken yerine tek rıza kartı. */}
         {consent.granted ? (
           <>
+            <SectionHeader title="Vücut ölçüleri" className="mt-4" />
             <CurrentCard withWeight={withWeight} />
             <ProfileHint profile={profile} />
             <DerivedMetricsCard
@@ -127,6 +159,7 @@ export default function ProgressScreen() {
               withWeight={withWeight}
             />
             <WeightChartCard withWeight={withWeight} />
+            <HistoryCard metrics={metrics} />
           </>
         ) : (
           consent.state != null && (
@@ -135,21 +168,69 @@ export default function ProgressScreen() {
             />
           )
         )}
-        <WeeklyVolumeCard />
-        <WeeklyMusclesCard />
-        <RecordsCard />
-        {consent.granted && <HistoryCard metrics={metrics} />}
+        {/* v4.0a: antrenman takvimi ana sayfadan buraya taşındı (en altta) */}
+        <CalendarCard />
       </ScrollView>
 
       {consent.granted && (
         <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
-          <Pressable className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ölçüm ekle"
+            className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80"
+          >
             <Plus color={COLORS.accentFg} size={26} strokeWidth={2.5} />
           </Pressable>
         </Link>
       )}
     </View>
   );
+}
+
+/** Hafta / Ay / Yıl: tek seçimli, her biri ≥44 dokunma alanı */
+function PeriodPicker({ value, onChange }: { value: ProgressPeriod; onChange: (p: ProgressPeriod) => void }) {
+  return (
+    <View accessibilityRole="radiogroup" className="flex-row bg-bg-surface border border-border rounded-2xl p-1">
+      {PROGRESS_PERIODS.map((p) => {
+        const selected = p.key === value;
+        return (
+          <Pressable
+            key={p.key}
+            onPress={() => onChange(p.key)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={p.label}
+            className={`min-h-[44px] px-3 rounded-xl items-center justify-center ${
+              selected ? 'bg-accent' : 'active:opacity-70'
+            }`}
+          >
+            <Text className={`text-[13px] font-semibold ${selected ? 'text-accent-fg' : 'text-muted'}`}>
+              {p.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Antrenman takvimi (ısı haritası): bitmiş seanslar, join yok → canlı sorgu */
+function CalendarCard() {
+  const db = useDb();
+  const { data } = useLiveQuery(
+    db
+      .select({
+        id: workoutSessions.id,
+        name: workoutSessions.name,
+        startedAt: workoutSessions.startedAt,
+        endedAt: workoutSessions.endedAt,
+        durationSeconds: workoutSessions.durationSeconds,
+      })
+      .from(workoutSessions)
+      .where(isNotNull(workoutSessions.endedAt))
+  );
+  const sessions = data ?? [];
+  return <WorkoutCalendar sessions={sessions} totalCount={sessions.length} />;
 }
 
 // ============================================================================
@@ -165,11 +246,11 @@ function ProfileHint({ profile }: { profile: Profile }) {
   if (profile.heightCm != null && profile.birthDate != null) return null;
 
   return (
-    <Link href="/(tabs)/settings" asChild>
+    <Link href={{ pathname: '/settings/[group]', params: { group: 'body' } }} asChild>
       <Card className="flex-row items-center py-4">
         <SettingsIcon color={COLORS.muted} size={18} strokeWidth={1.75} />
         <Text className="text-fg text-sm flex-1 ml-3">
-          Hesaplamalar için profil bilgilerini Ayarlar'dan gir
+          Hesaplamalar için vücut bilgilerini Profil'den gir
         </Text>
         <ChevronRight color={COLORS.muted} size={18} />
       </Card>
@@ -241,7 +322,7 @@ function DerivedMetricsCard({
   const { heightCm, birthDate, gender } = profile;
   const age = birthDate ? calculateAge(birthDate) : null;
 
-  const missingHeight = 'Hesaplamak için Ayarlar sekmesinde boyunu gir';
+  const missingHeight = 'Hesaplamak için Profil → Vücut bilgileri’nde boyunu gir';
   const missingWeight = 'Hesaplamak için bir ağırlık ölçümü ekle';
 
   // VKİ
@@ -286,12 +367,12 @@ function DerivedMetricsCard({
   else if (age == null) {
     bmr = {
       label: bmrLabel,
-      hint: 'Hesaplamak için Ayarlar sekmesinde doğum tarihini gir',
+      hint: 'Hesaplamak için Profil → Vücut bilgileri’nde doğum tarihini gir',
     };
   } else if (gender == null) {
     bmr = {
       label: bmrLabel,
-      hint: 'Hesaplamak için Ayarlar sekmesinde cinsiyet seç',
+      hint: 'Hesaplamak için Profil → Vücut bilgileri’nde cinsiyet seç',
     };
   } else {
     const value = calculateBmr(latestWeight.weightKg, heightCm, age, gender);
@@ -351,7 +432,7 @@ interface MetricRowProps {
 function MetricRow({ label, value, detail, note, hint }: MetricRowProps) {
   return (
     <Card className="flex-1 p-4">
-      <Text className="text-muted text-[11px] uppercase tracking-widest">
+      <Text className="text-muted text-[13px]">
         {label}
       </Text>
       {value != null && (
@@ -391,7 +472,7 @@ function WeightChartCard({
   const points = withWeight.filter((m) => m.date >= cutoff).reverse();
 
   const header = (
-    <Text className="text-muted text-xs uppercase tracking-widest">
+    <Text className="text-muted text-[13px]">
       Ağırlık — son 90 gün
     </Text>
   );
@@ -416,28 +497,32 @@ function WeightChartCard({
 }
 
 // ============================================================================
-// e) Haftalık hacim (son 12 hafta)
+// e) 2×2 kart + seçili metriğin grafiği
 // ============================================================================
 
-/** "2026-09-21" → "21 Eyl" */
-function weekLabel(weekStart: string): string {
-  return formatShortDate(dateKeyToLocalDate(weekStart).toISOString());
-}
-
 /**
- * Pazartesi başlayan haftalarda toplam hacim. Boş haftalar 0 (boşluk
- * bilgi taşıyor); içinde bulunulan hafta soluk tonda. Join'li sorgu —
- * her odaklanmada okunuyor. Pencerede hiç hacim yoksa kart görünmüyor.
+ * Join'li okuma, her odaklanmada (antrenman bitince sekmeye dönüşte güncel).
+ * Dönem / metrik değişince yeniden okumaz, yalnızca hesaplar.
  */
-function WeeklyVolumeCard() {
+function ProgressOverview({
+  period,
+  metric,
+  onMetric,
+}: {
+  period: ProgressPeriod;
+  metric: ProgressMetric;
+  onMetric: (m: ProgressMetric) => void;
+}) {
   const db = useDb();
-  const [weeks, setWeeks] = useState<WeekVolume[] | null>(null);
+  const [data, setData] = useState<ProgressData | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getWeeklyVolume(db, new Date()).then((result) => {
-        if (active) setWeeks(result);
+      setNow(new Date());
+      loadProgressData(db).then((d) => {
+        if (active) setData(d);
       });
       return () => {
         active = false;
@@ -445,61 +530,80 @@ function WeeklyVolumeCard() {
     }, [db])
   );
 
-  if (!weeks || weeks.every((w) => w.volume === 0)) return null;
+  const stats = useMemo(() => (data ? progressStats(data, period, now) : null), [data, period, now]);
+  const chart = useMemo(
+    () => (data ? progressChart(data, metric, period, now) : null),
+    [data, metric, period, now]
+  );
 
-  const current = weeks[weeks.length - 1]!;
+  if (!stats || !chart) return <View style={{ height: 320 }} />;
 
   return (
-    <View className="gap-3">
-      <SectionHeader
-        title="Haftalık Hacim"
-        description={`Son ${WEEKLY_VOLUME_WEEKS} hafta`}
-        className="mt-4"
-      />
-      <Card className="gap-4">
-        <View>
-          <Text className="text-muted text-xs uppercase tracking-widest">
-            Bu hafta
-          </Text>
-          <Text className="text-fg text-4xl font-bold tabular-nums tracking-tight mt-2">
-            {formatVolume(current.volume)}
-          </Text>
-        </View>
+    <>
+      <View className="flex-row flex-wrap justify-between gap-y-3">
+        {stats.map((s) => (
+          <StatCard
+            key={s.metric}
+            className="w-[48.5%]"
+            label={s.label}
+            value={s.value}
+            unit={s.unit}
+            footnote={s.footnote}
+            color={METRIC_COLORS[s.metric]}
+            selected={s.metric === metric}
+            onPress={() => onMetric(s.metric)}
+            accessibilityLabel={`${s.accessibilityLabel}. Grafikte göster`}
+          />
+        ))}
+      </View>
+      <ChartCard chart={chart} metric={metric} />
+    </>
+  );
+}
+
+function ChartCard({ chart, metric }: { chart: ReturnType<typeof progressChart>; metric: ProgressMetric }) {
+  const tones = useContextTones(METRIC_COLORS[metric]);
+  const last = chart.bars[chart.bars.length - 1]!;
+  return (
+    <Card className="gap-4">
+      <View className="flex-row items-baseline justify-between">
+        <Text className="text-fg text-base font-semibold">{chart.title}</Text>
+        <Text className="text-muted text-[13px]">{chart.subtitle}</Text>
+      </View>
+      <View
+        accessible
+        accessibilityLabel={`${chart.title}, ${chart.subtitle}. Son dönem: ${chart.format(last.value)}`}
+      >
         <BarChart
-          bars={weeks.map((w) => ({
-            key: w.weekStart,
-            value: w.volume,
-            pending: w.isCurrent,
-          }))}
-          formatY={formatVolume}
-          startLabel={weekLabel(weeks[0]!.weekStart)}
-          endLabel={weekLabel(current.weekStart)}
+          bars={chart.bars.map((b, i) => ({ key: b.key, value: b.value, pending: i < chart.bars.length - 1 }))}
+          color={tones.fill}
+          formatY={chart.format}
+          startLabel={chart.startLabel}
+          endLabel={chart.endLabel}
         />
-      </Card>
-    </View>
+      </View>
+    </Card>
   );
 }
 
 // ============================================================================
-// f) Bu hafta çalışılan kaslar
+// f) Bu hafta kas başına set
 // ============================================================================
 
 /**
- * Son 7 günde biten seansların tamamlanmış normal setleri; birincil kas
- * 1, ikincil kas 0,5 set sayılıyor.
+ * Son 7 günde biten seansların tamamlanmış normal setleri; ana kas 1,
+ * yardımcı 0,5 set. En çok çalışan 6 kas yatay çubukla; harita ve tam liste
+ * "Kas haritası" ekranında. Join'li → her odaklanmada okunuyor.
  */
-function WeeklyMusclesCard() {
+function MuscleSetsCard() {
   const db = useDb();
-  const [volume, setVolume] = useState<Record<string, number> | null>(null);
+  const [bars, setBars] = useState<MuscleBar[] | null>(null);
 
-  // useLiveQuery yalnızca FROM tablosunu (sets) dinliyor; antrenmanı
-  // bitirmek workout_sessions'ı güncellediği için harita yenilenmezdi.
-  // Setler başka ekranlarda değiştiğinden sekmeye her dönüşte okunuyor.
   useFocusEffect(
     useCallback(() => {
       let active = true;
       weeklyMuscleSetsQuery(db, weeklyWindowStart(new Date())).then((rows) => {
-        if (active) setVolume(muscleVolume(toMuscleSets(rows)));
+        if (active) setBars(muscleBars(muscleVolume(toMuscleSets(rows))));
       });
       return () => {
         active = false;
@@ -507,38 +611,54 @@ function WeeklyMusclesCard() {
     }, [db])
   );
 
-  if (!volume) return null;
-
-  const ranked = Object.entries(volume).sort(([, a], [, b]) => b - a);
+  if (!bars) return null;
 
   return (
-    <View className="gap-3">
-      <SectionHeader
-        title="Bu Hafta Çalışılan Kaslar"
-        description="Son 7 gün"
-        className="mt-4"
-      />
-      <Card className="gap-4">
-        {ranked.length === 0 ? (
-          <EmptyState title="Bu hafta henüz antrenman yok" className="py-6" />
-        ) : (
-          <>
-            <MuscleMap highlights={volumeHighlight(volume)} variant="weekly" />
-            <View className="gap-2">
-              {ranked.map(([muscle, sets]) => (
-                <View key={muscle} className="flex-row justify-between">
-                  <Text className="text-fg text-base">
-                    {muscleLabel(muscle)}
-                  </Text>
-                  <Text className="text-muted text-base tabular-nums">
-                    {formatDecimal(sets)} set
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-      </Card>
+    <Card className="gap-3">
+      <View className="flex-row items-center justify-between">
+        <Text className="text-fg text-base font-semibold flex-1">Bu hafta kas başına set</Text>
+        <Link href="/muscles" asChild>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Kas haritası"
+            hitSlop={8}
+            className="min-h-[44px] justify-center active:opacity-70"
+          >
+            <Text className="text-accent text-[13px] font-semibold">Kas haritası ›</Text>
+          </Pressable>
+        </Link>
+      </View>
+      {bars.length === 0 ? (
+        <Text className="text-muted text-sm">Son 7 günde antrenman yok.</Text>
+      ) : (
+        <View className="gap-3">
+          {bars.map((b) => (
+            <MuscleBarRow key={b.muscle} bar={b} />
+          ))}
+        </View>
+      )}
+    </Card>
+  );
+}
+
+function MuscleBarRow({ bar }: { bar: MuscleBar }) {
+  const COLORS = useColors();
+  const tones = useContextTones(bar.context ?? undefined);
+  const fill = bar.context ? tones.fill : COLORS.muted;
+  const label = muscleLabel(bar.muscle);
+  const sets = formatDecimal(bar.sets);
+  return (
+    <View accessible accessibilityLabel={`${label}: ${sets} set`} className="flex-row items-center gap-3">
+      <Text className="text-fg text-[15px] w-24" numberOfLines={1}>
+        {label}
+      </Text>
+      <View className="flex-1 h-2.5 rounded-full bg-bg-elevated overflow-hidden">
+        <View
+          className="h-full rounded-full"
+          style={{ width: `${Math.max(bar.fraction * 100, 4)}%`, backgroundColor: fill }}
+        />
+      </View>
+      <Text className="font-display text-fg text-[15px] w-10 text-right">{sets}</Text>
     </View>
   );
 }

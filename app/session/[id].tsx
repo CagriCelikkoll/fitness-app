@@ -12,9 +12,9 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, eq } from 'drizzle-orm';
@@ -35,6 +35,7 @@ import {
   type WorkoutSet,
 } from '@/db/schema';
 import {
+  decimalComma,
   formatDateTime,
   formatDuration,
   formatVolume,
@@ -307,19 +308,19 @@ function ExerciseDetailCard({
         <>
           {/* Tablo başlığı */}
           <View className="flex-row mt-4 pb-2 border-b border-border">
-            <Text className="text-muted text-[11px] tracking-widest w-10">SET</Text>
-            <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
+            <Text className="text-muted text-xs tracking-widest w-10">SET</Text>
+            <Text className="text-muted text-xs tracking-widest flex-1 text-right">
               KG
             </Text>
-            <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
+            <Text className="text-muted text-xs tracking-widest flex-1 text-right">
               TEKRAR
             </Text>
             {showRir && (
-              <Text className="text-muted text-[11px] tracking-widest w-12 text-right">
+              <Text className="text-muted text-xs tracking-widest w-12 text-right">
                 RIR
               </Text>
             )}
-            <Text className="text-muted text-[11px] tracking-widest flex-1 text-right">
+            <Text className="text-muted text-xs tracking-widest flex-1 text-right">
               HACİM
             </Text>
           </View>
@@ -333,7 +334,7 @@ function ExerciseDetailCard({
                 {set.setNumber}
               </Text>
               <Text className="text-fg text-base font-semibold tabular-nums flex-1 text-right">
-                {set.weightKg != null ? String(set.weightKg) : '—'}
+                {set.weightKg != null ? decimalComma(set.weightKg) : '—'}
               </Text>
               <Text className="text-fg text-base font-semibold tabular-nums flex-1 text-right">
                 {set.reps != null ? String(set.reps) : '—'}
@@ -361,7 +362,7 @@ function ExerciseDetailCard({
             )}
             {heaviest?.weightKg != null && (
               <Text className="text-muted text-xs tabular-nums">
-                En ağır: {heaviest.weightKg} kg
+                En ağır: {decimalComma(heaviest.weightKg)} kg
                 {heaviest.reps != null && ` × ${heaviest.reps}`}
               </Text>
             )}
@@ -409,7 +410,7 @@ function CardioRow({
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-1 bg-bg-surface border border-border rounded-2xl p-4">
-      <Text className="text-muted text-[11px] uppercase tracking-widest">
+      <Text className="text-muted text-[13px]">
         {label}
       </Text>
       <Text

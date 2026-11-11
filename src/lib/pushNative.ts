@@ -13,8 +13,10 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import Storage from 'expo-sqlite/kv-store';
+import * as Updates from 'expo-updates';
 
 import { useGymMembership } from '@/hooks/useGymMembership';
+import { isInternalChannel } from '@/lib/appVariant';
 import { getSupabase } from '@/lib/supabase';
 import {
   PUSH_CHANNELS,
@@ -25,6 +27,9 @@ import {
   type PushDeviceApi,
 } from '@/lib/push';
 import { ensureRestNotificationPermission, wasRestPermissionAsked } from '@/lib/restNotification';
+
+/** "Dinç Test"te FCM yok (`app.config.js`): token istenmez, izin sorulmaz. Yerel bildirimler etkilenmez. */
+const PUSH_SUPPORTED = !isInternalChannel(Updates.channel);
 
 let channelsReady: Promise<void> | null = null;
 
@@ -74,7 +79,7 @@ export const pushRegistrar = createPushRegistrar(api, Storage, {
  */
 export function usePushRegistration(): void {
   const { available, userId, memberships } = useGymMembership();
-  const active = available && userId != null && memberships.length > 0;
+  const active = PUSH_SUPPORTED && available && userId != null && memberships.length > 0;
 
   useEffect(() => {
     if (!active || !userId) return;
@@ -98,6 +103,7 @@ export function usePushRegistration(): void {
  * Bayrak / giriş zaten var (katılım ekranı).
  */
 export async function askPushPermissionAfterJoin(userId: string): Promise<void> {
+  if (!PUSH_SUPPORTED) return;
   try {
     const [granted, asked] = await Promise.all([api.isGranted(), wasRestPermissionAsked(Storage)]);
     if (granted) {

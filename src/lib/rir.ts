@@ -5,6 +5,8 @@
  * hep "4+" gösteriliyor. Rekor ve 1RM hesaplarına girmiyor.
  */
 
+import { decimalComma } from './format';
+
 /** Seçicideki değerler; son değer "4+" */
 export const RIR_OPTIONS = [0, 1, 2, 3, 4] as const;
 export const RIR_MAX = 4;
@@ -14,12 +16,12 @@ export function rirLabel(rir: number): string {
   return rir >= RIR_MAX ? `${RIR_MAX}+` : String(rir);
 }
 
-/** "80kg × 8 @2"; RIR yoksa "80kg × 8" */
+/** "80kg × 8 @2", "22,5kg × 8"; RIR yoksa "80kg × 8" */
 export function formatSetSummary(
   weightKg: number | null,
   reps: number | null,
   rir: number | null
 ): string {
-  const base = `${weightKg ?? '-'}kg × ${reps ?? '-'}`;
+  const base = `${weightKg == null ? '-' : decimalComma(weightKg)}kg × ${reps ?? '-'}`;
   return rir == null ? base : `${base} @${rirLabel(rir)}`;
 }

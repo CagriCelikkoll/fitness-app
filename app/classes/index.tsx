@@ -22,10 +22,9 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarDays, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react-native';
 
@@ -224,7 +223,7 @@ export default function ClassesScreen() {
                   active ? 'bg-accent' : d === today ? 'bg-bg-surface border border-accent' : 'bg-bg-surface border border-border'
                 }`}
               >
-                <Text className={`text-xs ${active ? 'text-accent-fg' : 'text-muted'}`}>{WEEKDAY_SHORT_TR[i]}</Text>
+                <Text className={`text-xs ${active ? 'text-accent-fg font-semibold' : 'text-muted'}`}>{WEEKDAY_SHORT_TR[i]}</Text>
                 <Text className={`text-base font-semibold mt-0.5 ${active ? 'text-accent-fg' : 'text-fg'}`}>
                   {dayOfMonth(d)}
                 </Text>

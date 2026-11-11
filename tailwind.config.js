@@ -9,11 +9,12 @@ const colors = {
   bg: {
     DEFAULT: v('bg'), // zemin
     surface: v('surface'), // kart
-    elevated: v('elevated'), // kart içi, input, basılı durum
+    elevated: v('elevated'), // surface2: kart içi, input, basılı durum
   },
   fg: v('text'), // metin (eski text-white)
   muted: v('muted'), // ikincil metin
-  border: v('border'),
+  faint: v('faint'), // en soluk metin (v4.0a)
+  border: v('border'), // line
   accent: {
     DEFAULT: v('accent'), // vurgu DOLGUSU (bg-accent)
     fg: v('accent-fg'), // dolgu üstündeki metin
@@ -25,6 +26,16 @@ const colors = {
   danger: { DEFAULT: v('danger'), fg: v('danger-fg') },
   success: { DEFAULT: v('success'), fg: v('success-fg') },
   pr: { DEFAULT: v('pr'), fg: v('pr-fg') },
+  // v4.0a bağlam renkleri: yalnızca DOLGU (bg-ctx-upper, bg-ctx-rest/15).
+  // Açık temada yazı rengi olmaz; yazı için contextTones().ink.
+  ctx: {
+    upper: v('upper'),
+    lower: v('lower'),
+    full: v('full'),
+    rest: v('rest'),
+    record: v('record'),
+    fg: v('on-context'),
+  },
 };
 
 // `text-accent` ve `border-accent` zemin üstünde okunmalı: açık temada
@@ -39,6 +50,13 @@ module.exports = {
       colors,
       textColor: withInkAccent,
       borderColor: withInkAccent,
+      // v4.0a: Archivo. Dosya adları = expo-font anahtarları
+      // (src/lib/typography.ts FONT_FAMILIES). Ağırlık sınıfları
+      // (font-semibold …) `Text` bileşeninde aileye çevriliyor.
+      fontFamily: {
+        display: ['Archivo-Expanded-ExtraBold'],
+        sans: ['Archivo-Regular'],
+      },
     },
   },
   plugins: [],

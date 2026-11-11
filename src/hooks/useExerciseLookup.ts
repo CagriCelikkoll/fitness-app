@@ -11,6 +11,7 @@ export interface ExerciseInfo {
   name: string;
   imagePaths: string | null;
   category: string;
+  primaryMuscles: string | null;
   isCustom: boolean;
 }
 
@@ -38,6 +39,7 @@ export function useExerciseLookup(ids: readonly string[]): { byId: Map<string, E
                 nameTr: exercises.nameTr,
                 imagePaths: exercises.imagePaths,
                 category: exercises.category,
+                primaryMuscles: exercises.primaryMuscles,
                 isCustom: exercises.isCustom,
               })
               .from(exercises)
@@ -48,7 +50,14 @@ export function useExerciseLookup(ids: readonly string[]): { byId: Map<string, E
         byId: new Map(
           rows.map((r) => [
             r.id,
-            { id: r.id, name: exerciseDisplayName(r), imagePaths: r.imagePaths, category: r.category, isCustom: r.isCustom },
+            {
+              id: r.id,
+              name: exerciseDisplayName(r),
+              imagePaths: r.imagePaths,
+              category: r.category,
+              primaryMuscles: r.primaryMuscles,
+              isCustom: r.isCustom,
+            },
           ])
         ),
       });

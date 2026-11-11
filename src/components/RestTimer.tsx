@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import * as Haptics from 'expo-haptics';
-import { Minus, Plus, X, type LucideIcon } from 'lucide-react-native';
+import { Maximize2, Minus, Plus, X, type LucideIcon } from 'lucide-react-native';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { useColors } from '@/hooks/useTheme';
@@ -14,8 +15,13 @@ import { shouldPlayRestSound } from '@/lib/restSound';
 import { playRestDoneSound, preloadRestDoneSound } from '@/lib/restNative';
 
 /**
- * Aktif antrenmanın altında sabit görünen dinlenme zamanlayıcısı.
- * Zustand store'daki restTimer state'i null değilken otomatik render edilir.
+ * Aktif antrenmanın dinlenme zamanlayıcısı.
+ *
+ * v4.0a: zamanlama ve bitiş davranışı `useRestTimerController`'da (kod
+ * değişmedi, yalnızca bileşenden kancaya taşındı); `app/session/active.tsx`
+ * bir kez bağlar. Görünüm iki türlü: tam ekran dinlenme
+ * (`RestScreen.tsx`, odak modu) ve bu dosyadaki alt çubuk (`RestTimerBar`,
+ * küçültülünce ve tüm listede).
  *
  * Sıfıra ulaştığında:
  * - Ayarlardaki "dinlenme bitiminde titreşim" açıksa haptic notification
@@ -26,11 +32,19 @@ import { playRestDoneSound, preloadRestDoneSound } from '@/lib/restNative';
  *
  * Kullanıcı sürebilir: +/- 15 saniye, manuel iptal.
  *
- * Render düzeni: geri sayım ve ilerleme çubuğu kendi zamanlayıcılarıyla
- * saniyede bir yenilenen küçük bileşenler; bu bileşen ve düğmeler yalnızca
+ * Render düzeni: geri sayım ve ilerleme göstergesi kendi zamanlayıcılarıyla
+ * saniyede bir yenilenen küçük bileşenler; kanca ve düğmeler yalnızca
  * sayaç değişince (başlatma, +/-, bitiş) render ediliyor.
  */
-export function RestTimer() {
+export interface RestTimerController {
+  restTimer: { startedAt: number; durationSeconds: number } | null;
+  completed: boolean;
+  decrease: () => void;
+  increase: () => void;
+  stop: () => void;
+}
+
+export function useRestTimerController(): RestTimerController {
   const restTimer = useActiveWorkoutStore((s) => s.restTimer);
   const stopRestTimer = useActiveWorkoutStore((s) => s.stopRestTimer);
   const adjustRestTimer = useActiveWorkoutStore((s) => s.adjustRestTimer);
@@ -107,12 +121,28 @@ export function RestTimer() {
   const decrease = useCallback(() => adjustRestTimer(-15), [adjustRestTimer]);
   const increase = useCallback(() => adjustRestTimer(15), [adjustRestTimer]);
 
+  return { restTimer, completed, decrease, increase, stop: stopRestTimer };
+}
+
+/**
+ * Alt çubuk: küçültülmüş dinlenme (odak modu) ve tüm liste. `onExpand`
+ * verilirse sayaca dokununca tam ekran dinlenme açılır.
+ */
+export function RestTimerBar({
+  controller,
+  onExpand,
+}: {
+  controller: RestTimerController;
+  onExpand?: () => void;
+}) {
+  const COLORS = useColors();
+  const { restTimer, completed, decrease, increase, stop } = controller;
   if (!restTimer) return null;
 
   return (
     <View
       className={`border-t px-4 pt-2 pb-4 ${
-        completed ? 'bg-accent border-accent' : 'bg-bg-surface border-border'
+        completed ? 'bg-ctx-rest border-ctx-rest' : 'bg-bg-surface border-border'
       }`}
     >
       <TimerProgress
@@ -129,18 +159,25 @@ export function RestTimer() {
           completed={completed}
         />
 
-        <View className="flex-1 items-center">
+        <Pressable
+          onPress={onExpand}
+          disabled={!onExpand}
+          accessibilityRole={onExpand ? 'button' : undefined}
+          accessibilityLabel={onExpand ? 'Dinlenme ekranını aç' : undefined}
+          className="flex-1 items-center min-h-[44px] justify-center active:opacity-70"
+        >
           {completed ? (
-            <Text className="text-accent-fg font-bold text-2xl tracking-tight">
-              Dinlenme tamam ✓
-            </Text>
+            <Text className="text-ctx-fg font-display text-xl">Dinlenme tamam ✓</Text>
           ) : (
-            <TimerCountdown
-              startedAt={restTimer.startedAt}
-              durationSeconds={restTimer.durationSeconds}
-            />
+            <View className="flex-row items-center gap-2">
+              <TimerCountdown
+                startedAt={restTimer.startedAt}
+                durationSeconds={restTimer.durationSeconds}
+              />
+              {onExpand && <Maximize2 color={COLORS.muted} size={16} />}
+            </View>
           )}
-        </View>
+        </Pressable>
 
         <TimerButton
           icon={Plus}
@@ -152,7 +189,7 @@ export function RestTimer() {
         <TimerButton
           icon={X}
           label="Dinlenmeyi bitir"
-          onPress={stopRestTimer}
+          onPress={stop}
           completed={completed}
           className="ml-2"
         />
@@ -166,7 +203,7 @@ export function RestTimer() {
  * Ekranda saniye gösterildiği için 250 ms'lik tik gereksizdi; sınıra
  * hizalı zamanlayıcı rakamın geç dönmesini de önlüyor.
  */
-function useElapsedMs(startedAt: number): number {
+export function useElapsedMs(startedAt: number): number {
   const [elapsedMs, setElapsedMs] = useState(() => Date.now() - startedAt);
 
   useEffect(() => {
@@ -202,11 +239,11 @@ const TimerProgress = memo(function TimerProgress({
   return (
     <View
       className={`h-[3px] rounded-full overflow-hidden mb-3 ${
-        completed ? 'bg-accent-fg/20' : 'bg-bg-elevated'
+        completed ? 'bg-ctx-fg/20' : 'bg-bg-elevated'
       }`}
     >
       <View
-        className={`h-full ${completed ? 'bg-accent-fg' : 'bg-accent'}`}
+        className={`h-full ${completed ? 'bg-ctx-fg' : 'bg-ctx-rest'}`}
         style={{ width: `${progressPct}%` }}
       />
     </View>
@@ -224,14 +261,14 @@ const TimerCountdown = memo(function TimerCountdown({
   const seconds = remaining % 60;
 
   return (
-    <>
-      <Text className="text-fg text-5xl font-bold tabular-nums tracking-tight">
+    <View className="items-center">
+      <Text className="text-fg font-display text-4xl">
         {minutes}:{seconds.toString().padStart(2, '0')}
       </Text>
       <Text className="text-muted text-xs tracking-wide tabular-nums">
         {durationSeconds}sn dinlenme
       </Text>
-    </>
+    </View>
   );
 });
 
@@ -260,13 +297,13 @@ const TimerButton = memo(function TimerButton({
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className={`w-12 h-12 rounded-full items-center justify-center ${
+      className={`w-12 h-12 rounded-[14px] items-center justify-center ${
         completed
-          ? 'bg-accent-fg/10 active:bg-accent-fg/20'
+          ? 'bg-ctx-fg/10 active:bg-ctx-fg/20'
           : 'bg-bg-elevated active:bg-border'
       } ${className}`}
     >
-      <Icon color={completed ? COLORS.accentFg : COLORS.text} size={20} />
+      <Icon color={completed ? COLORS.onContext : COLORS.text} size={20} />
     </Pressable>
   );
 });

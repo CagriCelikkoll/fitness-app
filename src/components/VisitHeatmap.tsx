@@ -1,4 +1,5 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 
 import type { HeatmapDay } from '@/lib/visits';
 
@@ -13,7 +14,7 @@ export function VisitHeatmap({ weeks }: { weeks: HeatmapDay[][] }) {
     <View className="flex-row gap-1" accessibilityLabel="Son 8 haftada salona gelinen günler">
       <View className="gap-1 mr-1">
         {DAY_LABELS.map((l, i) => (
-          <Text key={i} className="text-muted text-[9px] h-4 leading-4">
+          <Text key={i} className="text-muted text-xs h-4 leading-4">
             {l}
           </Text>
         ))}

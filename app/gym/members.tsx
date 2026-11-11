@@ -6,7 +6,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { FlatList, RefreshControl, Text, TextInput, View } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Search, Users } from 'lucide-react-native';
 

@@ -13,7 +13,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Archive, ArchiveRestore, ListPlus, Pencil, RefreshCw, UserPlus } from 'lucide-react-native';
 

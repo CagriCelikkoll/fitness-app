@@ -19,10 +19,9 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { asc, eq, sql } from 'drizzle-orm';
 import {
@@ -48,6 +47,7 @@ import { newId } from '@/lib/id';
 import {
   DEFAULT_MAX_DECIMAL_DIGITS,
   MAX_WEIGHT_INTEGER_DIGITS,
+  decimalComma,
   digitsOnly,
   sanitizeDecimalInput,
   sanitizeRepRange,
@@ -406,7 +406,7 @@ export default function RoutineEditorScreen() {
         >
           <Card className="gap-4">
             <View>
-              <Text className="text-muted text-xs uppercase tracking-widest mb-2">
+              <Text className="text-muted text-[13px] mb-2">
                 Rutin Adı
               </Text>
               <TextInput
@@ -418,7 +418,7 @@ export default function RoutineEditorScreen() {
               />
             </View>
             <View className="pt-4 border-t border-border">
-              <Text className="text-muted text-xs uppercase tracking-widest mb-2">
+              <Text className="text-muted text-[13px] mb-2">
                 Açıklama (opsiyonel)
               </Text>
               <TextInput
@@ -650,7 +650,7 @@ function DraftExerciseCard({
           />
           <NumberField
             label="Ağırlık (kg)"
-            value={draft.targetWeightKg}
+            value={decimalComma(draft.targetWeightKg)}
             onChange={(v) =>
               onUpdate(
                 draft.id,

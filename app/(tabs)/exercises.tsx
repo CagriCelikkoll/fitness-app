@@ -1,47 +1,70 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   FlatList,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
   ActivityIndicator,
+  type PressableProps,
 } from 'react-native';
-import { Link, useFocusEffect } from 'expo-router';
-import { Image } from 'expo-image';
-import { Search, X } from 'lucide-react-native';
+import { Text, TextInput } from '@/components/ui/Text';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react-native';
 
+import { ExerciseThumb } from '@/components/ExerciseThumb';
+import { useDb } from '@/hooks/useDb';
 import { useExerciseList } from '@/hooks/useExerciseList';
-import { useColors, useTheme } from '@/hooks/useTheme';
-import { imageFrameClass } from '@/theme';
+import { useColors, useContextTones } from '@/hooks/useTheme';
 import { type Exercise } from '@/db/schema';
-import { EXERCISE_IMAGE_CACHE, getExerciseCoverUrl } from '@/lib/exerciseImage';
-import { exerciseDisplayName, exerciseOriginalName } from '@/lib/exerciseCatalog';
+import { exerciseDisplayName } from '@/lib/exerciseCatalog';
+import { getRecentlyUsedExercises, type RecentlyUsedExercise } from '@/lib/exerciseHistory';
 import {
-  EXERCISE_FILTER_OPTIONS,
-  categoryLabel,
-  equipmentLabel,
-  muscleLabels,
-} from '@/lib/exerciseTaxonomy';
-import { Chip } from '@/components/ui';
+  RECENT_EXERCISE_LIMIT,
+  exerciseListTitle,
+  exerciseRowSubtitle,
+  recentBestLabel,
+  showRecentExercises,
+} from '@/lib/exerciseListView';
+import { EXERCISE_FILTER_OPTIONS } from '@/lib/exerciseTaxonomy';
+import { Chip, IconButton, ScreenTitle, SectionLabel } from '@/components/ui';
 import { OtherHeader, ShowOtherButton } from '@/components/ExercisePickerModal';
 
 export default function ExercisesScreen() {
+  return <ExercisesList />;
+}
+
+/** Sekme ve salon üyesinin yığın ekranı (`app/exercise/index.tsx`) aynı liste */
+export function ExercisesList({ showBack = false }: { showBack?: boolean }) {
   const COLORS = useColors();
+  const router = useRouter();
+  const db = useDb();
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [filterId, setFilterId] = useState('all');
   // v3.8: varsayılan liste core; extra "Diğer egzersizleri göster" ile
   const [showExtra, setShowExtra] = useState(false);
+  const [recent, setRecent] = useState<RecentlyUsedExercise[]>([]);
 
   // Liste canlı (yeni özel egzersiz anında çıkar); kullanılanlar odakta
   const { items: data, error, refreshUsed } = useExerciseList({ filterId, search, showExtra });
   useFocusEffect(
     useCallback(() => {
       refreshUsed();
-    }, [refreshUsed])
+      let active = true;
+      getRecentlyUsedExercises(db, RECENT_EXERCISE_LIMIT)
+        .then((rows) => {
+          if (active) setRecent(rows);
+        })
+        .catch((err) => console.error('[EXERCISES] Son kullanılanlar okunamadı:', err));
+      return () => {
+        active = false;
+      };
+    }, [db, refreshUsed])
   );
   const shownCount = data?.filter((i) => i.kind === 'exercise').length ?? 0;
+  const filterLabel = EXERCISE_FILTER_OPTIONS.find((o) => o.id === filterId)?.label ?? '';
+  const recentRows = showRecentExercises(filterId, search) ? recent : [];
 
   if (error) {
     return (
@@ -53,21 +76,27 @@ export default function ExercisesScreen() {
 
   return (
     <View className="flex-1 bg-bg">
-      {/* Arama + Filtre */}
-      <View className="px-5 pt-4 pb-3 gap-3">
+      {/* Başlık + Arama + Filtre */}
+      <View className="px-5 pb-3 gap-3" style={{ paddingTop: insets.top + 12 }}>
+        <View className="flex-row items-center gap-3">
+          {showBack && <IconButton icon={ChevronLeft} iconSize={22} accessibilityLabel="Geri" onPress={() => router.back()} />}
+          <ScreenTitle>Hareketler</ScreenTitle>
+        </View>
+
         <View className="flex-row items-center bg-bg-elevated rounded-2xl px-4 h-12">
           <Search color={COLORS.muted} size={18} strokeWidth={1.75} />
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Egzersiz ara..."
+            placeholder="Ara: front raise, lat çekiş…"
             placeholderTextColor={COLORS.muted}
             className="flex-1 text-fg text-base ml-3"
             autoCorrect={false}
             autoCapitalize="none"
+            accessibilityLabel="Hareket ara"
           />
           {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={12}>
+            <Pressable onPress={() => setSearch('')} hitSlop={12} accessibilityRole="button" accessibilityLabel="Aramayı temizle">
               <X color={COLORS.muted} size={18} />
             </Pressable>
           )}
@@ -106,74 +135,85 @@ export default function ExercisesScreen() {
         <FlatList
           data={data}
           keyExtractor={(item) => (item.kind === 'exercise' ? item.exercise.id : item.kind)}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <View className="gap-1 pb-2">
+              {recentRows.length > 0 && (
+                <>
+                  <SectionLabel muted className="pb-1">Son kullandıkların</SectionLabel>
+                  {recentRows.map((r) => (
+                    <ExerciseRow key={r.exercise.id} exercise={r.exercise} trailing={<BestWeight kg={r.bestWeightKg} />} />
+                  ))}
+                  <View className="h-2.5" />
+                </>
+              )}
+              <SectionLabel muted>{exerciseListTitle(filterLabel, search.trim().length > 0, shownCount)}</SectionLabel>
+            </View>
+          }
           renderItem={({ item }) =>
             item.kind === 'exercise' ? (
-              <ExerciseRow exercise={item.exercise} />
+              <ExerciseRow exercise={item.exercise} trailing={<RowChevron />} />
             ) : item.kind === 'otherHeader' ? (
               <OtherHeader />
             ) : (
               <ShowOtherButton count={item.count} onPress={() => setShowExtra(true)} />
             )
           }
-          contentContainerClassName="px-5 pb-12"
-          ItemSeparatorComponent={() => <View className="h-2" />}
+          contentContainerClassName="px-5 pb-6"
+          ItemSeparatorComponent={RowGap}
         />
-      )}
-
-      {/* Toplam sayı footer */}
-      {data && data.length > 0 && (
-        <View className="absolute bottom-0 left-0 right-0 bg-bg/90 border-t border-border px-5 py-1.5">
-          <Text className="text-muted/70 text-[11px] tracking-wide text-center tabular-nums">
-            {shownCount} egzersiz gösteriliyor
-          </Text>
-        </View>
       )}
     </View>
   );
 }
 
-function ExerciseRow({ exercise }: { exercise: Exercise }) {
-  const { scheme } = useTheme();
-  const coverUrl = getExerciseCoverUrl(exercise.imagePaths);
-  const muscles = muscleLabels(exercise.primaryMuscles);
-  const displayName = exerciseDisplayName(exercise);
-  const originalName = exerciseOriginalName(exercise);
+function RowGap() {
+  return <View className="h-1" />;
+}
 
+function RowChevron() {
+  const COLORS = useColors();
+  return <ChevronRight color={COLORS.muted} size={18} />;
+}
+
+function BestWeight({ kg }: { kg: number | null }) {
+  const tones = useContextTones('record');
+  const label = recentBestLabel(kg);
+  if (label == null) return <RowChevron />;
+  return (
+    <Text className="text-xs font-bold tabular-nums" style={{ color: tones.ink }}>
+      {label}
+    </Text>
+  );
+}
+
+function ExerciseRow({ exercise, trailing }: { exercise: Exercise; trailing: ReactNode }) {
   return (
     <Link href={`/exercise/${exercise.id}`} asChild>
-      <Pressable className="flex-row items-center bg-bg-surface border border-border rounded-3xl p-3 active:opacity-80">
-        <View
-          className={`w-14 h-14 rounded-2xl bg-bg-elevated overflow-hidden items-center justify-center ${imageFrameClass(scheme)}`}
-        >
-          {coverUrl ? (
-            <Image
-              source={{ uri: coverUrl }}
-              style={{ width: 56, height: 56 }}
-              contentFit="cover"
-              cachePolicy={EXERCISE_IMAGE_CACHE}
-            />
-          ) : (
-            <Text className="text-muted text-xs">
-              {exercise.category === 'cardio' ? '🏃' : '💪'}
-            </Text>
-          )}
-        </View>
-        <View className="flex-1 ml-4 justify-center">
-          <Text className="text-fg text-base font-semibold" numberOfLines={1}>
-            {displayName}
-          </Text>
-          {originalName != null && (
-            <Text className="text-muted text-xs" numberOfLines={1}>
-              {originalName}
-            </Text>
-          )}
-          <Text className="text-muted text-xs mt-1" numberOfLines={1}>
-            {[muscles.join(', ') || categoryLabel(exercise.category), exercise.equipment && equipmentLabel(exercise.equipment)]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        </View>
-      </Pressable>
+      <RowPressable exercise={exercise} trailing={trailing} />
     </Link>
+  );
+}
+
+/** `Link asChild` dokunuşu `rest` ile veriyor */
+function RowPressable({ exercise, trailing, ...rest }: { exercise: Exercise; trailing: ReactNode } & PressableProps) {
+  return (
+    <Pressable className="flex-row items-center gap-3 py-2 rounded-2xl active:opacity-70" {...rest}>
+      <ExerciseThumb
+        imagePaths={exercise.imagePaths}
+        category={exercise.category}
+        primaryMuscles={exercise.primaryMuscles}
+        size={52}
+      />
+      <View className="flex-1">
+        <Text className="text-fg text-[15px] font-bold" numberOfLines={1}>
+          {exerciseDisplayName(exercise)}
+        </Text>
+        <Text className="text-muted text-xs mt-0.5" numberOfLines={1}>
+          {exerciseRowSubtitle(exercise)}
+        </Text>
+      </View>
+      {trailing}
+    </Pressable>
   );
 }

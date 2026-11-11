@@ -6,6 +6,8 @@
  * (geliştirme için yeterli, production için R2'ye geçilecek).
  */
 
+import { LOWER_MUSCLES, musclesOf } from './contextColor';
+
 const GITHUB_BASE =
   'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises';
 
@@ -38,4 +40,20 @@ export function getExerciseImageUrls(imagePaths: string | null): string[] {
 export function getExerciseCoverUrl(imagePaths: string | null): string | null {
   const urls = getExerciseImageUrls(imagePaths);
   return urls[0] ?? null;
+}
+
+export type ExerciseIconKind = 'cardio' | 'arms' | 'torso' | 'legs' | 'core';
+
+const ARM_MUSCLES = new Set(['biceps', 'triceps', 'forearms']);
+const CORE_MUSCLES = new Set(['abdominals', 'core', 'neck']);
+
+/** Görsel yokken / yüklenemezken gösterilen kas grubu ikonu */
+export function exerciseIconKind(category: string | null | undefined, primaryMuscles: string | null | undefined): ExerciseIconKind {
+  if (category === 'cardio') return 'cardio';
+  const first = musclesOf(primaryMuscles)[0];
+  if (first == null) return 'torso';
+  if (LOWER_MUSCLES.has(first)) return 'legs';
+  if (ARM_MUSCLES.has(first)) return 'arms';
+  if (CORE_MUSCLES.has(first)) return 'core';
+  return 'torso';
 }

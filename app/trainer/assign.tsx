@@ -15,7 +15,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { GraduationCap, UserPlus } from 'lucide-react-native';
 

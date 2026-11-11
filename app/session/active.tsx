@@ -6,19 +6,18 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { Check, ChevronLeft, ChevronRight, Info, Plus, X } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, NotebookPen, Plus, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { useDb } from '@/hooks/useDb';
 import { exerciseDisplayName } from '@/lib/exerciseCatalog';
-import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
+import { FALLBACK_REST_SOUND, FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
 import {
   exercises as exercisesTable,
   routineExercises,
@@ -33,17 +32,14 @@ import {
   DEFAULT_MAX_DECIMAL_DIGITS,
   MAX_REP_DIGITS,
   MAX_WEIGHT_INTEGER_DIGITS,
+  decimalComma,
   digitsOnly,
   sanitizeDecimalInput,
 } from '@/lib/format';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { getLastSessionForExercise, type LastSessionData } from '@/lib/lastSession';
 import { getPreviousBestE1rm } from '@/lib/exerciseHistory';
-import {
-  findSessionRecordSetIds,
-  isNewE1rmRecord,
-  sessionRecordBaseline,
-} from '@/lib/exerciseProgress';
+import { findSessionRecordSetIds, isNewE1rmRecord, sessionRecordBaseline } from '@/lib/exerciseProgress';
 import { saveSessionExerciseNote } from '@/lib/notes';
 import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
 import { afterSetCompleted, supersetPositions } from '@/lib/superset';
@@ -55,27 +51,76 @@ import {
   getProgressionSuggestion,
   type ProgressionSuggestion,
 } from '@/lib/progression';
+import {
+  completeSetRecord,
+  parseSetInput,
+  saveSetReps,
+  saveSetRir,
+  saveSetWeight,
+  uncompleteSetRecord,
+} from '@/lib/setCompletion';
+import {
+  exerciseAfterSet,
+  finishConfirmation,
+  focusLabel,
+  focusSetIndex,
+  nextAfterSet,
+  nextIncompleteExercise,
+  nextUpText,
+  prefillValues,
+  earlierCompletedSet,
+  progressSegments,
+  repsA11yLabel,
+  setChipText,
+  setValueText,
+  stepReps,
+  stepWeight,
+  supersetMemberLabels,
+  weightA11yLabel,
+  weightStep,
+  workoutProgress,
+  type FocusExercise,
+} from '@/lib/focusMode';
+import { contextColorFor, exerciseContextColor, type BodyContext } from '@/lib/contextColor';
+import { withAlpha } from '@/lib/color';
+import { CARD_NAME_SIZES } from '@/lib/typography';
+import { CHIP_TINT_ALPHA } from '@/components/ui/Chip';
+import { muscleLabels } from '@/lib/exerciseTaxonomy';
+import { saveSettings } from '@/lib/appSettings';
 import { useProgressionSetting } from '@/hooks/useProgressionSetting';
-import { useColors } from '@/hooks/useTheme';
-import { RestTimer } from '@/components/RestTimer';
+import { useColors, useContextOutline, useContextTones } from '@/hooks/useTheme';
+import { useScreenTopInset } from '@/hooks/useSafeBottom';
+import { FocusSheet } from '@/components/FocusSheet';
+import { RestTimerBar, useRestTimerController, type RestTimerController } from '@/components/RestTimer';
+import { RestScreen, WorkoutClock, type RestLastSet, type RestNextCard } from '@/components/RestScreen';
 import { NoteEditor } from '@/components/NoteEditor';
-import { SecondaryButton } from '@/components/ui';
+import { DisplayName, Glow, IconButton, PrimaryButton, SecondaryButton, SectionLabel } from '@/components/ui';
+import type { ContextKind } from '@/theme';
+
+/**
+ * Aktif antrenman (v4.0a: odak modu, dinlenme ekranı, tüm liste).
+ *
+ * Mantık değişmedi, yalnızca görünüm:
+ * - Set yazımları `src/lib/setCompletion.ts` (önceki `SetRow` sorguları),
+ *   tamamlama sırası `useSetCompletion` (titreşim → süperset kararı →
+ *   dinlenme → rekor titreşimi; eskisiyle aynı).
+ * - Dinlenme sayacı `useRestTimerController` (bir kez bağlanır).
+ * - Süperset kararı `afterSetCompleted`, bitirme `finishSessionRecord`.
+ * - "Sıradaki" / yüzde / hazır değerler `src/lib/focusMode.ts` (saf, test).
+ */
+
+type ViewMode = 'focus' | 'list';
+
+interface SessionRow {
+  se: typeof sessionExercisesTable.$inferSelect;
+  exercise: Exercise;
+}
 
 export default function ActiveSessionScreen() {
-  const COLORS = useColors();
   const router = useRouter();
-  const db = useDb();
-
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
-  const currentExerciseIndex = useActiveWorkoutStore(
-    (s) => s.currentExerciseIndex
-  );
-  const setCurrentExerciseIndex = useActiveWorkoutStore(
-    (s) => s.setCurrentExerciseIndex
-  );
-  const nextExercise = useActiveWorkoutStore((s) => s.nextExercise);
-  const prevExercise = useActiveWorkoutStore((s) => s.prevExercise);
-  const endSession = useActiveWorkoutStore((s) => s.endSession);
+  // Dinlenme sayacının bitişi (titreşim, ses, 3 sn sonra kapanma) tek yerde
+  const restController = useRestTimerController();
 
   // Aktif session yoksa workout sayfasına yönlendir
   useEffect(() => {
@@ -88,42 +133,25 @@ export default function ActiveSessionScreen() {
 
   return (
     <View className="flex-1 bg-bg">
-      <Stack.Screen
-        options={{
-          title: 'Antrenman',
-          headerStyle: { backgroundColor: COLORS.bg },
-          headerTintColor: COLORS.text,
-          headerLeft: () => (
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={10}
-              className="ml-1"
-            >
-              <X color={COLORS.text} size={22} />
-            </Pressable>
-          ),
-        }}
-      />
-      <SessionContent sessionId={activeSessionId} />
-      <RestTimer />
+      {/* Kendi üst satırı var (küçült · süre · Bitir) */}
+      <Stack.Screen options={{ headerShown: false }} />
+      <SessionContent sessionId={activeSessionId} restController={restController} />
     </View>
   );
 }
 
-function SessionContent({ sessionId }: { sessionId: string }) {
+function SessionContent({ sessionId, restController }: { sessionId: string; restController: RestTimerController }) {
   const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
+  const topInset = useScreenTopInset();
 
-  const currentExerciseIndex = useActiveWorkoutStore(
-    (s) => s.currentExerciseIndex
-  );
-  const setCurrentExerciseIndex = useActiveWorkoutStore(
-    (s) => s.setCurrentExerciseIndex
-  );
-  const nextExercise = useActiveWorkoutStore((s) => s.nextExercise);
-  const prevExercise = useActiveWorkoutStore((s) => s.prevExercise);
+  const currentExerciseIndex = useActiveWorkoutStore((s) => s.currentExerciseIndex);
+  const setCurrentExerciseIndex = useActiveWorkoutStore((s) => s.setCurrentExerciseIndex);
   const endSession = useActiveWorkoutStore((s) => s.endSession);
+
+  const { settings } = useAppSettings();
+  const soundOn = settings?.restTimerSound ?? FALLBACK_REST_SOUND;
 
   // Bu seanstaki egzersizler (canlı sorgu)
   const { data: seData } = useLiveQuery(
@@ -133,48 +161,63 @@ function SessionContent({ sessionId }: { sessionId: string }) {
         exercise: exercisesTable,
       })
       .from(sessionExercisesTable)
-      .innerJoin(
-        exercisesTable,
-        eq(sessionExercisesTable.exerciseId, exercisesTable.id)
-      )
+      .innerJoin(exercisesTable, eq(sessionExercisesTable.exerciseId, exercisesTable.id))
       .where(eq(sessionExercisesTable.sessionId, sessionId))
       .orderBy(asc(sessionExercisesTable.orderIndex)),
     [sessionId]
   );
 
+  // Seans satırı: başlangıç (geçen süre) ve ad
+  const { data: sessionRows } = useLiveQuery(
+    db.select().from(workoutSessions).where(eq(workoutSessions.id, sessionId)).limit(1),
+    [sessionId]
+  );
+  const session = sessionRows?.[0];
+
   // ── v1.9 süperset ─────────────────────────────────────────────────────
   // Hareketlerin süperset konumu (A1, A2 ...); süperset değilse null
-  const supersets = useMemo(
-    () => supersetPositions((seData ?? []).map((r) => r.se.supersetGroup)),
-    [seData]
-  );
-  const currentSuperset = seData
-    ? supersets[Math.min(currentExerciseIndex, Math.max(0, seData.length - 1))]
-    : null;
+  const supersets = useMemo(() => supersetPositions((seData ?? []).map((r) => r.se.supersetGroup)), [seData]);
 
-  // Bulunulan grubun tüm setleri — dinlenme kararı için. Süperset
-  // değilse boş liste, sorgu hiçbir satır döndürmez.
-  const groupSeIds =
-    seData && currentSuperset
-      ? seData
-          .slice(currentSuperset.start, currentSuperset.end + 1)
-          .map((r) => r.se.id)
-      : [];
-  const { data: groupSets } = useLiveQuery(
+  // Seansın bütün setleri: yüzde, bölümlü çizgi, "Sıradaki" ve süperset
+  // kararı (v4.0a; önceden yalnızca bulunulan süperset grubunun setleri
+  // okunuyordu — aynı satırlar, şimdi bütün liste ekranda görünüyor)
+  const seIds = (seData ?? []).map((r) => r.se.id);
+  const { data: allSets } = useLiveQuery(
     db
-      .select({
-        id: setsTable.id,
-        sessionExerciseId: setsTable.sessionExerciseId,
-        isCompleted: setsTable.isCompleted,
-      })
+      .select()
       .from(setsTable)
-      .where(inArray(setsTable.sessionExerciseId, groupSeIds)),
-    [groupSeIds.join(',')]
+      .where(inArray(setsTable.sessionExerciseId, seIds))
+      .orderBy(asc(setsTable.setNumber)),
+    [seIds.join(',')]
   );
 
-  // "Sıradaki" barı. fromIndex: barın çıktığı hareket; kullanıcı bara
-  // basmadan elle başka harekete geçerse bar kaybolur. Otomatik geçiş yok:
-  // tamamlanan setin altındaki RIR seçimi ve rekor rozeti görülebilsin.
+  const focusExercises = useMemo<FocusExercise[]>(
+    () =>
+      (seData ?? []).map((r) => ({
+        name: exerciseDisplayName(r.exercise),
+        supersetGroup: r.se.supersetGroup,
+        sets: (allSets ?? [])
+          .filter((s) => s.sessionExerciseId === r.se.id)
+          .map((s) => ({ id: s.id, setNumber: s.setNumber, isCompleted: s.isCompleted })),
+      })),
+    [seData, allSets]
+  );
+
+  // Antrenmanın bağlam rengi (v4.0a 1.2): kas gruplarına göre
+  const workoutColor = useMemo<BodyContext>(
+    () =>
+      contextColorFor(
+        (seData ?? []).map((r) => ({
+          primaryMuscles: r.exercise.primaryMuscles,
+          category: r.exercise.category,
+          sets: Math.max(1, (allSets ?? []).filter((s) => s.sessionExerciseId === r.se.id).length),
+        }))
+      ),
+    [seData, allSets]
+  );
+
+  // "Sıradaki" barı (tüm liste). fromIndex: barın çıktığı hareket; kullanıcı
+  // bara basmadan elle başka harekete geçerse bar kaybolur.
   const [nextHint, setNextHint] = useState<{
     fromIndex: number;
     exerciseIndex: number;
@@ -187,6 +230,21 @@ function SessionContent({ sessionId }: { sessionId: string }) {
     }
   }, [currentExerciseIndex, nextHint]);
   // ──────────────────────────────────────────────────────────────────────
+
+  // ── v4.0a görünüm durumu ────────────────────────────────────────────
+  const [mode, setMode] = useState<ViewMode>('focus');
+  const [restMinimized, setRestMinimized] = useState(false);
+  const [lastCompleted, setLastCompleted] = useState<{ setId: string; exerciseIndex: number } | null>(null);
+  // Hareketin son seti tamamlanınca dinlenme bittiğinde geçilecek hareket
+  const pendingAdvance = useRef<number | null>(null);
+  const restActive = restController.restTimer != null;
+  useEffect(() => {
+    if (restActive) return;
+    if (pendingAdvance.current != null) {
+      setCurrentExerciseIndex(pendingAdvance.current);
+      pendingAdvance.current = null;
+    }
+  }, [restActive, setCurrentExerciseIndex]);
 
   // ── Yarım kalan antrenman ───────────────────────────────────────────
   // Açılıştaki "Yarım kalan antrenman" sorusunda Bitir seçildiyse ekran
@@ -219,26 +277,28 @@ function SessionContent({ sessionId }: { sessionId: string }) {
 
   const safeIndex = Math.min(currentExerciseIndex, Math.max(0, seData.length - 1));
   const current = seData[safeIndex];
+  const progress = workoutProgress(focusExercises);
+  const startedAtMs = session ? new Date(session.startedAt).getTime() : Date.now();
 
   /**
    * v1.9: set tamamlanınca dinlenme başlasın mı (bkz. afterSetCompleted).
    * Süperset olmayan harekette her zaman true — v1.9 öncesiyle aynı.
    * Hesap patlarsa da true: set tamamlama akışı etkilenmesin.
+   * v4.0a: tüm listede her hareket düzenlenebildiği için hareketin indeksi
+   * parametre (önceden hep bulunulan hareket).
    */
-  const handleSetCompleted = (completedSetId: string): boolean => {
+  const handleSetCompleted = (completedSetId: string, exerciseIndex: number): boolean => {
     try {
       const result = afterSetCompleted({
         exercises: seData.map((r) => ({
           name: exerciseDisplayName(r.exercise),
           supersetGroup: r.se.supersetGroup,
-          sets: (groupSets ?? []).filter((s) => s.sessionExerciseId === r.se.id),
+          sets: (allSets ?? []).filter((s) => s.sessionExerciseId === r.se.id),
         })),
-        currentIndex: safeIndex,
+        currentIndex: exerciseIndex,
         completedSetId,
       });
-      setNextHint(
-        result.next ? { fromIndex: currentExerciseIndex, ...result.next } : null
-      );
+      setNextHint(result.next ? { fromIndex: exerciseIndex, ...result.next } : null);
       // v2.0: dinlenme bildirimi barla aynı "Sıradaki" metnini taşısın.
       // Sayaç bundan sonra başlıyor; metin o sayaca bağlanıyor.
       restNotificationScheduler.setNextLabel(result.next?.label ?? null);
@@ -247,6 +307,34 @@ function SessionContent({ sessionId }: { sessionId: string }) {
       console.warn('[SUPERSET] Dinlenme kararı verilemedi:', err);
       restNotificationScheduler.setNextLabel(null);
       return true;
+    }
+  };
+
+  /** Tüm listede set tamamlandı: o hareket "bulunulan" olur, dinlenme alt çubukta */
+  /** Elle hareket değişince dinlenme sonrası otomatik geçiş iptal */
+  const goToExercise = (index: number) => {
+    pendingAdvance.current = null;
+    setCurrentExerciseIndex(index);
+  };
+
+  const handleListSetCompleted = (completedSetId: string, exerciseIndex: number): boolean => {
+    pendingAdvance.current = null;
+    setCurrentExerciseIndex(exerciseIndex);
+    setRestMinimized(true);
+    return handleSetCompleted(completedSetId, exerciseIndex);
+  };
+
+  /** Odakta set tamamlandı (yazım ve dinlenme kararından sonra) */
+  const handleFocusCompleted = (completedSetId: string, restStarted: boolean) => {
+    const target = exerciseAfterSet(focusExercises, safeIndex, completedSetId);
+    setLastCompleted({ setId: completedSetId, exerciseIndex: safeIndex });
+    if (restStarted) {
+      setRestMinimized(false);
+      pendingAdvance.current = target;
+    } else {
+      // Süperset turu (dinlenmesiz) ya da dinlenme süresi 0: hemen geç
+      pendingAdvance.current = null;
+      setCurrentExerciseIndex(target);
     }
   };
 
@@ -262,12 +350,10 @@ function SessionContent({ sessionId }: { sessionId: string }) {
    * tamamlanan setin zamanı). Verilmezse eskisi gibi "şimdi".
    * Transaction `finishSessionRecord`'da (test edilebilsin diye).
    */
-  const finishSession = async (
-    pendingFilledIds: string[],
-    mode: 'complete' | 'delete',
-    endedAt?: string
-  ) => {
+  const finishSession = async (pendingFilledIds: string[], mode: 'complete' | 'delete', endedAt?: string) => {
     const sessionExerciseIds = seData.map((s) => s.se.id);
+    // Özetteki "x / y" için bitirmeden önceki set sayısı (boşlar silinecek)
+    const plannedSets = workoutProgress(focusExercises).total;
 
     try {
       await finishSessionRecord(db, {
@@ -285,7 +371,8 @@ function SessionContent({ sessionId }: { sessionId: string }) {
     }
 
     endSession();
-    router.replace('/(tabs)/workout');
+    // v4.0a: antrenman özeti ("Kaydet ve kapat" → Antrenman sekmesi)
+    router.replace({ pathname: '/session/summary', params: { id: sessionId, planned: String(plannedSets) } });
   };
 
   /** Değer girilmiş ama onaylanmamış setlerin id'leri */
@@ -296,12 +383,7 @@ function SessionContent({ sessionId }: { sessionId: string }) {
     const pending = await db
       .select({ id: setsTable.id, reps: setsTable.reps })
       .from(setsTable)
-      .where(
-        and(
-          inArray(setsTable.sessionExerciseId, sessionExerciseIds),
-          eq(setsTable.isCompleted, false)
-        )
-      );
+      .where(and(inArray(setsTable.sessionExerciseId, sessionExerciseIds), eq(setsTable.isCompleted, false)));
 
     // "Dolu" kriteri: tekrar girilmiş olması. Ağırlık, rutindeki hedef
     // değerden otomatik doluyor — kullanıcı hiçbir şey yazmasa bile dolu
@@ -309,229 +391,222 @@ function SessionContent({ sessionId }: { sessionId: string }) {
     return pending.filter((s) => s.reps != null).map((s) => s.id);
   };
 
-  /** endedAt: bkz. finishSession — yalnızca kurtarma yolu veriyor */
-  const handleFinishWorkout = (endedAt?: string) => {
-    Alert.alert('Antrenmanı bitir', 'Bu seansı tamamlamak istiyor musun?', [
-      { text: 'Devam et', style: 'cancel' },
-      {
-        text: 'Bitir',
-        style: 'destructive',
-        onPress: async () => {
-          const pendingFilledIds = await findPendingFilledSets();
+  /** Onaydan sonraki adım: onaylanmamış set sorusu (değişmedi) */
+  const finishAfterConfirm = async (endedAt?: string) => {
+    const pendingFilledIds = await findPendingFilledSets();
 
-          if (pendingFilledIds.length === 0) {
-            await finishSession([], 'delete', endedAt);
-            return;
-          }
+    if (pendingFilledIds.length === 0) {
+      await finishSession([], 'delete', endedAt);
+      return;
+    }
 
-          Alert.alert(
-            'Onaylanmamış setler',
-            `${pendingFilledIds.length} sette değer girilmiş ama onaylanmamış. Ne yapmak istersin?`,
-            [
-              {
-                text: 'Tamamlanmış say',
-                onPress: () => finishSession(pendingFilledIds, 'complete', endedAt),
-              },
-              {
-                text: 'Sil',
-                style: 'destructive',
-                onPress: () => finishSession(pendingFilledIds, 'delete', endedAt),
-              },
-              { text: 'Vazgeç', style: 'cancel' },
-            ]
-          );
+    Alert.alert(
+      'Onaylanmamış setler',
+      `${pendingFilledIds.length} sette değer girilmiş ama onaylanmamış. Ne yapmak istersin?`,
+      [
+        {
+          text: 'Tamamlanmış say',
+          onPress: () => finishSession(pendingFilledIds, 'complete', endedAt),
         },
-      },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: () => finishSession(pendingFilledIds, 'delete', endedAt),
+        },
+        { text: 'Vazgeç', style: 'cancel' },
+      ]
+    );
+  };
+
+  /**
+   * endedAt: bkz. finishSession — yalnızca kurtarma yolu veriyor.
+   * v4.0a: tamamlanmamış set varsa "Antrenmanı bitir? N set tamamlanmadı."
+   * diye sorulur; bütün setler bittiyse onaysız biter.
+   */
+  const handleFinishWorkout = (endedAt?: string) => {
+    const confirm = finishConfirmation(focusExercises);
+    if (!confirm.needed) {
+      void finishAfterConfirm(endedAt);
+      return;
+    }
+    Alert.alert('Antrenmanı bitir?', confirm.message, [
+      { text: 'Devam et', style: 'cancel' },
+      { text: 'Bitir', style: 'destructive', onPress: () => void finishAfterConfirm(endedAt) },
     ]);
   };
 
   if (seData.length === 0) {
     return (
-      <View className="flex-1 items-center justify-center p-6">
+      <View className="flex-1 items-center justify-center p-6" style={{ paddingTop: topInset }}>
         <Text className="text-fg">Bu seansta egzersiz yok.</Text>
+        <SecondaryButton label="Kapat" onPress={() => router.back()} className="mt-4" />
       </View>
     );
   }
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1"
-    >
-      {/* Egzersiz navigasyonu */}
-      <View className="flex-row items-center px-3 py-3 bg-bg border-b border-border">
-        <Pressable
-          onPress={prevExercise}
-          disabled={safeIndex === 0}
-          hitSlop={8}
-          className="w-12 h-12 rounded-full items-center justify-center bg-bg-surface active:bg-bg-elevated"
-        >
-          <ChevronLeft
-            color={safeIndex === 0 ? COLORS.disabledIcon : COLORS.text}
-            size={26}
-          />
-        </Pressable>
-        <View className="flex-1 items-center px-2">
-          {/* Hareket adı detayı açar; seans ekranı yığında kaldığı için
-              set satırları ve dinlenme sayacı korunur */}
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: '/exercise/[id]',
-                params: { id: current.exercise.id },
-              })
-            }
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel="Hareket detayını aç"
-            className="flex-row items-center max-w-full active:opacity-60"
-          >
-            {currentSuperset && (
-              <View className="bg-accent rounded-md px-1.5 py-0.5 mr-2">
-                <Text className="text-accent-fg text-xs font-bold tabular-nums">
-                  {currentSuperset.label}
-                </Text>
-              </View>
-            )}
-            <Text
-              className="text-fg text-xl font-semibold tracking-tight shrink"
-              numberOfLines={1}
-            >
-              {exerciseDisplayName(current.exercise)}
-            </Text>
-            <Info
-              color={COLORS.muted}
-              size={16}
-              strokeWidth={1.75}
-              style={{ marginLeft: 6 }}
-            />
-          </Pressable>
-          <Text className="text-muted/70 text-xs tabular-nums tracking-widest mt-0.5">
-            {safeIndex + 1} / {seData.length}
-          </Text>
-        </View>
-        <Pressable
-          onPress={nextExercise}
-          disabled={safeIndex === seData.length - 1}
-          hitSlop={8}
-          className="w-12 h-12 rounded-full items-center justify-center bg-bg-surface active:bg-bg-elevated"
-        >
-          <ChevronRight
-            color={
-              safeIndex === seData.length - 1 ? COLORS.disabledIcon : COLORS.text
-            }
-            size={26}
-          />
-        </Pressable>
-      </View>
+  // ── Dinlenme ekranı (odaktan tamamlanan setten sonra) ──────────────
+  if (mode === 'focus' && restActive && !restMinimized) {
+    const last = lastCompleted ? (allSets ?? []).find((s) => s.id === lastCompleted.setId) : undefined;
+    const lastSet: RestLastSet | null =
+      last && last.weightKg != null && last.reps != null
+        ? { setId: last.id, setNumber: last.setNumber, weightKg: last.weightKg, reps: last.reps, rir: last.rir }
+        : null;
+    let next: RestNextCard | null = null;
+    if (lastCompleted && last) {
+      const target = nextAfterSet(focusExercises, lastCompleted.exerciseIndex, last.id);
+      const ex = target ? seData[target.exerciseIndex] : undefined;
+      const targetSets = target ? (allSets ?? []).filter((s) => s.sessionExerciseId === ex?.se.id) : [];
+      const nextSet = target ? targetSets[target.setIndex] : undefined;
+      if (target && ex && nextSet) {
+        const sameExercise = target.exerciseIndex === lastCompleted.exerciseIndex;
+        next = {
+          setLabel: `Set ${target.setIndex + 1} / ${targetSets.length}`,
+          name: exerciseDisplayName(ex.exercise),
+          value: sameExercise
+            ? setValueText(nextSet.weightKg ?? last.weightKg, nextSet.reps ?? last.reps)
+            : setValueText(nextSet.weightKg, nextSet.reps),
+          color: exerciseContextColor(ex.exercise, workoutColor),
+        };
+      }
+    }
+    return (
+      <RestScreen
+        controller={restController}
+        workoutStartedAt={startedAtMs}
+        percent={progress.percent}
+        soundOn={soundOn}
+        onToggleSound={() =>
+          saveSettings(db, { restTimerSound: !soundOn }).catch((err) =>
+            console.warn('[REST] Ses ayarı kaydedilemedi:', err)
+          )
+        }
+        onMinimize={() => setRestMinimized(true)}
+        lastSet={lastSet}
+        onSelectRir={(setId, rir) =>
+          saveSetRir(db, setId, rir).catch((err) => console.warn('[RIR] Kaydedilemedi:', err))
+        }
+        next={next}
+      />
+    );
+  }
 
-      {/* v1.9: süperset üyeleri — basınca o üyeye geçilir */}
-      {currentSuperset && (
-        <View className="flex-row flex-wrap justify-center gap-2 px-3 py-2 bg-bg border-b border-border">
-          {seData
-            .slice(currentSuperset.start, currentSuperset.end + 1)
-            .map((r, i) => {
-              const memberIndex = currentSuperset.start + i;
-              const active = memberIndex === safeIndex;
-              return (
-                <Pressable
-                  key={r.se.id}
-                  onPress={() => setCurrentExerciseIndex(memberIndex)}
-                  disabled={active}
-                  hitSlop={6}
-                  className={`flex-row items-center rounded-full px-3 h-8 max-w-[48%] active:opacity-70 ${
-                    active ? 'bg-accent' : 'bg-bg-surface border border-border'
-                  }`}
-                >
-                  <Text
-                    className={`text-xs font-bold tabular-nums mr-1.5 ${
-                      active ? 'text-accent-fg' : 'text-accent'
-                    }`}
-                  >
-                    {supersets[memberIndex]?.label}
-                  </Text>
-                  <Text
-                    className={`text-xs shrink ${active ? 'text-accent-fg font-semibold' : 'text-fg'}`}
-                    numberOfLines={1}
-                  >
-                    {exerciseDisplayName(r.exercise)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-        </View>
+  const topBar = (
+    <View className="flex-row items-center justify-between px-4" style={{ paddingTop: topInset + 8 }}>
+      {mode === 'focus' ? (
+        <IconButton icon={ChevronDown} accessibilityLabel="Antrenmanı küçült" onPress={() => router.back()} />
+      ) : (
+        <Pressable
+          onPress={() => setMode('focus')}
+          accessibilityRole="button"
+          className="h-11 px-3.5 rounded-[14px] bg-bg-surface border border-border flex-row items-center gap-1.5 active:opacity-70"
+        >
+          <ChevronLeft color={COLORS.text} size={18} />
+          <Text className="text-fg text-sm font-bold">Odak modu</Text>
+        </Pressable>
+      )}
+      <View className="flex-1 items-center px-2">
+        <WorkoutClock startedAt={startedAtMs} percent={progress.percent} />
+        {mode === 'focus' && session && (
+          <Text className="text-muted text-xs mt-0.5" numberOfLines={1}>
+            {session.name}
+          </Text>
+        )}
+      </View>
+      <Pressable
+        onPress={() => handleFinishWorkout()}
+        accessibilityRole="button"
+        accessibilityLabel="Antrenmanı bitir"
+        className="h-11 px-4 rounded-[14px] bg-bg-surface border border-border items-center justify-center active:opacity-70"
+      >
+        <Text className="text-fg text-sm font-bold">Bitir</Text>
+      </Pressable>
+    </View>
+  );
+
+  // Odak modunda ışık, etiket, çizgi ve düğme o anki hareketin renginde (v4.0b)
+  const focusColor = current ? exerciseContextColor(current.exercise, workoutColor) : workoutColor;
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+      {mode === 'focus' && <Glow color={focusColor} />}
+      {topBar}
+
+      {mode === 'focus' ? (
+        <FocusView
+          key={current.se.id}
+          sessionId={sessionId}
+          row={current}
+          exerciseIndex={safeIndex}
+          rows={seData}
+          focusExercises={focusExercises}
+          supersets={supersets}
+          color={focusColor}
+          weightUnit={settings?.weightUnit ?? 'kg'}
+          onSetCompleted={(id) => handleSetCompleted(id, safeIndex)}
+          onCompleted={handleFocusCompleted}
+          onOpenList={() => setMode('list')}
+          onGoToExercise={goToExercise}
+          onFinish={() => handleFinishWorkout()}
+        />
+      ) : (
+        <ListView
+          sessionId={sessionId}
+          rows={seData}
+          focusExercises={focusExercises}
+          supersets={supersets}
+          currentIndex={safeIndex}
+          color={workoutColor}
+          sessionName={session?.name ?? ''}
+          onSetCompleted={handleListSetCompleted}
+          onOpenInFocus={(i) => {
+            goToExercise(i);
+            setMode('focus');
+          }}
+        />
       )}
 
-      {/* Egzersiz içeriği (set listesi) */}
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-4 pt-4 gap-3 pb-32"
-        keyboardShouldPersistTaps="handled"
-      >
-        <ExerciseSetEditor
-          sessionId={sessionId}
-          sessionExerciseId={current.se.id}
-          exercise={current.exercise}
-          initialNote={current.se.notes}
-          onSetCompleted={handleSetCompleted}
-        />
-      </ScrollView>
-
-      {/* Alt aksiyon: antrenmanı bitir */}
-      <View className="bg-bg px-4 py-3 border-t border-border">
-        {/* v1.9: süperset "Sıradaki" barı. Dinlenme sayacı bu bölümün
-            altında ayrı duruyor; ikisi birlikte görünebilir. */}
-        {nextHint && nextHint.fromIndex === currentExerciseIndex && (
+      {/* v1.9: süperset "Sıradaki" barı (tüm liste) */}
+      {mode === 'list' && nextHint && nextHint.fromIndex === currentExerciseIndex && (
+        <View className="bg-bg px-4 pt-3 border-t border-border">
           <Pressable
             onPress={() => {
-              setCurrentExerciseIndex(nextHint.exerciseIndex);
+              goToExercise(nextHint.exerciseIndex);
               setNextHint(null);
             }}
             accessibilityRole="button"
-            className="flex-row items-center justify-between min-h-[48px] px-4 mb-3 rounded-2xl bg-accent/10 border border-accent/50 active:opacity-70"
+            className="flex-row items-center justify-between min-h-[48px] px-4 rounded-2xl bg-accent/10 border border-accent/50 active:opacity-70"
           >
             <Text className="text-accent text-base font-semibold shrink" numberOfLines={1}>
               {nextHint.label}
             </Text>
             <ChevronRight color={COLORS.accent} size={20} />
           </Pressable>
-        )}
-        <SecondaryButton
-          onPress={() => handleFinishWorkout()}
-          label="Antrenmanı Bitir"
-        />
-      </View>
+        </View>
+      )}
+
+      {/* Dinlenme alt çubuğu: küçültülmüş (odak) ya da tüm liste */}
+      <RestTimerBar
+        controller={restController}
+        onExpand={() => {
+          setMode('focus');
+          setRestMinimized(false);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
 
-interface ExerciseSetEditorProps {
-  sessionId: string;
-  sessionExerciseId: string;
-  exercise: Exercise;
-  /** Bu antrenmanda bu hareketin notu (session_exercises.notes) */
-  initialNote: string | null;
-  /** v1.9: set tamamlanınca dinlenme başlasın mı (süperset kararı) */
-  onSetCompleted: (setId: string) => boolean;
-}
+// ============================================================================
+// Hareketin verisi (odak ve liste ortak; önceki ExerciseSetEditor'dan)
+// ============================================================================
 
-function ExerciseSetEditor({
-  sessionId,
-  sessionExerciseId,
-  exercise,
-  initialNote,
-  onSetCompleted,
-}: ExerciseSetEditorProps) {
-  const COLORS = useColors();
+function useExerciseSessionData(sessionId: string, sessionExerciseId: string, exercise: Exercise) {
   const db = useDb();
-
-  // Titreşim tercihi burada okunup SetRow'a geçiliyor; her set satırı
-  // ayrı canlı sorgu açmasın diye (aynı anda tek editör render ediliyor).
-  const { settings } = useAppSettings();
-  const vibrate = settings?.restTimerVibrate ?? FALLBACK_REST_VIBRATE;
 
   const [lastSession, setLastSession] = useState<LastSessionData | null>(null);
   const [restSeconds, setRestSeconds] = useState<number>(90);
+  // v4.0a: rutindeki hedef (odak modunda hazır değer); dinlenmeyle aynı sorgu
+  const [target, setTarget] = useState<{ exerciseId: string; weightKg: number | null; reps: string | null } | null>(null);
 
   // Bu egzersizin setlerini canlı sorgu ile çek
   const { data: setsData } = useLiveQuery(
@@ -547,11 +622,7 @@ function ExerciseSetEditor({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const result = await getLastSessionForExercise(
-        db,
-        exercise.id,
-        sessionId
-      );
+      const result = await getLastSessionForExercise(db, exercise.id, sessionId);
       if (!cancelled) setLastSession(result);
     })();
     return () => {
@@ -574,15 +645,13 @@ function ExerciseSetEditor({
       const re = await db
         .select()
         .from(routineExercises)
-        .where(
-          and(
-            eq(routineExercises.routineId, routineId),
-            eq(routineExercises.exerciseId, exercise.id)
-          )
-        )
+        .where(and(eq(routineExercises.routineId, routineId), eq(routineExercises.exerciseId, exercise.id)))
         .limit(1);
       if (!cancelled && re[0]?.restSeconds) {
         setRestSeconds(re[0].restSeconds);
+      }
+      if (!cancelled && re[0]) {
+        setTarget({ exerciseId: exercise.id, weightKg: re[0].targetWeightKg, reps: re[0].targetReps });
       }
     })();
     return () => {
@@ -616,9 +685,8 @@ function ExerciseSetEditor({
   const bestLoaded = previousBest?.exerciseId === exercise.id;
 
   // ── v2.1 ilerleme önerisi ─────────────────────────────────────────────
-  // Hesap `progression.ts`'te; burada yalnızca okuma ve görünüm. Hangi
-  // harekete ait olduğu tutuluyor (editör hareket değişince yeniden
-  // kurulmuyor). Okunamazsa öneri gösterilmiyor, ekran etkilenmiyor.
+  // Hesap `progression.ts`'te; burada yalnızca okuma. Hangi harekete ait
+  // olduğu tutuluyor. Okunamazsa öneri gösterilmiyor, ekran etkilenmiyor.
   const progressionSetting = useProgressionSetting();
   const [progression, setProgression] = useState<{
     sessionExerciseId: string;
@@ -638,46 +706,25 @@ function ExerciseSetEditor({
     return () => {
       cancelled = true;
     };
-  }, [
-    db,
-    exercise.id,
-    sessionId,
-    sessionExerciseId,
-    progressionSetting.loaded,
-    progressionSetting.enabled,
-  ]);
+  }, [db, exercise.id, sessionId, sessionExerciseId, progressionSetting.loaded, progressionSetting.enabled]);
 
   const suggestion =
-    progressionSetting.loaded &&
-    progressionSetting.enabled &&
-    progression?.sessionExerciseId === sessionExerciseId
+    progressionSetting.loaded && progressionSetting.enabled && progression?.sessionExerciseId === sessionExerciseId
       ? progression.value
       : null;
-  // ──────────────────────────────────────────────────────────────────────
 
   // Rozetler setlerden türetiliyor: geri alınan setin rozeti kalkıyor,
   // egzersiz değiştirip dönünce rozetler duruyor.
   const recordSetIds = useMemo(
-    () =>
-      bestLoaded
-        ? findSessionRecordSetIds(setsData ?? [], previousBest.value)
-        : new Set<string>(),
+    () => (bestLoaded ? findSessionRecordSetIds(setsData ?? [], previousBest.value) : new Set<string>()),
     [bestLoaded, previousBest, setsData]
   );
 
   /** ✓ anında: bu tamamlama rekor mu (başarı titreşimi için) */
-  const isRecordCompletion = (
-    set: WorkoutSet,
-    weightKg: number,
-    reps: number
-  ): boolean => {
+  const isRecordCompletion = (set: WorkoutSet, weightKg: number, reps: number): boolean => {
     if (!bestLoaded || set.setType !== 'normal') return false;
     const others = (setsData ?? []).filter((s) => s.id !== set.id);
-    return isNewE1rmRecord(
-      weightKg,
-      reps,
-      sessionRecordBaseline(previousBest.value, others)
-    );
+    return isNewE1rmRecord(weightKg, reps, sessionRecordBaseline(previousBest.value, others));
   };
 
   const handleAddSet = async () => {
@@ -691,89 +738,634 @@ function ExerciseSetEditor({
     });
   };
 
+  return {
+    setsData,
+    lastSession,
+    restSeconds,
+    target: target?.exerciseId === exercise.id ? target : null,
+    recordSetIds,
+    isRecordCompletion,
+    suggestion,
+    handleAddSet,
+  };
+}
+
+/**
+ * Set tamamlama / geri alma — önceki `SetRow.toggleComplete`'in aynısı:
+ * eksik bilgi uyarısı → yazım → titreşim → süperset kararı ve dinlenme →
+ * rekor titreşimi. `restStarted`: odak modu dinlenme ekranını açsın mı.
+ */
+function useSetCompletion({
+  restSeconds,
+  vibrate,
+  isRecordCompletion,
+  onSetCompleted,
+}: {
+  restSeconds: number;
+  vibrate: boolean;
+  isRecordCompletion: (set: WorkoutSet, weightKg: number, reps: number) => boolean;
+  onSetCompleted: (setId: string) => boolean;
+}) {
+  const db = useDb();
+  const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
+
+  return async (
+    set: WorkoutSet,
+    weight: string,
+    reps: string
+  ): Promise<{ status: 'completed' | 'uncompleted' | 'invalid'; restStarted: boolean }> => {
+    if (set.isCompleted) {
+      // Geri al
+      await uncompleteSetRecord(db, set.id);
+      return { status: 'uncompleted', restStarted: false };
+    }
+
+    const parsed = parseSetInput(weight, reps);
+    if (!parsed) {
+      Alert.alert('Eksik bilgi', 'Ağırlık ve tekrar gir.');
+      return { status: 'invalid', restStarted: false };
+    }
+
+    // Tamamla
+    await completeSetRecord(db, set.id, parsed);
+    if (vibrate) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    // v1.9: süpersette tur bitmeden dinlenme başlamaz. Süperset olmayan
+    // harekette onSetCompleted hep true döner; koşul eskisiyle aynı kalır.
+    let restStarted = false;
+    if (onSetCompleted(set.id) && restSeconds > 0) {
+      startRestTimer(restSeconds);
+      restStarted = true;
+    }
+    // Rekor kontrolü: tamamlama yazıldıktan sonra, ek olarak. Hata
+    // tamamlamayı etkilemesin; set tamamlanmış kalır, yalnızca loglanır.
+    try {
+      if (vibrate && isRecordCompletion(set, parsed.weightKg, parsed.reps)) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err) {
+      console.warn('[PR-CHECK] Rekor kontrolü başarısız:', err);
+    }
+    return { status: 'completed', restStarted };
+  };
+}
+
+function useVibrateSetting(): boolean {
+  // Titreşim tercihi bir kez okunup set satırlarına geçiliyor
+  const { settings } = useAppSettings();
+  return settings?.restTimerVibrate ?? FALLBACK_REST_VIBRATE;
+}
+
+// ============================================================================
+// Odak modu (v4.0a 2.1)
+// ============================================================================
+
+interface FocusViewProps {
+  sessionId: string;
+  row: SessionRow;
+  exerciseIndex: number;
+  rows: SessionRow[];
+  focusExercises: FocusExercise[];
+  supersets: ReturnType<typeof supersetPositions>;
+  color: ContextKind;
+  weightUnit: string;
+  onSetCompleted: (setId: string) => boolean;
+  onCompleted: (setId: string, restStarted: boolean) => void;
+  onOpenList: () => void;
+  onGoToExercise: (index: number) => void;
+  onFinish: () => void;
+}
+
+function FocusView({
+  sessionId,
+  row,
+  exerciseIndex,
+  rows,
+  focusExercises,
+  supersets,
+  color,
+  weightUnit,
+  onSetCompleted,
+  onCompleted,
+  onOpenList,
+  onGoToExercise,
+  onFinish,
+}: FocusViewProps) {
+  const COLORS = useColors();
+  const db = useDb();
+  const tones = useContextTones(color);
+  const outline = useContextOutline(color);
+  const vibrate = useVibrateSetting();
+  const data = useExerciseSessionData(sessionId, row.se.id, row.exercise);
+  const toggle = useSetCompletion({
+    restSeconds: data.restSeconds,
+    vibrate,
+    isRecordCompletion: data.isRecordCompletion,
+    onSetCompleted,
+  });
+
+  const sets = data.setsData ?? [];
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
+  const setIndex = focusSetIndex(sets, selectedSetId);
+  const set = setIndex != null ? sets[setIndex] : undefined;
+  const previous = setIndex != null ? data.lastSession?.sets[setIndex] : undefined;
+
+  // Hazır değerler (yazılmaz) + kullanıcının bu sette yazdığı (yazılır)
+  const prefill = set
+    ? prefillValues({
+        weightKg: set.weightKg,
+        reps: set.reps,
+        earlier: earlierCompletedSet(sets, setIndex!),
+        previous: previous ?? null,
+        targetWeightKg: data.target?.weightKg ?? null,
+        targetReps: data.target?.reps ?? null,
+      })
+    : null;
+  const [edit, setEdit] = useState<{ setId: string; weight?: string; reps?: string } | null>(null);
+  const editing = edit && set && edit.setId === set.id ? edit : null;
+  const weight = editing?.weight ?? (set?.isCompleted ? (set.weightKg != null ? String(set.weightKg) : '') : prefill?.weight ?? '');
+  const reps = editing?.reps ?? (set?.isCompleted ? (set.reps != null ? String(set.reps) : '') : prefill?.reps ?? '');
+
+  const [sheet, setSheet] = useState<'info' | 'note' | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const updateWeight = (raw: string) => {
+    if (!set) return;
+    const v = sanitizeDecimalInput(raw, weight, DEFAULT_MAX_DECIMAL_DIGITS, MAX_WEIGHT_INTEGER_DIGITS);
+    setEdit({ ...(editing ?? { setId: set.id }), weight: v });
+    void saveSetWeight(db, set.id, v);
+  };
+  const updateReps = (raw: string) => {
+    if (!set) return;
+    const v = digitsOnly(raw);
+    setEdit({ ...(editing ?? { setId: set.id }), reps: v });
+    void saveSetReps(db, set.id, v);
+  };
+
+  const complete = async () => {
+    if (!set || busy) return;
+    setBusy(true);
+    try {
+      const result = await toggle(set, weight, reps);
+      if (result.status === 'completed') {
+        setSelectedSetId(null);
+        setEdit(null);
+        onCompleted(set.id, result.restStarted);
+      } else if (result.status === 'uncompleted') {
+        setSelectedSetId(set.id);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const superset = supersets[exerciseIndex] ?? null;
+  const label = focusLabel({
+    exerciseIndex,
+    exerciseCount: rows.length,
+    setIndex,
+    setCount: sets.length,
+    superset,
+    supersetMembers: supersetMemberLabels(supersets, exerciseIndex),
+  });
+  const muscles = [...muscleLabels(row.exercise.primaryMuscles), ...muscleLabels(row.exercise.secondaryMuscles)];
+  const segments = progressSegments(focusExercises);
+  const next = set && !set.isCompleted ? nextAfterSet(focusExercises, exerciseIndex, set.id) : null;
+  const nextIncomplete = nextIncompleteExercise(focusExercises, exerciseIndex);
+  const lastTimeText = previous ? setValueText(previous.weightKg, previous.reps) : null;
+  const step = weightStep(weightUnit);
+  const unitLabel = weightUnit === 'lbs' ? 'lb' : 'kg';
+  const stepText = String(step).replace('.', ',');
+  const editable = !!set && !set.isCompleted;
+
   return (
-    <View className="gap-3">
+    <>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="pb-4"
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Bölümlü ilerleme çizgisi: her hareket bir bölüm */}
+        <View className="flex-row gap-1 mx-4 mt-3.5" importantForAccessibility="no-hide-descendants">
+          {segments.map((fill, i) => (
+            <View key={i} className="flex-1 h-1 rounded-full bg-border overflow-hidden">
+              <View className="h-full rounded-full" style={{ width: `${fill * 100}%`, backgroundColor: tones.fill }} />
+            </View>
+          ))}
+        </View>
+
+        <View className="px-5 pt-6 gap-2.5">
+          {/* İkonlar etiket satırında: uzun ad tam genişliği kullansın, kelime bölünmesin */}
+          <View className="flex-row items-center gap-2">
+            <View className="flex-1">
+              <SectionLabel color={color}>{label}</SectionLabel>
+            </View>
+            <IconButton icon={Info} accessibilityLabel="Nasıl yapılır" onPress={() => setSheet('info')} />
+            <IconButton
+              icon={NotebookPen}
+              accessibilityLabel={row.se.notes ? 'Notu düzenle' : 'Not ekle'}
+              color={row.se.notes ? tones.ink : undefined}
+              onPress={() => setSheet('note')}
+            />
+          </View>
+          <DisplayName accessibilityRole="header" inset={2 * 20}>
+            {exerciseDisplayName(row.exercise)}
+          </DisplayName>
+          {muscles.length > 0 && <Text className="text-muted text-sm">{muscles.join(' · ')}</Text>}
+        </View>
+
+        {/* Ağırlık ve tekrar kutuları */}
+        <View className="flex-row gap-2.5 mx-4 mt-5">
+          <ValueBox
+            caption={`Ağırlık · ${unitLabel}`}
+            value={decimalComma(weight)}
+            a11yLabel={weightA11yLabel(weight, weightUnit)}
+            keyboardType="decimal-pad"
+            editable={editable}
+            onChangeText={updateWeight}
+            minusLabel={`−${stepText}`}
+            plusLabel={`+${stepText}`}
+            minusA11y={`${stepText} ${weightUnit === 'lbs' ? 'libre' : 'kilogram'} azalt`}
+            plusA11y={`${stepText} ${weightUnit === 'lbs' ? 'libre' : 'kilogram'} artır`}
+            onMinus={() => updateWeight(stepWeight(weight, -step))}
+            onPlus={() => updateWeight(stepWeight(weight, step))}
+          />
+          <ValueBox
+            caption="Tekrar"
+            value={reps}
+            a11yLabel={repsA11yLabel(reps)}
+            keyboardType="number-pad"
+            maxLength={MAX_REP_DIGITS}
+            editable={editable}
+            onChangeText={updateReps}
+            minusLabel="−1"
+            plusLabel="+1"
+            minusA11y="1 tekrar azalt"
+            plusA11y="1 tekrar artır"
+            onMinus={() => updateReps(stepReps(reps, -1))}
+            onPlus={() => updateReps(stepReps(reps, 1))}
+          />
+        </View>
+        <Text className="text-muted text-[13px] text-center mt-2.5 mx-5">
+          {editable ? 'Rakama dokun, yaz' : set ? 'Tamamlandı · düzenlemek için geri al' : 'Hareket tamam'}
+          {lastTimeText && (
+            <>
+              {' · Geçen sefer '}
+              <Text className="text-fg font-bold">{lastTimeText}</Text>
+            </>
+          )}
+        </Text>
+
+        {/* v2.1 ilerleme önerisi */}
+        {data.suggestion && (
+          <View className="mx-4 mt-3 rounded-2xl bg-bg-surface border border-border px-4 pb-3">
+            <ProgressionHint
+              key={row.se.id}
+              suggestion={data.suggestion}
+              onApply={(weightKg) => applySuggestedWeight(db, row.se.id, weightKg)}
+            />
+          </View>
+        )}
+
+        {/* Set şeridi */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-4"
+          contentContainerClassName="px-4 gap-1.5"
+        >
+          {sets.map((s, i) => {
+            const selected = setIndex === i;
+            const record = data.recordSetIds.has(s.id);
+            const shownWeight = !s.isCompleted && selected ? weight : s.weightKg;
+            const shownReps = !s.isCompleted && selected ? reps : s.reps;
+            const value = setValueText(shownWeight, shownReps);
+            return (
+              <Pressable
+                key={s.id}
+                onPress={() => setSelectedSetId(s.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`Set ${s.setNumber}${s.isCompleted ? ', tamamlandı' : ''}${record ? ', rekor' : ''}, ${value}`}
+                className={`min-w-[84px] min-h-[52px] rounded-[14px] items-center justify-center px-2 py-2 active:opacity-70 ${
+                  selected ? 'border-2' : s.isCompleted ? 'border border-transparent' : 'border border-border'
+                }`}
+                style={{
+                  borderColor: selected ? outline : undefined,
+                  backgroundColor: s.isCompleted ? withAlpha(tones.fill, CHIP_TINT_ALPHA) : undefined,
+                }}
+              >
+                <Text
+                  className={`text-xs font-bold ${s.isCompleted ? '' : selected ? 'text-fg' : 'text-muted'}`}
+                  style={s.isCompleted ? { color: tones.ink } : undefined}
+                >
+                  Set {s.setNumber}
+                  {s.isCompleted ? ' ✓' : ''}
+                  {record ? ' 🏆' : ''}
+                </Text>
+                <Text numberOfLines={1} className={`font-display text-[15px] ${s.isCompleted || selected ? 'text-fg' : 'text-muted'}`}>
+                  {setChipText(shownWeight, shownReps)}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable
+            onPress={data.handleAddSet}
+            accessibilityRole="button"
+            accessibilityLabel="Set ekle"
+            className="w-[60px] min-h-[52px] rounded-[14px] items-center justify-center border border-dashed border-border active:opacity-70"
+          >
+            <Plus color={COLORS.text} size={18} />
+          </Pressable>
+        </ScrollView>
+      </ScrollView>
+
+      {/* Alt: Seti tamamla + Sıradaki */}
+      <View className="px-4 pt-2 pb-2 gap-1">
+        {set ? (
+          set.isCompleted ? (
+            <SecondaryButton label="Seti geri al" size="lg" loading={busy} onPress={complete} />
+          ) : (
+            <PrimaryButton label="Seti tamamla" icon={Check} size="lg" color={color} loading={busy} onPress={complete} />
+          )
+        ) : nextIncomplete != null ? (
+          <PrimaryButton
+            label="Sıradaki harekete geç"
+            icon={ChevronRight}
+            size="lg"
+            color={color}
+            onPress={() => onGoToExercise(nextIncomplete)}
+          />
+        ) : (
+          <PrimaryButton label="Antrenmanı bitir" size="lg" color={color} onPress={onFinish} />
+        )}
+        <Pressable
+          onPress={onOpenList}
+          accessibilityRole="button"
+          accessibilityLabel="Tüm listeyi aç"
+          className="h-11 flex-row items-center justify-between px-1 active:opacity-70"
+        >
+          <Text className="text-muted text-sm shrink" numberOfLines={1}>
+            Sıradaki: <Text className="text-fg font-bold">{set && !set.isCompleted ? nextUpText(focusExercises, exerciseIndex, next) : nextIncomplete != null ? focusExercises[nextIncomplete]?.name ?? '—' : 'Son set'}</Text>
+          </Text>
+          <Text className="text-sm font-bold ml-2" style={{ color: tones.ink }}>
+            Tüm liste ›
+          </Text>
+        </Pressable>
+      </View>
+
+      <FocusSheet
+        mode={sheet}
+        onClose={() => setSheet(null)}
+        exercise={row.exercise}
+        sessionExerciseId={row.se.id}
+        initialNote={row.se.notes}
+        lastSession={data.lastSession}
+      />
+    </>
+  );
+}
+
+/** Büyük kutu: başlık, dev rakam (dokununca klavye), −/+ düğmeleri */
+function ValueBox({
+  caption,
+  value,
+  a11yLabel,
+  keyboardType,
+  maxLength,
+  editable,
+  onChangeText,
+  minusLabel,
+  plusLabel,
+  minusA11y,
+  plusA11y,
+  onMinus,
+  onPlus,
+}: {
+  caption: string;
+  value: string;
+  a11yLabel: string;
+  keyboardType: 'decimal-pad' | 'number-pad';
+  maxLength?: number;
+  editable: boolean;
+  onChangeText: (v: string) => void;
+  minusLabel: string;
+  plusLabel: string;
+  minusA11y: string;
+  plusA11y: string;
+  onMinus: () => void;
+  onPlus: () => void;
+}) {
+  const COLORS = useColors();
+  return (
+    <View className="flex-1 rounded-[22px] bg-bg-surface border border-border px-3 pt-3.5 pb-3 items-center gap-1.5">
+      <Text className="text-muted text-[13px] font-semibold" importantForAccessibility="no">
+        {caption}
+      </Text>
+      <TextInput
+        value={value.replace('.', ',')}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
+        editable={editable}
+        selectTextOnFocus
+        placeholder="–"
+        placeholderTextColor={COLORS.faint}
+        accessibilityLabel={a11yLabel}
+        className={`font-display text-[56px] leading-[64px] text-center self-stretch p-0 ${editable ? 'text-fg' : 'text-muted'}`}
+      />
+      <View className="flex-row gap-2 self-stretch">
+        <StepButton label={minusLabel} a11y={minusA11y} onPress={onMinus} disabled={!editable} />
+        <StepButton label={plusLabel} a11y={plusA11y} onPress={onPlus} disabled={!editable} />
+      </View>
+    </View>
+  );
+}
+
+function StepButton({ label, a11y, onPress, disabled }: { label: string; a11y: string; onPress: () => void; disabled: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      accessibilityState={{ disabled }}
+      className={`flex-1 h-11 rounded-xl bg-bg-elevated items-center justify-center active:opacity-70 ${disabled ? 'opacity-40' : ''}`}
+    >
+      <Text className="text-fg text-[15px] font-bold">{label}</Text>
+    </Pressable>
+  );
+}
+
+// ============================================================================
+// Tüm liste (v4.0a 2.2): bütün hareketler ve setleri, mevcut editörle
+// ============================================================================
+
+function ListView({
+  sessionId,
+  rows,
+  focusExercises,
+  supersets,
+  currentIndex,
+  color,
+  sessionName,
+  onSetCompleted,
+  onOpenInFocus,
+}: {
+  sessionId: string;
+  rows: SessionRow[];
+  focusExercises: FocusExercise[];
+  supersets: ReturnType<typeof supersetPositions>;
+  currentIndex: number;
+  color: ContextKind;
+  sessionName: string;
+  onSetCompleted: (setId: string, exerciseIndex: number) => boolean;
+  onOpenInFocus: (index: number) => void;
+}) {
+  const COLORS = useColors();
+  const router = useRouter();
+  const tones = useContextTones(color);
+  const outline = useContextOutline(color);
+  return (
+    <ScrollView className="flex-1" contentContainerClassName="px-4 pt-5 gap-3 pb-8" keyboardShouldPersistTaps="handled">
+      <DisplayName accessibilityRole="header" inset={2 * (16 + 4)} sizes={CARD_NAME_SIZES} className="px-1">
+        {sessionName}
+      </DisplayName>
+      {rows.map((r, i) => {
+        const ex = focusExercises[i];
+        const done = ex ? ex.sets.filter((s) => s.isCompleted).length : 0;
+        const total = ex?.sets.length ?? 0;
+        const superset = supersets[i];
+        const isCurrent = i === currentIndex;
+        return (
+          <View
+            key={r.se.id}
+            className="rounded-[20px] bg-bg-surface border px-3.5 pt-3 pb-3"
+            style={{ borderColor: isCurrent ? outline : COLORS.border }}
+          >
+            <View className="flex-row items-center gap-2">
+              <Pressable
+                onPress={() => onOpenInFocus(i)}
+                accessibilityRole="button"
+                accessibilityLabel={`${exerciseDisplayName(r.exercise)}, odak modunda aç`}
+                className="flex-1 min-h-[44px] justify-center active:opacity-70"
+              >
+                {superset && (
+                  <Text className="text-accent text-xs font-bold tracking-widest">SÜPERSET · {superset.label}</Text>
+                )}
+                <Text className="text-fg text-[15px] font-bold" numberOfLines={2}>
+                  {exerciseDisplayName(r.exercise)}
+                </Text>
+                <Text className="text-muted text-xs tabular-nums">
+                  {done} / {total} set
+                </Text>
+              </Pressable>
+              {/* Hareket detayı ekranı (seans ekranı yığında kalır) */}
+              <IconButton
+                icon={Info}
+                variant="ghost"
+                accessibilityLabel="Hareket detayını aç"
+                color={COLORS.muted}
+                onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: r.exercise.id } })}
+              />
+            </View>
+            <ExerciseSetEditor
+              sessionId={sessionId}
+              sessionExerciseId={r.se.id}
+              exercise={r.exercise}
+              initialNote={r.se.notes}
+              onSetCompleted={(setId) => onSetCompleted(setId, i)}
+            />
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+interface ExerciseSetEditorProps {
+  sessionId: string;
+  sessionExerciseId: string;
+  exercise: Exercise;
+  /** Bu antrenmanda bu hareketin notu (session_exercises.notes) */
+  initialNote: string | null;
+  /** v1.9: set tamamlanınca dinlenme başlasın mı (süperset kararı) */
+  onSetCompleted: (setId: string) => boolean;
+}
+
+function ExerciseSetEditor({ sessionId, sessionExerciseId, exercise, initialNote, onSetCompleted }: ExerciseSetEditorProps) {
+  const COLORS = useColors();
+  const db = useDb();
+  const vibrate = useVibrateSetting();
+  const data = useExerciseSessionData(sessionId, sessionExerciseId, exercise);
+  const { lastSession, suggestion } = data;
+
+  return (
+    <View className="gap-2 mt-1">
       {/* Auto-fill bilgisi */}
       {lastSession && (lastSession.sets.length > 0 || lastSession.notes) && (
-        <View className="bg-bg-surface border border-border rounded-2xl px-4 py-3">
-          <Text className="text-muted text-xs uppercase tracking-widest">
-            Son antrenman ({formatDate(lastSession.sessionDate)})
-          </Text>
+        <View className="bg-bg-elevated rounded-2xl px-3.5 py-2.5">
+          <Text className="text-muted text-xs font-semibold">Son antrenman ({formatDate(lastSession.sessionDate)})</Text>
           {lastSession.sets.length > 0 && (
-            <Text className="text-fg text-sm mt-1.5 tabular-nums">
-              {lastSession.sets
-                .map((s) => formatSetSummary(s.weightKg, s.reps, s.rir))
-                .join('  •  ')}
+            <Text className="text-fg text-sm mt-1 tabular-nums">
+              {lastSession.sets.map((s) => formatSetSummary(s.weightKg, s.reps, s.rir)).join('  •  ')}
             </Text>
           )}
           {/* Önceki antrenmanın hareket notu (salt okunur) */}
-          {lastSession.notes && (
-            <Text className="text-muted text-sm mt-1.5">
-              📝 {lastSession.notes}
-            </Text>
-          )}
+          {lastSession.notes && <Text className="text-muted text-sm mt-1">📝 {lastSession.notes}</Text>}
           {/* v2.1: ilerleme önerisi */}
           {suggestion && (
             <ProgressionHint
               key={sessionExerciseId}
               suggestion={suggestion}
-              onApply={(weightKg) =>
-                applySuggestedWeight(db, sessionExerciseId, weightKg)
-              }
+              onApply={(weightKg) => applySuggestedWeight(db, sessionExerciseId, weightKg)}
             />
           )}
         </View>
       )}
 
       {/* Set başlık satırı */}
-      <View className="flex-row px-2 mt-2">
-        <Text className="text-muted text-[11px] tracking-widest w-9">SET</Text>
-        <Text className="text-muted text-[11px] tracking-widest flex-1 text-center">
-          ÖNCEKİ
-        </Text>
-        <Text className="text-muted text-[11px] tracking-widest w-20 text-center">
-          KG
-        </Text>
-        <Text className="text-muted text-[11px] tracking-widest w-16 text-center ml-2">
-          TEKRAR
-        </Text>
-        <Text className="text-muted text-[11px] w-12 ml-2"></Text>
+      <View className="flex-row px-2 mt-1">
+        <Text className="text-muted text-xs w-9">Set</Text>
+        <Text className="text-muted text-xs flex-1 text-center">Önceki</Text>
+        <Text className="text-muted text-xs w-20 text-center">Ağırlık · kg</Text>
+        <Text className="text-muted text-xs w-16 text-center ml-2">Tekrar</Text>
+        <Text className="text-muted text-xs w-12 ml-2"></Text>
       </View>
 
       {/* Setler */}
-      {setsData?.map((set, idx) => (
+      {data.setsData?.map((set, idx) => (
         <SetRow
           key={set.id}
           set={set}
           previousSet={lastSession?.sets[idx]}
-          restSeconds={restSeconds}
+          restSeconds={data.restSeconds}
           vibrate={vibrate}
-          isRecord={recordSetIds.has(set.id)}
-          isRecordCompletion={isRecordCompletion}
+          isRecord={data.recordSetIds.has(set.id)}
+          isRecordCompletion={data.isRecordCompletion}
           onSetCompleted={onSetCompleted}
         />
       ))}
 
       {/* Set ekle butonu */}
       <Pressable
-        onPress={handleAddSet}
-        className="min-h-[52px] border border-dashed border-border rounded-2xl items-center flex-row justify-center mt-1 active:bg-bg-surface"
+        onPress={data.handleAddSet}
+        className="min-h-[48px] border border-dashed border-border rounded-2xl items-center flex-row justify-center active:bg-bg-elevated"
       >
         <Plus color={COLORS.text} size={18} />
-        <Text className="text-fg text-base font-semibold ml-2">Set Ekle</Text>
+        <Text className="text-fg text-[15px] font-semibold ml-2">Set ekle</Text>
       </Pressable>
 
       {/* Hareket notu. key: başka harekete geçince alan yeniden kurulsun,
           önceki hareketin bekleyen notu kaldırılırken kaydedilsin */}
-      <View className="mt-2">
-        <NoteEditor
-          key={sessionExerciseId}
-          initialValue={initialNote}
-          onSave={(text) => saveSessionExerciseNote(db, sessionExerciseId, text)}
-          addLabel="Not ekle"
-          placeholder="Bu hareketle ilgili not (ör. sol omuzda sıkışma)"
-        />
-      </View>
+      <NoteEditor
+        key={sessionExerciseId}
+        initialValue={initialNote}
+        onSave={(text) => saveSessionExerciseNote(db, sessionExerciseId, text)}
+        addLabel="Not ekle"
+        placeholder="Bu hareketle ilgili not (ör. sol omuzda sıkışma)"
+      />
     </View>
   );
 }
@@ -792,26 +1384,14 @@ interface SetRowProps {
   onSetCompleted: (setId: string) => boolean;
 }
 
-function SetRow({
-  set,
-  previousSet,
-  restSeconds,
-  vibrate,
-  isRecord,
-  isRecordCompletion,
-  onSetCompleted,
-}: SetRowProps) {
+function SetRow({ set, previousSet, restSeconds, vibrate, isRecord, isRecordCompletion, onSetCompleted }: SetRowProps) {
   const COLORS = useColors();
   const db = useDb();
-  const startRestTimer = useActiveWorkoutStore((s) => s.startRestTimer);
+  const toggle = useSetCompletion({ restSeconds, vibrate, isRecordCompletion, onSetCompleted });
 
   // Lokal state — daha akıcı UI, complete olunca DB'ye yazılır
-  const [weight, setWeight] = useState<string>(
-    set.weightKg != null ? String(set.weightKg) : ''
-  );
-  const [reps, setReps] = useState<string>(
-    set.reps != null ? String(set.reps) : ''
-  );
+  const [weight, setWeight] = useState<string>(set.weightKg != null ? String(set.weightKg) : '');
+  const [reps, setReps] = useState<string>(set.reps != null ? String(set.reps) : '');
 
   // DB'den gelen değişiklikleri lokale yansıt
   useEffect(() => {
@@ -820,7 +1400,7 @@ function SetRow({
   }, [set.weightKg, set.reps]);
 
   const previousLabel = previousSet
-    ? `${previousSet.weightKg ?? '-'} × ${previousSet.reps ?? '-'}`
+    ? `${previousSet.weightKg != null ? decimalComma(previousSet.weightKg) : '-'} × ${previousSet.reps ?? '-'}`
     : '—';
 
   // RIR: tamamlanmış sette, girilmemişse ince seçici sırası; girilmişse
@@ -832,167 +1412,100 @@ function SetRow({
   const showRirLabel = set.isCompleted && set.rir != null && !rirEditing;
 
   const selectRir = async (value: number) => {
-    await db
-      .update(setsTable)
-      .set({ rir: value })
-      .where(eq(setsTable.id, set.id));
+    await saveSetRir(db, set.id, value);
     setRirEditing(false);
     setRirHelp(false);
   };
 
   const toggleComplete = async () => {
-    const parsedWeight = parseFloat(weight.replace(',', '.'));
-    const parsedReps = parseInt(reps, 10);
-
-    if (!set.isCompleted && (isNaN(parsedWeight) || isNaN(parsedReps))) {
-      Alert.alert('Eksik bilgi', 'Ağırlık ve tekrar gir.');
-      return;
-    }
-
-    if (!set.isCompleted) {
-      // Tamamla
-      await db
-        .update(setsTable)
-        .set({
-          weightKg: parsedWeight,
-          reps: parsedReps,
-          isCompleted: true,
-          completedAt: new Date().toISOString(),
-        })
-        .where(eq(setsTable.id, set.id));
-      if (vibrate) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
-      // v1.9: süpersette tur bitmeden dinlenme başlamaz. Süperset olmayan
-      // harekette onSetCompleted hep true döner; koşul eskisiyle aynı kalır.
-      if (onSetCompleted(set.id) && restSeconds > 0) {
-        startRestTimer(restSeconds);
-      }
-      // Rekor kontrolü: tamamlama yazıldıktan sonra, ek olarak. Hata
-      // tamamlamayı etkilemesin; set tamamlanmış kalır, yalnızca loglanır.
-      try {
-        if (vibrate && isRecordCompletion(set, parsedWeight, parsedReps)) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-      } catch (err) {
-        console.warn('[PR-CHECK] Rekor kontrolü başarısız:', err);
-      }
-    } else {
-      // Geri al
-      await db
-        .update(setsTable)
-        .set({ isCompleted: false, completedAt: null })
-        .where(eq(setsTable.id, set.id));
-    }
+    await toggle(set, weight, reps);
   };
 
   const updateWeight = async (raw: string) => {
-    const v = sanitizeDecimalInput(
-      raw,
-      weight,
-      DEFAULT_MAX_DECIMAL_DIGITS,
-      MAX_WEIGHT_INTEGER_DIGITS
-    );
+    const v = sanitizeDecimalInput(raw, weight, DEFAULT_MAX_DECIMAL_DIGITS, MAX_WEIGHT_INTEGER_DIGITS);
     setWeight(v);
-    const parsed = parseFloat(v.replace(',', '.'));
-    await db
-      .update(setsTable)
-      .set({ weightKg: isNaN(parsed) ? null : parsed })
-      .where(eq(setsTable.id, set.id));
+    await saveSetWeight(db, set.id, v);
   };
 
   const updateReps = async (raw: string) => {
     const v = digitsOnly(raw);
     setReps(v);
-    const parsed = parseInt(v, 10);
-    await db
-      .update(setsTable)
-      .set({ reps: isNaN(parsed) ? null : parsed })
-      .where(eq(setsTable.id, set.id));
+    await saveSetReps(db, set.id, v);
   };
 
   return (
     <View>
-    <View
-      className={`flex-row items-center min-h-[60px] px-2 py-2 rounded-2xl ${
-        set.isCompleted ? 'bg-success/10' : ''
-      }`}
-    >
-      <Text className="text-fg text-lg font-semibold tabular-nums w-9">
-        {set.setNumber}
-      </Text>
-      <View className="flex-1 items-center">
-        <Text
-          className="text-muted text-sm tabular-nums text-center"
-          numberOfLines={1}
-        >
-          {previousLabel}
-        </Text>
-        {isRecord && (
-          <View className="bg-pr rounded-full px-2 py-0.5 mt-1">
-            <Text className="text-pr-fg text-[11px] font-semibold">
-              🏆 Rekor
-            </Text>
-          </View>
-        )}
-        {showRirLabel && (
-          <Pressable
-            onPress={() => setRirEditing(true)}
-            hitSlop={6}
-            accessibilityLabel="RIR değerini değiştir"
-            className="border border-border rounded-full px-2 py-0.5 mt-1 active:opacity-60"
-          >
-            <Text className="text-muted text-[11px] font-semibold tabular-nums">
-              RIR {rirLabel(set.rir!)}
-            </Text>
-          </Pressable>
-        )}
-      </View>
-      <TextInput
-        value={weight}
-        onChangeText={updateWeight}
-        placeholder={previousSet?.weightKg ? String(previousSet.weightKg) : '-'}
-        placeholderTextColor={COLORS.muted}
-        keyboardType="decimal-pad"
-        editable={!set.isCompleted}
-        className={`w-20 h-12 text-center text-lg font-semibold tabular-nums px-2 rounded-xl ${
-          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-fg'
-        }`}
-      />
-      <TextInput
-        value={reps}
-        onChangeText={updateReps}
-        placeholder={previousSet?.reps ? String(previousSet.reps) : '-'}
-        placeholderTextColor={COLORS.muted}
-        keyboardType="number-pad"
-        maxLength={MAX_REP_DIGITS}
-        editable={!set.isCompleted}
-        className={`w-16 h-12 text-center text-lg font-semibold tabular-nums px-2 rounded-xl ml-2 ${
-          set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-fg'
-        }`}
-      />
-      <Pressable onPress={toggleComplete} hitSlop={6} className="ml-2">
-        <View
-          className={`w-12 h-12 rounded-xl items-center justify-center ${
-            set.isCompleted ? 'bg-success' : 'bg-bg-elevated border border-border'
-          }`}
-        >
-          <Check
-            color={set.isCompleted ? COLORS.successFg : COLORS.muted}
-            size={20}
-            strokeWidth={3}
-          />
+      <View className={`flex-row items-center min-h-[56px] px-2 py-1.5 rounded-xl ${set.isCompleted ? 'bg-success/10' : ''}`}>
+        <Text className="text-fg text-base font-bold tabular-nums w-9">{set.setNumber}</Text>
+        <View className="flex-1 items-center">
+          <Text className="text-muted text-sm tabular-nums text-center" numberOfLines={1}>
+            {previousLabel}
+          </Text>
+          {isRecord && (
+            <View className="bg-pr rounded-full px-2 py-0.5 mt-1">
+              <Text className="text-pr-fg text-xs font-semibold">🏆 Rekor</Text>
+            </View>
+          )}
+          {showRirLabel && (
+            <Pressable
+              onPress={() => setRirEditing(true)}
+              hitSlop={6}
+              accessibilityLabel="RIR değerini değiştir"
+              className="border border-border rounded-full px-2 py-0.5 mt-1 active:opacity-60"
+            >
+              <Text className="text-muted text-xs font-semibold tabular-nums">RIR {rirLabel(set.rir!)}</Text>
+            </Pressable>
+          )}
         </View>
-      </Pressable>
-    </View>
-    {showRirPicker && (
-      <RirPicker
-        selected={set.rir}
-        showHelp={rirHelp}
-        onToggleHelp={() => setRirHelp((h) => !h)}
-        onSelect={selectRir}
-      />
-    )}
+        <TextInput
+          value={decimalComma(weight)}
+          onChangeText={updateWeight}
+          placeholder={previousSet?.weightKg ? decimalComma(previousSet.weightKg) : '-'}
+          placeholderTextColor={COLORS.faint}
+          keyboardType="decimal-pad"
+          editable={!set.isCompleted}
+          accessibilityLabel={`Set ${set.setNumber} ağırlık`}
+          className={`w-20 h-11 text-center text-lg font-display px-2 rounded-xl ${
+            set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-fg'
+          }`}
+        />
+        <TextInput
+          value={reps}
+          onChangeText={updateReps}
+          placeholder={previousSet?.reps ? String(previousSet.reps) : '-'}
+          placeholderTextColor={COLORS.faint}
+          keyboardType="number-pad"
+          maxLength={MAX_REP_DIGITS}
+          editable={!set.isCompleted}
+          accessibilityLabel={`Set ${set.setNumber} tekrar`}
+          className={`w-16 h-11 text-center text-lg font-display px-2 rounded-xl ml-2 ${
+            set.isCompleted ? 'bg-transparent text-muted' : 'bg-bg-elevated text-fg'
+          }`}
+        />
+        <Pressable
+          onPress={toggleComplete}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={set.isCompleted ? `Set ${set.setNumber} tamamlandı, geri al` : `Set ${set.setNumber} tamamla`}
+          className="ml-2"
+        >
+          <View
+            className={`w-11 h-11 rounded-xl items-center justify-center ${
+              set.isCompleted ? 'bg-success' : 'bg-bg-elevated border border-border'
+            }`}
+          >
+            <Check color={set.isCompleted ? COLORS.successFg : COLORS.muted} size={20} strokeWidth={3} />
+          </View>
+        </Pressable>
+      </View>
+      {showRirPicker && (
+        <RirPicker
+          selected={set.rir}
+          showHelp={rirHelp}
+          onToggleHelp={() => setRirHelp((h) => !h)}
+          onSelect={selectRir}
+        />
+      )}
     </View>
   );
 }
@@ -1015,14 +1528,14 @@ function RirPicker({
   return (
     <View className="px-2 pb-1">
       <View className="flex-row items-center">
-        <Text className="text-muted text-[11px] tracking-widest w-9">RIR</Text>
+        <Text className="text-muted text-xs w-9">RIR</Text>
         <Pressable
           onPress={onToggleHelp}
-          hitSlop={8}
+          hitSlop={10}
           accessibilityLabel="RIR nedir?"
-          className="w-6 h-6 rounded-full border border-border items-center justify-center mr-2 active:opacity-60"
+          className="w-7 h-7 rounded-full border border-border items-center justify-center mr-2 active:opacity-60"
         >
-          <Text className="text-muted text-[11px] font-semibold">?</Text>
+          <Text className="text-muted text-xs font-semibold">?</Text>
         </Pressable>
         {RIR_OPTIONS.map((value) => {
           const active = selected != null && rirLabel(selected) === rirLabel(value);
@@ -1030,19 +1543,15 @@ function RirPicker({
             <Pressable
               key={value}
               onPress={() => onSelect(value)}
-              hitSlop={4}
+              hitSlop={8}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
               accessibilityLabel={`RIR ${rirLabel(value)}`}
-              className={`h-7 min-w-[32px] px-2 rounded-full items-center justify-center mr-1 ${
-                active
-                  ? 'bg-accent'
-                  : 'bg-bg-surface border border-border active:bg-bg-elevated'
+              className={`h-8 min-w-[36px] px-2 rounded-full items-center justify-center mr-1 ${
+                active ? 'bg-ctx-rest' : 'bg-bg-elevated border border-border active:bg-bg-surface'
               }`}
             >
-              <Text
-                className={`text-xs font-semibold tabular-nums ${
-                  active ? 'text-accent-fg' : 'text-muted'
-                }`}
-              >
+              <Text className={`text-xs font-bold tabular-nums ${active ? 'text-ctx-fg' : 'text-muted'}`}>
                 {rirLabel(value)}
               </Text>
             </Pressable>
@@ -1086,42 +1595,34 @@ function ProgressionHint({
     <View className="mt-2.5 pt-2.5 border-t border-border">
       <View className="flex-row items-center">
         <Text className="text-fg text-sm flex-1">
-          💡 Bugün{' '}
-          <Text className="font-semibold tabular-nums">{suggestion.headline}</Text>{' '}
-          dene
+          💡 Bugün <Text className="font-semibold tabular-nums">{suggestion.headline}</Text> dene
         </Text>
         <Pressable
           onPress={() => Alert.alert('İlerleme önerisi', PROGRESSION_HELP)}
-          hitSlop={8}
+          hitSlop={10}
           accessibilityLabel="İlerleme önerisi nedir?"
-          className="w-6 h-6 rounded-full border border-border items-center justify-center ml-2 active:opacity-60"
+          className="w-7 h-7 rounded-full border border-border items-center justify-center ml-2 active:opacity-60"
         >
-          <Text className="text-muted text-[11px] font-semibold">?</Text>
+          <Text className="text-muted text-xs font-semibold">?</Text>
         </Pressable>
         {suggestion.canApply && (
           <Pressable
             onPress={apply}
             disabled={applied}
-            hitSlop={6}
+            hitSlop={8}
             accessibilityLabel="Önerilen ağırlığı setlere yaz"
-            className={`h-7 px-3 rounded-full items-center justify-center ml-2 ${
+            className={`h-8 px-3 rounded-full items-center justify-center ml-2 ${
               applied ? 'border border-border' : 'bg-accent active:opacity-80'
             }`}
           >
-            <Text
-              className={`text-xs font-semibold ${
-                applied ? 'text-muted' : 'text-accent-fg'
-              }`}
-            >
+            <Text className={`text-xs font-semibold ${applied ? 'text-muted' : 'text-accent-fg'}`}>
               {applied ? 'Uygulandı' : 'Uygula'}
             </Text>
           </Pressable>
         )}
       </View>
       <Text className="text-muted text-xs mt-1">{suggestion.reason}</Text>
-      {suggestion.plateauNote && (
-        <Text className="text-muted text-xs mt-1.5">{suggestion.plateauNote}</Text>
-      )}
+      {suggestion.plateauNote && <Text className="text-muted text-xs mt-1.5">{suggestion.plateauNote}</Text>}
     </View>
   );
 }

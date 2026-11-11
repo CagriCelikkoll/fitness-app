@@ -6,7 +6,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Text, TextInput } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Trash2 } from 'lucide-react-native';
@@ -130,13 +131,13 @@ export default function FeedbackDetailScreen() {
         </Card>
 
         <Card className="gap-3">
-          <Text className="text-muted text-xs uppercase tracking-widest">Durum</Text>
+          <Text className="text-muted text-[13px]">Durum</Text>
           <View className="flex-row flex-wrap gap-2">
             {FEEDBACK_STATUSES.filter((s) => canSetStatus(item.status, s.key)).map((s) => (
               <Chip key={s.key} label={s.label} active={status === s.key} onPress={() => setStatus(s.key)} />
             ))}
           </View>
-          <Text className="text-muted text-xs uppercase tracking-widest mt-2">Yanıt</Text>
+          <Text className="text-muted text-[13px] mt-2">Yanıt</Text>
           <TextInput
             value={reply}
             onChangeText={setReply}

@@ -8,7 +8,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { RefreshCw } from 'lucide-react-native';
 

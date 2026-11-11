@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/Text';
+import { upperTr } from '@/lib/typography';
 
 interface SectionHeaderProps {
   title: string;
   description?: string;
   /** Sağ taraftaki aksiyon (ör. "Tümünü gör →") */
   action?: ReactNode;
-  /** `section`: text-xl başlık, `label`: kartın dışındaki küçük harf aralıklı etiket */
+  /** `section`: text-xl başlık, `label`: kartın dışındaki küçük BÜYÜK HARF etiket (Türkçe İ, `upperTr`) */
   variant?: 'section' | 'label';
   /** Başlık rengini tehlike rengine çevirir */
   danger?: boolean;
@@ -23,13 +25,13 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const titleClass =
     variant === 'label'
-      ? `text-xs uppercase tracking-widest ${danger ? 'text-danger' : 'text-muted'}`
+      ? `text-xs font-bold tracking-widest ${danger ? 'text-danger' : 'text-muted'}`
       : `text-xl font-semibold tracking-tight ${danger ? 'text-danger' : 'text-fg'}`;
 
   return (
     <View className={`flex-row items-end justify-between ${className}`}>
       <View className="flex-1 pr-3">
-        <Text className={titleClass}>{title}</Text>
+        <Text className={titleClass}>{variant === 'label' ? upperTr(title) : title}</Text>
         {description != null && (
           <Text className="text-muted text-sm mt-1">{description}</Text>
         )}

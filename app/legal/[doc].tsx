@@ -5,7 +5,8 @@
  * bağlantı (v3.4).
  */
 
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams } from 'expo-router';
 
 import { LEGAL_DOCUMENTS, type LegalDocId } from '@/content/legal';

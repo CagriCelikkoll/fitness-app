@@ -9,7 +9,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { UserMinus } from 'lucide-react-native';
 
@@ -200,7 +201,7 @@ export default function MemberScreen() {
         ) : (
           <Text className="text-muted text-xs leading-5 px-1">
             {isMe
-              ? 'Kendi rolünü buradan değiştiremezsin. Salondan ayrılmak için Ayarlar → Hesap ve salon.'
+              ? 'Kendi rolünü buradan değiştiremezsin. Salondan ayrılmak için Profil → Gizlilik ve hesap.'
               : 'Rolü, üyelik bitişini ve salondan çıkarmayı yalnızca yönetici değiştirir.'}
           </Text>
         )}

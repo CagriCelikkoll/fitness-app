@@ -232,6 +232,14 @@ export function formatDateKey(key: string): string {
   return `${d}.${m}.${y}`;
 }
 
+/**
+ * Ondalık ayırıcı virgül (v4.0b): "22.5" → "22,5". Veritabanındaki sayıyı
+ * ya da giriş kutusunun metnini olduğu gibi gösterir; yuvarlamaz.
+ */
+export function decimalComma(value: string | number): string {
+  return String(value).replace('.', ',');
+}
+
 /** "82,5" — en fazla `digits` ondalık */
 export function formatDecimal(n: number, digits = 1): string {
   return n.toLocaleString('tr-TR', {

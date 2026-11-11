@@ -26,6 +26,18 @@
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_g9cFuJOUm4Y_-mdLvByPTw_d_zf15K-"
       }
     },
+    "dahili": {
+      "distribution": "internal",
+      "node": "22.17.1",
+      "channel": "dahili",
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "dahili"
+      }
+    },
     "production": {
       "node": "22.17.1",
       "channel": "production",

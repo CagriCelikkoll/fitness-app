@@ -1,40 +1,40 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  Pressable,
-  Text,
-  View,
   ActivityIndicator,
+  Alert,
+  Pressable,
+  SectionList,
+  View,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { asc, count, eq } from 'drizzle-orm';
 import {
-  Dumbbell,
   LayoutList,
-  Pencil,
+  ListChecks,
+  MoreHorizontal,
   Play,
   Plus,
   RefreshCw,
-  Trash2,
+  Sparkles,
 } from 'lucide-react-native';
 
+import { ChooseProgramCard } from '@/components/ChooseProgramCard';
+import { CoverImage } from '@/components/CoverImage';
+import { EntryRow } from '@/components/EntryRow';
+import { RoutineMenu, type RoutineTarget } from '@/components/RoutineMenu';
 import { useDb } from '@/hooks/useDb';
+import { useGymMembership } from '@/hooks/useGymMembership';
 import {
   applyProgramUpdate,
   keepProgramRoutines,
   usePrograms,
   useRoutineLinks,
 } from '@/hooks/usePrograms';
-import { useColors } from '@/hooks/useTheme';
-import {
-  routineExercises,
-  routines,
-  type Routine,
-} from '@/db/schema';
-import { EXERCISE_IMAGE_CACHE } from '@/lib/exerciseImage';
+import { useRoutineActions } from '@/hooks/useRoutineActions';
+import { useRoutineCards } from '@/hooks/useRoutineCards';
+import { useScreenTopInset } from '@/hooks/useSafeBottom';
+import { DarkSurface, useColors, useContextTones } from '@/hooks/useTheme';
+import { useStartRoutine } from '@/hooks/useStartRoutine';
 import {
   programUpdates,
   pruneLinks,
@@ -43,27 +43,38 @@ import {
   type ProgramUpdate,
 } from '@/lib/programs';
 import {
-  createSessionFromRoutine,
-  sessionExerciseImageUrls,
-} from '@/lib/startSession';
+  routineKindLabel,
+  type RoutineCardItem,
+  type RoutineGroupMember,
+} from '@/lib/routineCards';
+import { visibleTabs } from '@/lib/tabRoutes';
+import { nameCase } from '@/lib/typography';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import {
   Card,
-  EmptyState,
-  ListRow,
+  DisplayName,
+  IconButton,
   PrimaryButton,
+  ScreenTitle,
   SecondaryButton,
+  SectionLabel,
 } from '@/components/ui';
+import type { WorkoutCover } from '@/lib/coverImage';
 
 export default function WorkoutScreen() {
   const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
+  const topInset = useScreenTopInset();
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
-  const startSession = useActiveWorkoutStore((s) => s.startSession);
-  const [starting, setStarting] = useState(false);
+  const { start: startRoutine, starting } = useStartRoutine();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [menuRoutine, setMenuRoutine] = useState<RoutineTarget | null>(null);
+  const { confirmDelete, copy } = useRoutineActions();
+  // Salon üyesinde Hareketler sekmesi yok; liste buradan açılır
+  const { primary } = useGymMembership();
+  const showExercisesEntry = !visibleTabs(primary != null).includes('exercises');
 
   // Programdan eklenen rutinler (v3.6b): program güncellenince rozet.
   // Bayrak kapalıyken / salon yokken hiçbir şey okunmaz, istek atılmaz.
@@ -75,77 +86,9 @@ export default function WorkoutScreen() {
     }, [programLinks.length, refreshIfStale])
   );
 
-  // Tüm aktif (arşivlenmemiş) rutinleri canlı sorgu ile çek
-  const { data: routineList } = useLiveQuery(
-    db
-      .select({
-        id: routines.id,
-        name: routines.name,
-        description: routines.description,
-        exerciseCount: count(routineExercises.id),
-      })
-      .from(routines)
-      .leftJoin(routineExercises, eq(routineExercises.routineId, routines.id))
-      .where(eq(routines.isArchived, false))
-      .groupBy(routines.id)
-      .orderBy(asc(routines.name))
-  );
+  const { routineList, groups } = useRoutineCards({ links: programLinks, programs });
 
-  useEffect(() => {
-    // Yalnızca geliştirmede: mağaza derlemesinde her değişimde tüm listeyi yazmasın
-    if (__DEV__ && routineList) {
-      console.log('[ROUTINE-LIST]', JSON.stringify(routineList, null, 2));
-    }
-  }, [routineList]);
-
-  const handleStartRoutine = async (routine: Routine) => {
-    if (starting) return;
-    setStarting(true);
-    try {
-      const sessionId = await createSessionFromRoutine(db, routine);
-
-      if (sessionId == null) {
-        Alert.alert(
-          'Boş Rutin',
-          'Bu rutin egzersiz içermiyor. Önce egzersiz ekle.'
-        );
-        return;
-      }
-
-      startSession(sessionId);
-      router.push('/session/active');
-
-      // Hareket görsellerini arka planda önbelleğe al; salonda internet
-      // olmasa da detayda görünsünler. Beklenmiyor, hata antrenmanı etkilemez.
-      sessionExerciseImageUrls(db, sessionId)
-        .then((urls) =>
-          urls.length > 0 ? Image.prefetch(urls, EXERCISE_IMAGE_CACHE) : true
-        )
-        .catch((err) => console.warn('[IMAGE-PREFETCH] Atlandı:', err));
-    } catch (err) {
-      console.error('Antrenman başlatılırken hata:', err);
-      Alert.alert('Hata', String(err));
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const handleDelete = (routine: Routine) => {
-    Alert.alert(
-      'Rutini Sil',
-      `"${routine.name}" rutinini silmek istediğine emin misin?`,
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            await db.delete(routines).where(eq(routines.id, routine.id));
-          },
-        },
-      ]
-    );
-  };
+  const openEditor = (routineId: string) => router.push({ pathname: '/routine/[id]', params: { id: routineId } });
 
   const updates: ProgramUpdate[] =
     routineList && programLinks.length > 0
@@ -190,108 +133,104 @@ export default function WorkoutScreen() {
 
   return (
     <View className="flex-1 bg-bg">
-      {/* Aktif session uyarısı */}
-      {activeSessionId && (
-        <View className="px-5 pt-4">
-          <Link href="/session/active" asChild>
-            <Card variant="accent" className="flex-row items-center py-4">
-              <Play color={COLORS.accentFg} size={18} fill={COLORS.accentFg} />
-              <Text className="text-accent-fg text-base font-semibold ml-3">
-                Aktif antrenmana dön
-              </Text>
-            </Card>
-          </Link>
-        </View>
-      )}
-
-      {routineList.length === 0 ? (
-        <EmptyState
-          className="flex-1"
-          icon={Dumbbell}
-          title="Henüz rutin yok"
-          description="İlk antrenman rutinini oluşturarak başla. Egzersizleri seç, hedef set/tekrar ata, başlat."
-          action={
-            <View className="gap-3">
-              <Link href="/templates" asChild>
-                <PrimaryButton label="Hazır Program Seç" icon={LayoutList} />
-              </Link>
-              <Link href="/routine/new" asChild>
-                <SecondaryButton
-                  label="İlk Rutini Oluştur"
-                  icon={Plus}
-                />
-              </Link>
+      <SectionList
+        sections={groups.map((group) => ({ ...group, data: group.members }))}
+        keyExtractor={(member) => member.item.id}
+        stickySectionHeadersEnabled={false}
+        contentContainerClassName="px-5 gap-3 pb-6"
+        contentContainerStyle={{ paddingTop: topInset + 12 }}
+        ListHeaderComponent={
+          <View className="gap-3">
+            <View className="flex-row items-center justify-between">
+              <ScreenTitle>Rutinler</ScreenTitle>
+              <IconButton
+                icon={Plus}
+                variant="brand"
+                iconSize={22}
+                accessibilityLabel="Yeni rutin"
+                onPress={() => router.push('/routine/new')}
+              />
             </View>
-          }
-        />
-      ) : (
-        <FlatList
-          data={routineList}
-          keyExtractor={(item) => item.id}
-          ListHeaderComponent={
-            <View className="gap-3">
-              {updates.map((u) => (
-                <ProgramUpdateCard
-                  key={u.program.id}
-                  update={u}
-                  busy={updatingId === u.program.id}
-                  onUpdate={() => handleProgramUpdate(u)}
-                  onKeep={() =>
-                    void keepProgramRoutines(u.program.id, u.program.version)
-                  }
-                />
-              ))}
-              <Link href="/templates" asChild>
-                <ListRow chevron className="px-1">
-                  <View className="flex-row items-center">
-                    <LayoutList color={COLORS.muted} size={17} strokeWidth={1.75} />
-                    <Text className="text-muted text-sm ml-3">
-                      Hazır programlara göz at
-                    </Text>
-                  </View>
-                </ListRow>
-              </Link>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <RoutineCard
-              routine={{
-                id: item.id,
-                name: item.name,
-                description: item.description,
-              }}
-              exerciseCount={item.exerciseCount}
-              programUpdated={updatedRoutineIds.has(item.id)}
-              onStart={() =>
-                handleStartRoutine({
-                  id: item.id,
-                  name: item.name,
-                  description: item.description,
-                } as Routine)
-              }
-              onDelete={() =>
-                handleDelete({
-                  id: item.id,
-                  name: item.name,
-                  description: item.description,
-                } as Routine)
-              }
-              starting={starting}
-            />
-          )}
-          contentContainerClassName="px-5 pt-4 gap-3 pb-28"
-        />
-      )}
 
-      {/* FAB: Yeni rutin */}
-      {routineList.length > 0 && (
-        <Link href="/routine/new" asChild>
-          <Pressable className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80">
-            <Plus color={COLORS.accentFg} size={26} strokeWidth={2.5} />
-          </Pressable>
-        </Link>
-      )}
+            {activeSessionId && (
+              <Link href="/session/active" asChild>
+                <Card variant="accent" className="flex-row items-center py-4">
+                  <Play color={COLORS.accentFg} size={18} fill={COLORS.accentFg} />
+                  <Text className="text-accent-fg text-base font-semibold ml-3">
+                    Aktif antrenmana dön
+                  </Text>
+                </Card>
+              </Link>
+            )}
+
+            {updates.map((u) => (
+              <ProgramUpdateCard
+                key={u.program.id}
+                update={u}
+                busy={updatingId === u.program.id}
+                onUpdate={() => handleProgramUpdate(u)}
+                onKeep={() => void keepProgramRoutines(u.program.id, u.program.version)}
+              />
+            ))}
+
+            {/* Boş durumda aynı iki giriş kartın içinde (`ChooseProgramCard`) */}
+            {routineList.length > 0 && (
+              <Link href="/templates/recommend" asChild>
+                <EntryRow icon={Sparkles} label="Bana program öner" brand />
+              </Link>
+            )}
+            {showExercisesEntry && <ExercisesEntry />}
+            {routineList.length > 0 && (
+              <Link href="/templates" asChild>
+                <EntryRow icon={LayoutList} label="Hazır programlar" />
+              </Link>
+            )}
+          </View>
+        }
+        ListEmptyComponent={
+          <DarkSurface className="gap-3">
+            <CoverImage cover="karsilama" variant="card" className="h-[180px] rounded-3xl" />
+            <ChooseProgramCard label="Henüz rutin yok" />
+          </DarkSurface>
+        }
+        renderSectionHeader={({ section }) => (
+          <View className="flex-row items-baseline gap-2 pt-3">
+            <Text accessibilityRole="header" className="text-fg text-[15px] font-bold shrink">
+              {nameCase(section.title)}
+            </Text>
+            {section.dayCount != null && <Text className="text-muted text-sm">· {section.dayCount} gün</Text>}
+          </View>
+        )}
+        renderItem={({ item: member }: { item: RoutineGroupMember<RoutineCardItem> }) => (
+          <RoutineCoverCard
+            routine={member.item}
+            displayName={member.displayName}
+            cover={member.cover}
+            programUpdated={updatedRoutineIds.has(member.item.id)}
+            starting={starting}
+            onOpen={() => router.push({ pathname: '/routine/cover/[id]', params: { id: member.item.id } })}
+            onStart={() => void startRoutine(member.item)}
+            onMenu={() => setMenuRoutine(member.item)}
+          />
+        )}
+      />
+
+      <RoutineMenu
+        routine={menuRoutine}
+        onClose={() => setMenuRoutine(null)}
+        onEdit={openEditor}
+        onCopy={(routine) => copy(routine)}
+        onDelete={(routine) => confirmDelete(routine)}
+      />
     </View>
+  );
+}
+
+function ExercisesEntry() {
+  return (
+    <Link href="/exercise" asChild>
+      <EntryRow icon={ListChecks} label="Hareketler" />
+    </Link>
   );
 }
 
@@ -313,7 +252,7 @@ function ProgramUpdateCard({
   return (
     <Card variant="outline" className="gap-3">
       <View>
-        <Text className="text-accent text-xs font-semibold uppercase tracking-widest">
+        <Text className="text-accent text-[13px] font-semibold">
           {updateBadgeText(update.program)}
         </Text>
         <Text className="text-fg text-base font-semibold mt-1">
@@ -342,76 +281,75 @@ function ProgramUpdateCard({
   );
 }
 
-interface RoutineCardProps {
-  routine: { id: string; name: string; description: string | null };
-  exerciseCount: number;
-  /** Programdan eklendi ve program güncellendi (v3.6b) */
-  programUpdated?: boolean;
-  onStart: () => void;
-  onDelete: () => void;
-  starting: boolean;
-}
+/** Ad, ▶ düğmesine binmesin: ekran kenarı (40) + kart içi (32) + düğme alanı (56) */
+const COVER_CARD_NAME_INSET = 128;
+const COVER_CARD_NAME_SIZES = [24, 22, 20] as const;
 
-function RoutineCard({
-  routine,
-  exerciseCount,
-  programUpdated = false,
-  onStart,
-  onDelete,
-  starting,
-}: RoutineCardProps) {
-  const COLORS = useColors();
+/** Fotoğraf koyu: açık temada da koyu kart (ana sayfadaki "Sıradaki" gibi) */
+function RoutineCoverCard(props: RoutineCoverCardProps) {
   return (
-    <Card>
-      <View className="flex-row items-start justify-between">
-        <View className="flex-1 mr-3">
-          <Text className="text-fg text-xl font-semibold tracking-tight">
-            {routine.name}
-          </Text>
-          {programUpdated && (
-            <Text className="text-accent text-xs font-semibold mt-1">
-              Program güncellendi
-            </Text>
-          )}
-          {routine.description && (
-            <Text className="text-muted text-sm mt-1" numberOfLines={2}>
-              {routine.description}
-            </Text>
-          )}
-          <Text className="text-muted text-xs uppercase tracking-widest mt-3 tabular-nums">
-            {exerciseCount} egzersiz
-          </Text>
-        </View>
-        <View className="flex-row items-center -mr-2 -mt-2">
-          <Link
-            href={{ pathname: '/routine/[id]', params: { id: routine.id } }}
-            asChild
-          >
-            <Pressable
-              hitSlop={4}
-              className="w-10 h-10 items-center justify-center rounded-full active:bg-bg-elevated"
-            >
-              <Pencil color={COLORS.muted} size={17} strokeWidth={1.75} />
-            </Pressable>
-          </Link>
-          <Pressable
-            onPress={onDelete}
-            hitSlop={4}
-            className="w-10 h-10 items-center justify-center rounded-full active:bg-bg-elevated"
-          >
-            <Trash2 color={COLORS.muted} size={17} strokeWidth={1.75} />
-          </Pressable>
-        </View>
-      </View>
-
-      <PrimaryButton
-        onPress={onStart}
-        disabled={starting || exerciseCount === 0}
-        label={starting ? 'Başlatılıyor...' : 'Antrenmanı Başlat'}
-        icon={Play}
-        iconFill
-        className="mt-5"
-      />
-    </Card>
+    <DarkSurface>
+      <RoutineCoverCardBody {...props} />
+    </DarkSurface>
   );
 }
+
+interface RoutineCoverCardProps {
+  routine: RoutineCardItem;
+  displayName: string;
+  cover: WorkoutCover;
+  programUpdated: boolean;
+  starting: boolean;
+  onOpen: () => void;
+  onStart: () => void;
+  onMenu: () => void;
+}
+
+function RoutineCoverCardBody({ routine, displayName, cover, programUpdated, starting, onOpen, onStart, onMenu }: RoutineCoverCardProps) {
+  const tones = useContextTones(routine.color);
+  const canStart = routine.exerciseCount > 0 && !starting;
+  const label = routineKindLabel(routine.kind);
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`${displayName}. ${label}. ${routine.line}`}
+      className="active:opacity-90"
+    >
+      <CoverImage cover={cover} variant="card" className="rounded-3xl min-h-[150px] justify-end">
+        <View className="p-4 pr-[72px] gap-1">
+          <SectionLabel color={routine.color}>{programUpdated ? `${label} · Program güncellendi` : label}</SectionLabel>
+          <DisplayName inset={COVER_CARD_NAME_INSET} sizes={COVER_CARD_NAME_SIZES}>
+            {displayName}
+          </DisplayName>
+          <Text className="text-fg text-[13px]" numberOfLines={1}>
+            {routine.line}
+          </Text>
+        </View>
+
+        <IconButton
+          icon={MoreHorizontal}
+          variant="ghost"
+          accessibilityLabel={`${displayName} işlemleri`}
+          onPress={onMenu}
+          className="absolute top-2 right-2 bg-bg/60"
+        />
+        <Pressable
+          onPress={onStart}
+          disabled={!canStart}
+          accessibilityRole="button"
+          accessibilityLabel={`${displayName} antrenmanını başlat`}
+          accessibilityState={{ disabled: !canStart }}
+          hitSlop={6}
+          className={`absolute bottom-4 right-4 w-12 h-12 rounded-full items-center justify-center active:opacity-80 ${
+            canStart ? '' : 'opacity-40'
+          }`}
+          style={{ backgroundColor: tones.fill }}
+        >
+          <Play color={tones.onFill} fill={tones.onFill} size={20} />
+        </Pressable>
+      </CoverImage>
+    </Pressable>
+  );
+}
+

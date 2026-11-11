@@ -8,7 +8,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import Storage from 'expo-sqlite/kv-store';
 import { Check, Plus } from 'lucide-react-native';
 
@@ -25,11 +26,13 @@ import {
   GOAL_OPTIONS,
   getRecommendationGoal,
   recommendProgram,
+  setRecommendationDays,
   setRecommendationGoal,
   type RecommendedProgram,
   type TrainingGoal,
 } from '@/lib/programRecommendation';
-import { Card, Chip, SecondaryButton } from '@/components/ui';
+import { CARD_NAME_SIZES, upperTr } from '@/lib/typography';
+import { Card, Chip, DisplayName, SecondaryButton } from '@/components/ui';
 
 export function useProgramRecommender() {
   const db = useDb();
@@ -52,6 +55,13 @@ export function useProgramRecommender() {
     setGoal(g);
     setRecommendationGoal(Storage, g).catch((err) =>
       console.error('[RECOMMEND] Hedef kaydedilemedi:', err)
+    );
+  };
+
+  const chooseDays = (c: TrainingDaysChoice) => {
+    setChoice(c);
+    setRecommendationDays(Storage, c).catch((err) =>
+      console.error('[RECOMMEND] Gün seçimi kaydedilemedi:', err)
     );
   };
 
@@ -80,7 +90,7 @@ export function useProgramRecommender() {
     goal,
     onGoal: chooseGoal,
     choice,
-    onChoose: setChoice,
+    onChoose: chooseDays,
     addedTemplateIds,
     adding,
     onAdd: (program: RecommendedProgram) => void addTemplate(program),
@@ -144,7 +154,7 @@ export function ProgramRecommender({
       {goal != null && choice === 'custom' && (
         <Card>
           <Text className="text-fg text-base leading-6">
-            Antrenman sekmesinden kendi rutinlerini oluşturabilirsin. Hazır
+            Rutinler sekmesinden kendi rutinlerini oluşturabilirsin. Hazır
             programlara da istediğin zaman oradan göz atabilirsin.
           </Text>
         </Card>
@@ -183,7 +193,9 @@ export function ProgramRecommender({
 
 function Heading({ title }: { title: string }) {
   return (
-    <Text className="text-fg text-3xl font-bold tracking-tight mb-2">{title}</Text>
+    <Text accessibilityRole="header" className="font-display text-fg text-2xl leading-[30px] mb-2">
+      {upperTr(title)}
+    </Text>
   );
 }
 
@@ -212,9 +224,9 @@ function RecommendationCard({
   return (
     <Card className="gap-3">
       <Text className="text-muted text-xs tracking-widest">{label}</Text>
-      <Text className="text-fg text-xl font-semibold tracking-tight">
+      <DisplayName inset={80} sizes={CARD_NAME_SIZES}>
         {template.name}
-      </Text>
+      </DisplayName>
       <Text className="text-fg text-sm leading-5">
         {program.daysPerWeek} gün: {program.scheduleLabel}
       </Text>
@@ -235,7 +247,7 @@ function RecommendationCard({
         <View className="flex-row items-center gap-2 mt-1">
           <Check color={COLORS.accent} size={18} strokeWidth={3} />
           <Text className="text-accent text-sm font-semibold">
-            {template.dayCount} rutin Antrenman sekmesine eklendi
+            {template.dayCount} rutin Rutinler sekmesine eklendi
           </Text>
         </View>
       ) : (

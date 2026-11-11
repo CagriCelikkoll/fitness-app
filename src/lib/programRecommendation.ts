@@ -29,6 +29,8 @@ import {
 export type TrainingGoal = 'fast' | 'steady';
 
 export const RECOMMENDATION_GOAL_KEY = 'recommendation.goal';
+/** Son seçilen gün: program eklenmese de Hazır programlardaki öneri için */
+export const RECOMMENDATION_DAYS_KEY = 'recommendation.days';
 
 export const GOAL_OPTIONS: {
   id: TrainingGoal;
@@ -192,6 +194,12 @@ export function sessionMinutes(day: TemplateDay): number {
   return Math.max(5, Math.round(seconds / 60 / 5) * 5);
 }
 
+/** Plandaki seansların ortalama süresi (dk, 5'e yuvarlı) */
+export function averageSessionMinutes(template: WorkoutTemplate, schedule: WeekSchedule): number {
+  const minutes = schedule.map((i) => sessionMinutes(template.days[i]!));
+  return Math.round(minutes.reduce((a, b) => a + b, 0) / minutes.length / 5) * 5;
+}
+
 interface PlanSpec {
   templateId: string;
   schedule: WeekSchedule;
@@ -283,6 +291,8 @@ export interface RecommendedProgram {
   scheduleLabel: string;
   /** "Her kas grubu haftada 2 kez · seans ~60 dk · kas başına ~12 set" */
   summary: string;
+  /** Hazır programlardaki kart: "Her kas haftada 2 kez · seans ~55 dk" */
+  shortSummary: string;
   why: string;
   isRegionalSplit: boolean;
   /** Ön / arka zincir programında kısa açıklama */
@@ -309,14 +319,14 @@ function build(spec: PlanSpec): RecommendedProgram {
   const freq = Object.values(weeklyMuscleFrequency(template, spec.schedule));
   const sets = Object.values(weeklyMuscleSets(template, spec.schedule));
   const avgSets = Math.round(sets.reduce((a, b) => a + b, 0) / sets.length);
-  const minutes = spec.schedule.map((i) => sessionMinutes(template.days[i]!));
-  const avgMinutes = Math.round(minutes.reduce((a, b) => a + b, 0) / minutes.length / 5) * 5;
+  const avgMinutes = averageSessionMinutes(template, spec.schedule);
   return {
     template,
     schedule: spec.schedule,
     daysPerWeek: spec.schedule.length,
     scheduleLabel: spec.schedule.map((i) => template.days[i]!.name).join(' · '),
     summary: `Her kas grubu haftada ${range(freq)} kez · seans ~${avgMinutes} dk · kas başına ~${avgSets} set`,
+    shortSummary: `Her kas haftada ${range(freq)} kez · seans ~${avgMinutes} dk`,
     why: spec.why,
     isRegionalSplit: REGIONAL_SPLIT_IDS.includes(template.id),
     chainNote: template.id.startsWith('ant-post') ? CHAIN_EXPLANATION : null,
@@ -341,4 +351,21 @@ export async function getRecommendationGoal(store: KeyValueStore): Promise<Train
 
 export async function setRecommendationGoal(store: KeyValueStore, goal: TrainingGoal): Promise<void> {
   await store.setItem(RECOMMENDATION_GOAL_KEY, goal);
+}
+
+/** 2–6 dışındaki her şey (kendi programı, bozuk değer) seçim yok sayılır */
+export function parseDaysPerWeek(raw: string | number | null): DaysPerWeek | null {
+  const value = Number(raw);
+  return raw != null && DAY_OPTIONS.includes(value as DaysPerWeek) ? (value as DaysPerWeek) : null;
+}
+
+export async function getRecommendationDays(store: KeyValueStore): Promise<DaysPerWeek | null> {
+  return parseDaysPerWeek(await store.getItem(RECOMMENDATION_DAYS_KEY));
+}
+
+export async function setRecommendationDays(
+  store: KeyValueStore,
+  choice: DaysPerWeek | 'custom'
+): Promise<void> {
+  await store.setItem(RECOMMENDATION_DAYS_KEY, String(choice));
 }
