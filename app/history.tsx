@@ -13,6 +13,7 @@ import {
   formatRelativeDate,
   formatVolume,
 } from '@/lib/format';
+import { effectiveDurationSql } from '@/lib/sessionDuration';
 import { Card, EmptyState, PrimaryButton } from '@/components/ui';
 
 export default function HistoryScreen() {
@@ -28,7 +29,7 @@ export default function HistoryScreen() {
         id: workoutSessions.id,
         name: workoutSessions.name,
         startedAt: workoutSessions.startedAt,
-        durationSeconds: workoutSessions.durationSeconds,
+        durationSeconds: effectiveDurationSql,
         exerciseCount: countDistinct(sessionExercises.id),
         setCount: count(sets.id),
         totalVolume: sql<number>`COALESCE(SUM(${sets.reps} * ${sets.weightKg}), 0)`.mapWith(

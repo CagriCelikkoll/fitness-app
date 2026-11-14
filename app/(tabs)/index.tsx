@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { desc, eq, getTableColumns, isNotNull, sql } from 'drizzle-orm';
 import Storage from 'expo-sqlite/kv-store';
 import { ChevronRight, Flame, Play, Scale, ShieldCheck, Target, UserRound } from 'lucide-react-native';
 
@@ -44,6 +44,7 @@ import {
   shouldShowOnboarding,
 } from '@/lib/onboarding';
 import { formatDuration, formatRelativeDate } from '@/lib/format';
+import { effectiveDurationSql } from '@/lib/sessionDuration';
 import {
   goalStreak,
   workoutDayKeys,
@@ -383,7 +384,7 @@ function HomeContent() {
   // Son 3 tamamlanmış antrenman (geçmişe giriş)
   const recentSessions = useLiveQuery(
     db
-      .select()
+      .select({ ...getTableColumns(workoutSessions), durationSeconds: effectiveDurationSql })
       .from(workoutSessions)
       .where(isNotNull(workoutSessions.endedAt))
       .orderBy(desc(workoutSessions.startedAt))

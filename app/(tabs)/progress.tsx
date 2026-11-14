@@ -44,6 +44,7 @@ import {
   toDateKey,
 } from '@/lib/format';
 import { muscleLabel } from '@/lib/exerciseTaxonomy';
+import { effectiveDurationSql } from '@/lib/sessionDuration';
 import { muscleVolume } from '@/lib/muscleMap';
 import {
   getRecentExerciseRecords,
@@ -150,7 +151,25 @@ export default function ProgressScreen() {
             yokken yerine tek rıza kartı. */}
         {consent.granted ? (
           <>
-            <SectionHeader title="Vücut ölçüleri" className="mt-4" />
+            {/* Ölçüm ekleme başlıkta: sağ alttaki yüzen "+" kas haritası
+                bağlantısının üstüne biniyordu */}
+            <SectionHeader
+              title="Vücut ölçüleri"
+              className="mt-4"
+              action={
+                <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Ölçüm ekle"
+                    hitSlop={8}
+                    className="flex-row items-center gap-1 min-h-[44px] active:opacity-70"
+                  >
+                    <Plus color={COLORS.accent} size={18} strokeWidth={2.5} />
+                    <Text className="text-accent text-sm font-semibold">Ölçüm ekle</Text>
+                  </Pressable>
+                </Link>
+              }
+            />
             <CurrentCard withWeight={withWeight} />
             <ProfileHint profile={profile} />
             <DerivedMetricsCard
@@ -171,18 +190,6 @@ export default function ProgressScreen() {
         {/* v4.0a: antrenman takvimi ana sayfadan buraya taşındı (en altta) */}
         <CalendarCard />
       </ScrollView>
-
-      {consent.granted && (
-        <Link href={{ pathname: '/metrics/[date]', params: { date: 'new' } }} asChild>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ölçüm ekle"
-            className="absolute bottom-6 right-5 bg-accent w-14 h-14 rounded-full items-center justify-center active:opacity-80"
-          >
-            <Plus color={COLORS.accentFg} size={26} strokeWidth={2.5} />
-          </Pressable>
-        </Link>
-      )}
     </View>
   );
 }
@@ -224,7 +231,7 @@ function CalendarCard() {
         name: workoutSessions.name,
         startedAt: workoutSessions.startedAt,
         endedAt: workoutSessions.endedAt,
-        durationSeconds: workoutSessions.durationSeconds,
+        durationSeconds: effectiveDurationSql,
       })
       .from(workoutSessions)
       .where(isNotNull(workoutSessions.endedAt))

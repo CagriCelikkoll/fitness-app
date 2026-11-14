@@ -21,7 +21,13 @@ import { useColors } from '@/hooks/useTheme';
 import { formatDuration, formatRelativeDate } from '@/lib/format';
 import { saveSessionNote } from '@/lib/notes';
 import { loadSessionRecordPage, type RecordPageData } from '@/lib/recordEvents';
-import { loadWorkoutSummary, plannedSetCount, recordText, type LoadedSummary } from '@/lib/workoutSummary';
+import {
+  loadWorkoutSummary,
+  plannedSetCount,
+  recordText,
+  summaryRecordPage,
+  type LoadedSummary,
+} from '@/lib/workoutSummary';
 import { DisplayName, Glow, ListRow, PrimaryButton, SectionLabel, StatCard } from '@/components/ui';
 import { Text } from '@/components/ui/Text';
 import { NoteEditor } from '@/components/NoteEditor';
@@ -44,7 +50,7 @@ export default function WorkoutSummaryScreen() {
         if (!cancelled) setSummary(s);
       })
       .catch((err) => {
-        console.warn('[SUMMARY] Özet okunamadı:', err);
+        console.error('[SUMMARY] Özet okunamadı:', err);
         if (!cancelled) setSummary(null);
       });
     return () => {
@@ -60,7 +66,7 @@ export default function WorkoutSummaryScreen() {
         if (!cancelled) setRecordPage(page);
       })
       .catch((err) => {
-        console.warn('[SUMMARY] Rekor okunamadı:', err);
+        console.error('[RECORD] Rekor geçmişi okunamadı, sayfa özetten kuruluyor:', err);
         if (!cancelled) setRecordPage(null);
       });
     return () => {
@@ -68,8 +74,25 @@ export default function WorkoutSummaryScreen() {
     };
   }, [db, id]);
 
+  // Rekor sayfası önce özetin kendi rekorlarından (özetteki "Yeni rekor"
+  // kartıyla aynı veri); yoksa bütün geçmişten (`recordEvents`). İkisi
+  // ayrışırsa loglanır: kart görünüp sayfa çıkmaması bu yüzdendi.
+  const fromSummary = summary ? summaryRecordPage(summary.records) : null;
+  const page = fromSummary ?? recordPage ?? null;
+  useEffect(() => {
+    if (summary === undefined || recordPage === undefined) return;
+    if ((fromSummary == null) !== (recordPage == null)) {
+      console.warn('[RECORD] Rekor kaynakları ayrıştı', {
+        sessionId: id,
+        summaryRecords: summary?.records.length ?? 0,
+        history: recordPage != null,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary, recordPage]);
+
   const close = () => router.replace('/(tabs)/workout');
-  const showRecord = recordPage != null && !recordSeen;
+  const showRecord = page != null && !recordSeen;
 
   // Geri tuşu da "Kaydet ve kapat" gibi (aktif antrenman ekranı artık yok);
   // rekor sayfasındayken özete geçer, not ve ayrıntılar atlanmasın
@@ -96,7 +119,7 @@ export default function WorkoutSummaryScreen() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-        <RecordCelebration page={recordPage} onContinue={() => setRecordSeen(true)} />
+        <RecordCelebration page={page} onContinue={() => setRecordSeen(true)} />
       </>
     );
   }

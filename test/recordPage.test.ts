@@ -150,7 +150,7 @@ describe('ekran', () => {
   const page = readFileSync('src/components/RecordCelebration.tsx', 'utf8');
 
   it('özetten önce, yalnızca rekor varsa', () => {
-    expect(summary).toContain('recordPage != null && !recordSeen');
+    expect(summary).toContain('page != null && !recordSeen');
     expect(summary.indexOf('<RecordCelebration')).toBeLessThan(summary.indexOf('label="Kaydet ve kapat"'));
     expect(summary).toContain('recordPage === undefined');
   });
