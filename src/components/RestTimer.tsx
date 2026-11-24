@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import * as Haptics from 'expo-haptics';
+import { haptic } from '@/lib/hapticsNative';
 import { Maximize2, Minus, Plus, X, type LucideIcon } from 'lucide-react-native';
 
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -75,10 +75,8 @@ export function useRestTimerController(): RestTimerController {
 
     const complete = () => {
       setCompleted(true);
-      // Bitiş haptic'i — kullanıcı titreşimi kapattıysa atlanır
-      if (vibrateRef.current) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      // Bitiş haptic'i (orta) — kullanıcı titreşimi kapattıysa atlanır
+      haptic('restDone', vibrateRef.current);
       // Bitiş sesi — titreşimden bağımsız ayar; arka planda ve geç
       // kalmış bitişte çalmaz (bkz. shouldPlayRestSound)
       if (

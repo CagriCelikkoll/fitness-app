@@ -6,7 +6,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { DarkSystemBars } from '@/components/DarkSystemBars';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, Copy, History, MoreHorizontal, Pencil, Play, Trash2, type LucideIcon } from 'lucide-react-native';
@@ -71,7 +71,7 @@ export default function RoutineCoverScreen() {
   return (
     <>
       <DarkSurface className="flex-1">
-        <StatusBar style="light" />
+        <DarkSystemBars />
         {found ? (
           <CoverBody
             routine={found.member.item}

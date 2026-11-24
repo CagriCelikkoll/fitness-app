@@ -121,7 +121,7 @@ describe('Profil', () => {
       'Varsayılan dinlenme süresi',
       'Haftalık hedef (gün)',
       'Dinlenme bitiminde ses',
-      'Dinlenme bitiminde titreşim',
+      'label="Titreşim"',
       'Dinlenme bildirimi',
       'Salon duyuruları',
       'Ders iptalleri ve değişiklikleri',

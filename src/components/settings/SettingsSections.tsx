@@ -887,7 +887,8 @@ export function WorkoutSection({
         }}
       />
       <ToggleRow
-        label="Dinlenme bitiminde titreşim"
+        label="Titreşim"
+        description="Set tamamlanınca, dinlenme bitince ve rekor kırınca. Telefonun dokunma titreşimi kapalıysa titremez."
         value={vibrate}
         onChange={(v) => {
           setVibrate(v);

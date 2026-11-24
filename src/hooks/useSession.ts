@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import Storage from 'expo-sqlite/kv-store';
 import { create } from 'zustand';
+
+import { appSessionStorage } from '@/lib/sessionStoreNative';
 
 import { classifyAccountError } from '@/lib/auth';
 import {
@@ -15,7 +16,7 @@ import { decideAccountBoot, type StoredUser } from '@/lib/supabaseConfig';
  * yapmaz: `available: false`, istemciye dokunulmaz.
  *
  * Açılış (v3.7):
- * 1. Kayıtlı oturum kv-store'dan okunuyor (ağsız, `decideAccountBoot`).
+ * 1. Kayıtlı oturum güvenli depodan okunuyor (ağsız, `decideAccountBoot`).
  *    Yoksa istemci HİÇ kurulmuyor: hesapsız kullanıcıda ağ isteği yok.
  *    Giriş ekranı açılınca `startAccountClient()` kurar.
  * 2. Varsa kullanıcı hemen gösteriliyor; `getSession()` oturumu doğruluyor,
@@ -43,7 +44,8 @@ function ensureBooted(): void {
   void decideAccountBoot({
     configured: isSupabaseConfigured(),
     sessionKey: getSessionStorageKey(),
-    storage: Storage,
+    // v0.13: güvenli depo; 0.12'den kalan kv-store oturumu burada taşınır
+    storage: appSessionStorage,
   }).then((decision) => {
     if (decision.kind === 'start') {
       // Ağ beklemeden "giriş yapılmış" görünsün

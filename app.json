@@ -3,7 +3,7 @@
     "name": "Dinç",
     "slug": "fitness-tracker",
     "scheme": "dinc",
-    "version": "0.12.0",
+    "version": "0.13.0",
     "orientation": "portrait",
     "icon": "./assets/brand/icon.png",
     "userInterfaceStyle": "automatic",
@@ -99,7 +99,22 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
-      ]
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false,
+          "style": "light"
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false,
+          "faceIDPermission": false
+        }
+      ],
+      "./plugins/withBackupRules"
     ],
     "experiments": {
       "typedRoutes": true

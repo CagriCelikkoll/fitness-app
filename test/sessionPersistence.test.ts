@@ -10,6 +10,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { classifyAccountError } from '@/lib/auth';
+import { createSecureSessionStorage } from '@/lib/secureSessionStorage';
 import {
   parseStoredUser,
   sessionStorageKey,
@@ -186,5 +187,63 @@ describe('oturum kalıcılığı', () => {
     const second = openApp(storage, server.fetch);
     const { data } = await second.auth.getSession();
     expect(data.session).toBeNull();
+  });
+});
+
+describe('v0.13 güvenli depo (DNC-02) gerçek istemciyle', () => {
+  /** SecureStore gibi: 2048 bayt üstünü reddeden bellek deposu */
+  function strictSecure() {
+    const data = new Map<string, string>();
+    return {
+      data,
+      getItemAsync: async (k: string) => data.get(k) ?? null,
+      setItemAsync: async (k: string, v: string) => {
+        if (v.length > 2048) throw new Error('değer çok büyük');
+        data.set(k, v);
+      },
+      deleteItemAsync: async (k: string) => void data.delete(k),
+    };
+  }
+
+  it('oturum parçalı yazılıyor, düz depoda kopya kalmıyor, yeniden açılışta ağsız geri geliyor', async () => {
+    const secure = strictSecure();
+    const legacy = memoryStorage();
+    const storage = createSecureSessionStorage({ secure, legacy });
+    const big = sessionBody(3600, 'r1');
+    // Google kimliğiyle büyüyen kullanıcı nesnesi
+    (big.user as Record<string, unknown>).identities = [{ provider: 'google', identity_data: { x: 'y'.repeat(3000) } }];
+    const server = fakeFetch(() => json(big));
+    const first = openApp(storage, server.fetch);
+    await first.auth.signInWithPassword({ email: 'ali@ornek.com', password: '12345678' });
+    await first.auth.stopAutoRefresh();
+    expect(Number(secure.data.get(`${sessionStorageKey(URL_)}__n`))).toBeGreaterThan(1);
+    expect(legacy.data.size).toBe(0);
+
+    const offline = fakeFetch(() => {
+      throw new TypeError('Network request failed');
+    });
+    const second = openApp(storage, offline.fetch);
+    const { data } = await second.auth.getSession();
+    expect(data.session?.user.id).toBe(USER_ID);
+    expect(offline.calls).toEqual([]);
+  });
+
+  it('0.12\'de kv-store\'a yazılmış oturum 0.13 istemcisinde geri geliyor ve taşınıyor', async () => {
+    const legacy = memoryStorage();
+    const seed = fakeFetch(() => json(sessionBody(3600, 'r1')));
+    const old = openApp(legacy, seed.fetch);
+    await old.auth.signInWithPassword({ email: 'ali@ornek.com', password: '12345678' });
+    await old.auth.stopAutoRefresh();
+    expect(legacy.data.size).toBe(1);
+
+    const secure = strictSecure();
+    const offline = fakeFetch(() => {
+      throw new TypeError('Network request failed');
+    });
+    const updated = openApp(createSecureSessionStorage({ secure, legacy }), offline.fetch);
+    const { data } = await updated.auth.getSession();
+    expect(data.session?.user.id).toBe(USER_ID);
+    expect(legacy.data.size).toBe(0);
+    expect(secure.data.size).toBeGreaterThan(0);
   });
 });

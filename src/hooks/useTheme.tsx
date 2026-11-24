@@ -1,7 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import { Appearance, useColorScheme, View, type StyleProp, type ViewStyle } from 'react-native';
+import { NavigationBar } from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
+
+import { systemBarStyle } from '@/lib/systemBars';
 import Storage from 'expo-sqlite/kv-store';
 import { vars } from 'nativewind';
 import { create } from 'zustand';
@@ -141,7 +144,9 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   return (
     <DarkThemeContext.Provider value={darkState}>
       <ThemeContext.Provider value={state}>
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={systemBarStyle(scheme)} />
+        {/* v0.13: Android gezinme çubuğu tuşları (ve Android 9 perdesi) temayı izler */}
+        <NavigationBar style={systemBarStyle(scheme)} />
         <View style={rootStyle}>{children}</View>
       </ThemeContext.Provider>
     </DarkThemeContext.Provider>

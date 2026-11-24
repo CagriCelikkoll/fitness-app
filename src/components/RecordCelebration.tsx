@@ -4,8 +4,12 @@
  * Fotoğraf koyu olduğu için açık temada da koyu.
  */
 
+import { useEffect, useRef } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { DarkSystemBars } from '@/components/DarkSystemBars';
+
+import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
+import { haptic } from '@/lib/hapticsNative';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Trophy, X } from 'lucide-react-native';
 
@@ -27,9 +31,18 @@ import { recordHeadlineSize } from '@/lib/typography';
 const HEADLINE_INSET = 48;
 
 export function RecordCelebration(props: { page: RecordPageData; onContinue: () => void }) {
+  // v0.13: sayfa açılınca bir kez "başarı" titreşimi (ayar kapalıysa yok)
+  const { settings, loaded } = useAppSettings();
+  const buzzed = useRef(false);
+  useEffect(() => {
+    if (!loaded || buzzed.current) return;
+    buzzed.current = true;
+    haptic('record', settings?.restTimerVibrate ?? FALLBACK_REST_VIBRATE);
+  }, [loaded, settings]);
+
   return (
     <DarkSurface className="flex-1">
-      <StatusBar style="light" />
+      <DarkSystemBars />
       <RecordCelebrationBody {...props} />
     </DarkSurface>
   );

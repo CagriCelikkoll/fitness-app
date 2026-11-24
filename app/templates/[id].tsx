@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, View, type PressableProps } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { DarkSystemBars } from '@/components/DarkSystemBars';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { inArray } from 'drizzle-orm';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -117,7 +117,7 @@ export default function TemplateDetailScreen() {
 
   return (
     <DarkSurface className="flex-1">
-      <StatusBar style="light" />
+      <DarkSystemBars />
       {template ? (
         <TemplateBody template={template} info={info} applying={applying} onApply={() => handleApply(template)} />
       ) : (

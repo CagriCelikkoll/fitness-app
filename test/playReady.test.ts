@@ -147,8 +147,8 @@ describe('mağaza derlemesi', () => {
     expect(JSON.stringify(eas.submit)).not.toMatch(/\.json/);
   });
 
-  it('sürüm 0.12.0, package.json ile aynı', () => {
-    expect(app.version).toBe('0.12.0');
+  it('sürüm 0.13.0 (v0.13 native: navigation-bar, secure-store), package.json ile aynı', () => {
+    expect(app.version).toBe('0.13.0');
     expect(pkg.version).toBe(app.version);
   });
 });

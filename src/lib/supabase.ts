@@ -7,7 +7,8 @@
  *   (karar `decideAccountBoot`, supabaseConfig.ts).
  * - Env (`EXPO_PUBLIC_SUPABASE_URL` / `_ANON_KEY`) yoksa `null`; hesap
  *   özellikleri gizleniyor, uygulama çökmüyor.
- * - Oturum kv-store'da (expo-sqlite, zaten kurulu); AsyncStorage yok.
+ * - Oturum güvenli depoda (v0.13, DNC-02; `sessionStoreNative.ts`).
+ *   0.12'ye kadar kv-store'daydı; ilk okumada taşınıyor.
  * - Token yenileme yalnızca uygulama ön plandayken.
  *
  * React Native modülü içe aktarıyor; testte kullanılmaz (saf kısım
@@ -15,9 +16,9 @@
  */
 
 import { AppState } from 'react-native';
-import Storage from 'expo-sqlite/kv-store';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { appSessionStorage } from '@/lib/sessionStoreNative';
 import {
   readSupabaseConfig,
   serverEnvironmentWarning,
@@ -63,7 +64,7 @@ export function getSupabase(): SupabaseClient | null {
   if (client) return client;
 
   client = createClient(config.url, config.anonKey, {
-    auth: supabaseAuthOptions(Storage),
+    auth: supabaseAuthOptions(appSessionStorage),
   });
 
   AppState.addEventListener('change', (state) => {

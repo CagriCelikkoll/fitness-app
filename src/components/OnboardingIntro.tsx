@@ -7,7 +7,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { DarkSystemBars } from '@/components/DarkSystemBars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft } from 'lucide-react-native';
 
@@ -77,7 +77,7 @@ export function OnboardingIntro({
 
   return (
     <DarkSurface className="flex-1">
-      <StatusBar style="light" />
+      <DarkSystemBars />
       <View className="flex-1 bg-bg">
         <ScrollView
           ref={scroll}

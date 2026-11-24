@@ -13,7 +13,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Info, NotebookPen, Plus, X } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { haptic } from '@/lib/hapticsNative';
 
 import { useDb } from '@/hooks/useDb';
 import { exerciseDisplayName } from '@/lib/exerciseCatalog';
@@ -788,9 +788,8 @@ function useSetCompletion({
 
     // Tamamla
     await completeSetRecord(db, set.id, parsed);
-    if (vibrate) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    // v0.13: hafif titreşim (sistem ayarına uyar, `hapticsNative.ts`)
+    haptic('setComplete', vibrate);
     // v1.9: süpersette tur bitmeden dinlenme başlamaz. Süperset olmayan
     // harekette onSetCompleted hep true döner; koşul eskisiyle aynı kalır.
     let restStarted = false;
@@ -802,7 +801,7 @@ function useSetCompletion({
     // tamamlamayı etkilemesin; set tamamlanmış kalır, yalnızca loglanır.
     try {
       if (vibrate && isRecordCompletion(set, parsed.weightKg, parsed.reps)) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        haptic('record', true);
       }
     } catch (err) {
       console.warn('[PR-CHECK] Rekor kontrolü başarısız:', err);
