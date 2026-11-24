@@ -13,6 +13,7 @@ import { LineChart } from '@/components/LineChart';
 import { Card, Chip, ListRow, StatTile } from '@/components/ui';
 import { Text } from '@/components/ui/Text';
 import { useDb } from '@/hooks/useDb';
+import { useContextTones } from '@/hooks/useTheme';
 import { getExerciseSetHistory } from '@/lib/exerciseHistory';
 import {
   buildSessionPoints,
@@ -22,18 +23,22 @@ import {
 } from '@/lib/exerciseProgress';
 import { formatDecimal, formatShortDate, formatVolume } from '@/lib/format';
 import { getExerciseSessionNotes } from '@/lib/notes';
+import { loadExerciseRecordSessions, recordKindsText, type RecordKind } from '@/lib/recordEvents';
 
 export interface ExerciseProgressData {
   /** null: okunuyor */
   points: SessionPoint[] | null;
   /** Not yazılmış seansların id'leri (Geçmiş'teki 📝) */
   notedSessions: ReadonlySet<string>;
+  /** 0.13: rekor kırılan seanslar ve türleri (`recordEvents.ts`, tek kural) */
+  recordSessions: ReadonlyMap<string, RecordKind[]>;
 }
 
 export function useExerciseProgress(exerciseId: string): ExerciseProgressData {
   const db = useDb();
   const [points, setPoints] = useState<SessionPoint[] | null>(null);
   const [notedSessions, setNotedSessions] = useState<ReadonlySet<string>>(new Set());
+  const [recordSessions, setRecordSessions] = useState<ReadonlyMap<string, RecordKind[]>>(new Map());
 
   useFocusEffect(
     useCallback(() => {
@@ -53,13 +58,20 @@ export function useExerciseProgress(exerciseId: string): ExerciseProgressData {
         .catch((err) => {
           console.warn('[NOTE] Notlar okunamadı:', err);
         });
+      loadExerciseRecordSessions(db, exerciseId)
+        .then((map) => {
+          if (active) setRecordSessions(map);
+        })
+        .catch((err) => {
+          console.warn('[RECORD] Hareket rekorları okunamadı:', err);
+        });
       return () => {
         active = false;
       };
     }, [db, exerciseId])
   );
 
-  return { points, notedSessions };
+  return { points, notedSessions, recordSessions };
 }
 
 type Metric = 'e1rm' | 'topWeight' | 'volume';
@@ -137,7 +149,9 @@ export function ExerciseGrowthTab({ points }: { points: SessionPoint[] | null })
   );
 }
 
-export function ExerciseHistoryTab({ points, notedSessions }: ExerciseProgressData) {
+export function ExerciseHistoryTab({ points, notedSessions, recordSessions }: ExerciseProgressData) {
+  // Zemin üstünde okunur rekor tonu (açık temada neon değil)
+  const recordTones = useContextTones('record');
   if (!points) return null;
   if (points.length === 0) return <NoHistory />;
 
@@ -157,6 +171,11 @@ export function ExerciseHistoryTab({ points, notedSessions }: ExerciseProgressDa
             {formatShortDate(p.date)}
             {notedSessions.has(p.sessionId) && '  📝'}
           </Text>
+          {recordSessions.has(p.sessionId) && (
+            <Text className="text-xs font-semibold mt-0.5" style={{ color: recordTones.ink }}>
+              Rekor · {recordKindsText(recordSessions.get(p.sessionId)!)}
+            </Text>
+          )}
         </ListRow>
       ))}
     </Card>

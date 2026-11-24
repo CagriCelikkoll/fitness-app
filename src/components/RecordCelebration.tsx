@@ -19,10 +19,10 @@ import { Text } from '@/components/ui/Text';
 import { DarkSurface, useContextTones } from '@/hooks/useTheme';
 import { formatDecimal } from '@/lib/format';
 import {
-  recordE1rmGain,
+  recordBadgeText,
+  recordComparison,
   recordHeadlineParts,
   recordMoreText,
-  recordSetText,
   type RecordPageData,
 } from '@/lib/recordEvents';
 import { recordHeadlineSize } from '@/lib/typography';
@@ -54,7 +54,8 @@ function RecordCelebrationBody({ page, onContinue }: { page: RecordPageData; onC
   const tones = useContextTones('record');
   const [weight, reps] = recordHeadlineParts(page);
   const fontSize = recordHeadlineSize(weight + reps, width - HEADLINE_INSET);
-  const gain = recordE1rmGain(page);
+  const comparison = recordComparison(page);
+  const badge = recordBadgeText(page.kinds);
   const more = recordMoreText(page.moreCount);
 
   return (
@@ -66,12 +67,21 @@ function RecordCelebrationBody({ page, onContinue }: { page: RecordPageData; onC
         contentContainerClassName="px-6 pb-4 gap-3.5"
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingTop: insets.top + 64 }}
       >
-        <View className="flex-row self-start items-center gap-2 px-3 py-1.5 rounded-full" style={{ backgroundColor: tones.fill }}>
+        <View
+          accessible
+          accessibilityLabel={`Yeni rekor: ${badge.toLocaleLowerCase('tr-TR')}`}
+          className="flex-row self-start items-center gap-2 px-3 py-1.5 rounded-full"
+          style={{ backgroundColor: tones.fill }}
+        >
           <Trophy color={tones.onFill} size={16} />
           <Text className="text-xs font-bold tracking-widest" style={{ color: tones.onFill }}>
             YENİ REKOR
           </Text>
         </View>
+        {/* 0.13: hangi rekor (en ağır kilo / tahmini 1RM / ikisi) */}
+        <Text className="text-xs font-bold tracking-widest" style={{ color: tones.ink }}>
+          {badge}
+        </Text>
 
         <View className="gap-1">
           <Text accessibilityRole="header" className="text-fg text-base font-bold" numberOfLines={2}>
@@ -98,15 +108,15 @@ function RecordCelebrationBody({ page, onContinue }: { page: RecordPageData; onC
         <View className="flex-row gap-2.5">
           <View className="flex-1 rounded-2xl bg-bg-surface border border-border px-3.5 py-3 gap-0.5">
             <Text className="text-muted text-xs">Önceki en iyi</Text>
-            <Text className="font-display text-fg text-lg">{recordSetText(page.previous)}</Text>
+            <Text className="font-display text-fg text-lg">{comparison.previousText}</Text>
           </View>
           <View className="flex-1 rounded-2xl bg-bg-surface border border-border px-3.5 py-3 gap-0.5">
-            <Text className="text-muted text-xs">Tahmini 1RM</Text>
+            <Text className="text-muted text-xs">{comparison.metricLabel}</Text>
             <Text className="font-display text-fg text-lg">
-              {formatDecimal(page.e1rm)} kg
-              {gain != null && (
+              {comparison.metricValue}
+              {comparison.gain != null && (
                 <Text className="font-display text-[13px]" style={{ color: tones.ink }}>
-                  {` ${gain}`}
+                  {` ${comparison.gain}`}
                 </Text>
               )}
             </Text>

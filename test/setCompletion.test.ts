@@ -110,10 +110,11 @@ describe('antrenman özeti', () => {
       {
         exerciseId: 'bench',
         name: 'Bench press',
-        previousBest: 90, // 80 × 6 ≈ 96 > 90 → rekor
+        // 80 × 6 ≈ 96 > 90 → 1RM rekoru; 80 kg en ağır değil (önce 90 × 1)
+        previous: { e1rm: { weightKg: 90, reps: 1, e1rm: 90 }, weight: { weightKg: 90, reps: 1 } },
         sets: [s('b1', 80, 6), s('b2', 40, 10, { setType: 'warmup' }), s('b3', 80, 4, { isCompleted: false })],
       },
-      { exerciseId: 'row', name: 'Barbell row', previousBest: null, sets: [s('r1', 70, 8)] },
+      { exerciseId: 'row', name: 'Barbell row', previous: null, sets: [s('r1', 70, 8)] },
     ]);
     expect(data.volumeKg).toBe(80 * 6 + 70 * 8);
     expect(data.completedSets).toBe(3);
@@ -123,8 +124,9 @@ describe('antrenman özeti', () => {
   });
 
   it('rekor yoksa liste boş (kart çıkmaz); ilk seans rekor sayılmaz', () => {
-    expect(summarizeWorkout([{ exerciseId: 'x', name: 'X', previousBest: null, sets: [s('x1', 100, 5)] }]).records).toEqual([]);
-    expect(summarizeWorkout([{ exerciseId: 'x', name: 'X', previousBest: 200, sets: [s('x1', 100, 5)] }]).records).toEqual([]);
+    expect(summarizeWorkout([{ exerciseId: 'x', name: 'X', previous: null, sets: [s('x1', 100, 5)] }]).records).toEqual([]);
+    const strong = { e1rm: { weightKg: 180, reps: 3, e1rm: 198 }, weight: { weightKg: 180, reps: 3 } };
+    expect(summarizeWorkout([{ exerciseId: 'x', name: 'X', previous: strong, sets: [s('x1', 100, 5)] }]).records).toEqual([]);
   });
 
   it('x / y: planlanan set bilinmiyorsa tamamlanan', () => {

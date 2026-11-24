@@ -74,7 +74,9 @@ describe('rekor sayfası çıkma koşulu', () => {
   it('tek rekor: önceki en iyi ve kazanç', () => {
     const page = pageFor([row('a', 1, 'bench', 77.5, 5), row('b', 2, 'bench', 80, 5)], 'b')!;
     expect(page).toMatchObject({ exerciseName: 'bench', weightKg: 80, reps: 5, moreCount: 0 });
-    expect(page.previous).toMatchObject({ weightKg: 77.5, reps: 5 });
+    expect(page.previousE1rm).toMatchObject({ weightKg: 77.5, reps: 5 });
+    expect(page.previousWeight).toMatchObject({ weightKg: 77.5, reps: 5 });
+    expect(page.kinds).toEqual(['weight', 'e1rm']);
     expect(recordMoreText(page.moreCount)).toBeNull();
     expect(recordE1rmGain(page)).toBe('+2,9');
   });
@@ -89,7 +91,7 @@ describe('rekor sayfası çıkma koşulu', () => {
     ];
     const page = pageFor(rows, 'c')!;
     expect(page.weightKg).toBe(82.5);
-    expect(page.previous.weightKg).toBe(77.5);
+    expect(page.previousE1rm?.weightKg).toBe(77.5);
   });
 
   it('birkaç rekor: en büyük e1RM gösterilir, kalanlar sayılır', () => {
@@ -123,7 +125,7 @@ describe('rekor sayfası metinleri', () => {
   });
 
   it('görünmeyecek kadar küçük kazanç yazılmaz', () => {
-    expect(recordE1rmGain({ e1rm: 100.02, previous: { weightKg: 100, reps: 1, e1rm: 100 } })).toBeNull();
+    expect(recordE1rmGain({ e1rm: 100.02, previousE1rm: { weightKg: 100, reps: 1, e1rm: 100 } })).toBeNull();
   });
 });
 
@@ -159,7 +161,8 @@ describe('ekran', () => {
     expect(page).toContain('cover="rekor"');
     expect(page).toContain('YENİ REKOR');
     expect(page).toContain('Önceki en iyi');
-    expect(page).toContain('Tahmini 1RM');
+    expect(page).toContain('recordComparison(page)');
+    expect(page).toContain('recordBadgeText(page.kinds)');
     expect(page).toContain('label="Devam et" color="record"');
     expect(page).not.toContain('Paylaş');
   });

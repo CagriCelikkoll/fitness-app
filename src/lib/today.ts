@@ -16,7 +16,13 @@ import type { Db } from '@/db/client';
 import { exercises, routineExercises, routines, workoutSessions } from '@/db/schema';
 import { contextColorFor, type BodyContext, type ContextExercise } from '@/lib/contextColor';
 import { coverKindFor, type CoverKind } from '@/lib/coverImage';
-import { loadRecordHistory, recordEvents, type RecordHistoryRow } from '@/lib/recordEvents';
+import {
+  loadRecordHistory,
+  recordEvents,
+  sessionRecords,
+  type RecordHistoryRow,
+  type RecordKind,
+} from '@/lib/recordEvents';
 import { muscleLabel } from '@/lib/exerciseTaxonomy';
 import { toDateKey } from '@/lib/format';
 import { sessionVolumesQuery, startOfWeek } from '@/lib/weeklyVolume';
@@ -301,19 +307,21 @@ export interface LatestRecord {
   weightKg: number;
   reps: number;
   at: string;
+  /** Kırılan tür(ler) */
+  kinds: RecordKind[];
 }
 
 /**
- * En son kırılan e1RM rekoru (`recordEvents`; ilk seans rekor sayılmaz). En
- * yeni rekorlu seansta birden çok varsa e1RM'i en büyük olan.
+ * En son kırılan rekor (`recordEvents`: en ağır kilo ya da tahmini 1RM; ilk
+ * seans rekor sayılmaz). En yeni rekorlu seansta birden çok varsa özetteki
+ * sırayla en büyüğü (`sessionRecords`).
  */
 export function latestRecord(rows: readonly RecordHistoryRow[]): LatestRecord | null {
   const events = recordEvents(rows);
   const last = events[events.length - 1];
   if (!last) return null;
-  let top = last;
-  for (const e of events) if (e.sessionId === last.sessionId && e.e1rm > top.e1rm) top = e;
-  return { exerciseName: top.exerciseName, weightKg: top.weightKg, reps: top.reps, at: top.at };
+  const top = sessionRecords(events, last.sessionId)[0] ?? last;
+  return { exerciseName: top.exerciseName, weightKg: top.weightKg, reps: top.reps, at: top.at, kinds: top.kinds };
 }
 
 // ── Okuma ───────────────────────────────────────────────────────────────

@@ -232,7 +232,7 @@ describe('son rekor', () => {
       row('3', '2026-10-15', 'Bench', 72.5, 5), // değil
       row('3', '2026-10-15', 'Squat', 100, 5), // ilk kez
     ];
-    expect(latestRecord(rows)).toEqual({ exerciseName: 'Bench', weightKg: 75, reps: 5, at: '2026-10-08' });
+    expect(latestRecord(rows)).toEqual({ exerciseName: 'Bench', weightKg: 75, reps: 5, at: '2026-10-08', kinds: ['weight', 'e1rm'] });
   });
 
   it('aynı seansta birden çok rekor: e1RM’i en büyük', () => {

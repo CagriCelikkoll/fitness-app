@@ -83,7 +83,7 @@ describe('Bitir → özet → rekor sayfası', () => {
 
     const page = await loadSessionRecordPage(db, second);
     expect(page).not.toBeNull();
-    expect(page).toMatchObject({ exerciseName: 'Göğüs Presi', weightKg: 85, reps: 5, previous: { weightKg: 80, reps: 5 } });
+    expect(page).toMatchObject({ exerciseName: 'Göğüs Presi', weightKg: 85, reps: 5, kinds: ['weight', 'e1rm'], previousE1rm: { weightKg: 80, reps: 5 }, previousWeight: { weightKg: 80, reps: 5 } });
 
     // Özet ekranı sayfayı önce özetin kendi rekorlarından kuruyor; iki
     // kaynak aynı sayfayı vermeli
