@@ -4,6 +4,9 @@
  * hareket detayı aynı sonucu vermeli.
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
@@ -15,7 +18,9 @@ import {
   bestsBeforeSession,
   findSetRecords,
   loadExerciseRecordSessions,
+  loadPreviousExerciseBest,
   loadRecordHistory,
+  sessionRecordSetIds,
   loadSessionRecordPage,
   recordBadgeText,
   recordComparison,
@@ -147,6 +152,55 @@ describe('rekor türleri', () => {
   });
 });
 
+describe('antrenman sırasındaki 🏆 rozeti', () => {
+  const set = (id: string, weightKg: number, reps: number, extra: Partial<RecordHistoryRow> = {}) => ({
+    id,
+    setNumber: Number(id.slice(1)),
+    setType: 'normal',
+    weightKg,
+    reps,
+    isCompleted: true,
+    completedAt: `2026-01-02T10:0${id.slice(1)}:00.000Z`,
+    ...extra,
+  });
+  const prev: ExerciseBest = { e1rm: { weightKg: 80, reps: 10, e1rm: 80 * (1 + 10 / 30) }, weight: { weightKg: 80, reps: 10 } };
+
+  it('en ağır kilo da rozet alır (1RM rekoru olmasa bile)', () => {
+    expect([...sessionRecordSetIds([set('s1', 85, 3)], prev)]).toEqual(['s1']);
+  });
+
+  it('1RM rekoru rozet alır', () => {
+    expect([...sessionRecordSetIds([set('s1', 80, 12)], prev)]).toEqual(['s1']);
+  });
+
+  it('rekor değilse, ısınmaysa ya da tamamlanmamışsa rozet yok', () => {
+    expect(sessionRecordSetIds([set('s1', 75, 10)], prev).size).toBe(0);
+    expect(sessionRecordSetIds([set('s1', 100, 5, { setType: 'warmup' })], prev).size).toBe(0);
+    expect(sessionRecordSetIds([set('s1', 100, 5, { isCompleted: false })], prev).size).toBe(0);
+  });
+
+  it('hareketin ilk antrenmanı: rozet yok', () => {
+    expect(sessionRecordSetIds([set('s1', 100, 5)], null).size).toBe(0);
+  });
+
+  it('geri alınan setin rozeti kalkar; sonraki set ona göre değerlendirilir', () => {
+    const done = [set('s1', 85, 3), set('s2', 87.5, 3)];
+    expect([...sessionRecordSetIds(done, prev)]).toEqual(['s1', 's2']);
+    const undone = [set('s1', 85, 3, { isCompleted: false }), set('s2', 87.5, 3)];
+    expect([...sessionRecordSetIds(undone, prev)]).toEqual(['s2']);
+  });
+
+  it('active.tsx: rozet yeni kuraldan; ✓ titreşimi ve set tamamlama değişmedi', () => {
+    const src = readFileSync(path.resolve(__dirname, '..', 'app/session/active.tsx'), 'utf8');
+    expect(src).toContain('sessionRecordSetIds(setsData ?? [], badgeBest.value)');
+    expect(src).toContain('loadPreviousExerciseBest(db, exercise.id, sessionId)');
+    expect(src).not.toContain('findSessionRecordSetIds(');
+    // Titreşim kararı eskisi gibi tahmini 1RM
+    expect(src).toContain('isNewE1rmRecord(weightKg, reps, sessionRecordBaseline(previousBest.value, others))');
+    expect(src).toContain('await completeSetRecord(db, set.id, parsed);');
+  });
+});
+
 describe('gerçek SQLite: bütün ekranlar aynı kural', () => {
   let t: TestDb;
   let db: Db;
@@ -204,6 +258,26 @@ describe('gerçek SQLite: bütün ekranlar aynı kural', () => {
     expect(metricValue('records', data, periodRange('year', new Date('2026-10-10T12:00:00.000Z'), 0))).toBe(1);
 
     expect([...(await loadExerciseRecordSessions(db, bench))]).toEqual([[heavy, ['weight']]]);
+  });
+
+  it('rozet için önceki en iyi: bitmiş antrenmanlar, açık seans hariç', async () => {
+    const bench = await seedExercise(db);
+    await workout(bench, '2026-10-06T10:00:00.000Z', [{ weightKg: 80, reps: 10 }]);
+    await workout(bench, '2026-10-07T10:00:00.000Z', [{ weightKg: 90, reps: 2 }]);
+    // Açık (bitmemiş) seans: tamamlanmış ağır seti baz olmamalı
+    const open = await createSession(db, {
+      exerciseId: bench,
+      startedAt: '2026-10-08T10:00:00.000Z',
+      setSeeds: [{ weightKg: 95, reps: 3 }],
+    });
+    const best = await loadPreviousExerciseBest(db, bench, open.sessionId);
+    expect(best?.weight).toEqual({ weightKg: 90, reps: 2 });
+    expect(best?.e1rm).toMatchObject({ weightKg: 80, reps: 10 });
+    expect(await loadPreviousExerciseBest(db, await seedExercise(db, { name: 'Yeni' }), open.sessionId)).toBeNull();
+
+    // Açık seansın seti en ağır kilo → rozet
+    const rows = await db.select().from(sets).where(eq(sets.sessionExerciseId, open.sessionExerciseId));
+    expect([...sessionRecordSetIds(rows, best)]).toEqual([open.setIds[0]]);
   });
 
   it('aynı hareket seansta iki kez eklenmiş: özet ve geçmiş aynı', async () => {

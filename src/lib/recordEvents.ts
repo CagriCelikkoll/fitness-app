@@ -21,8 +21,9 @@
  * - Geçmişe dönük: kayıtlı setlerden her açılışta yeniden hesaplanır,
  *   veritabanında rekor alanı yok.
  *
- * Antrenman sırasındaki 🏆 rozeti (`active.tsx`, `findSessionRecordSetIds`)
- * hâlâ yalnızca tahmini 1RM'e bakıyor (0.13'te `active.tsx`'e dokunulmadı).
+ * Antrenman sırasındaki 🏆 rozeti de bu kural (`sessionRecordSetIds`).
+ * ✓ anındaki başarı titreşimi (`active.tsx` `isRecordCompletion`) set
+ * tamamlama akışının parçası; değişmedi, yalnızca tahmini 1RM'e bakıyor.
  */
 
 import { and, eq, isNotNull } from 'drizzle-orm';
@@ -125,6 +126,15 @@ export function findSetRecords(sessionSets: readonly SessionSet[], previous: Exe
     if (kinds.includes('e1rm')) bestE1rm = { weightKg: set.weightKg, reps: set.reps, e1rm: e1rm! };
   }
   return out;
+}
+
+/**
+ * Antrenman sırasındaki 🏆 rozeti (0.13): bu seansta rekor kıran setlerin
+ * id'leri, aynı kuralla (en ağır kilo ya da tahmini 1RM). Setlerden
+ * türetiliyor: geri alınan setin rozeti kalkar.
+ */
+export function sessionRecordSetIds(sessionSets: readonly SessionSet[], previous: ExerciseBest | null): Set<string> {
+  return new Set(findSetRecords(sessionSets, previous).map((r) => r.setId));
 }
 
 /** Seans bittikten sonraki en iyiler (bir sonraki seansın `previous`'u) */
@@ -435,6 +445,19 @@ export async function loadRecordHistory(db: Db, exerciseId?: string): Promise<Re
     ...r,
     exerciseName: exerciseDisplayName({ id: r.exerciseId, name, nameTr }),
   }));
+}
+
+/**
+ * Bir hareketin, bu seans hariç bitmiş antrenmanlardaki en iyileri
+ * (antrenman ekranının rozeti). Hiç sayılan seti yoksa null.
+ */
+export async function loadPreviousExerciseBest(
+  db: Db,
+  exerciseId: string,
+  sessionId: string
+): Promise<ExerciseBest | null> {
+  const rows = (await loadRecordHistory(db, exerciseId)).filter((r) => r.sessionId !== sessionId);
+  return bestsBeforeSession(rows, sessionId).get(exerciseId) ?? null;
 }
 
 /** Bir hareketin rekorlu seansları (hareket detayı, Geçmiş sekmesi) */

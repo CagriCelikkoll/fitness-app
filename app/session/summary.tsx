@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, BackHandler, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useScreenTopInset } from '@/hooks/useSafeBottom';
-import { ChevronRight, Trophy } from 'lucide-react-native';
+import { ChevronRight, Share2, Trophy } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { useColors } from '@/hooks/useTheme';
@@ -28,10 +28,13 @@ import {
   summaryRecordPage,
   type LoadedSummary,
 } from '@/lib/workoutSummary';
-import { DisplayName, Glow, ListRow, PrimaryButton, SectionLabel, StatCard } from '@/components/ui';
+import { DisplayName, Glow, ListRow, PrimaryButton, SecondaryButton, SectionLabel, StatCard } from '@/components/ui';
 import { Text } from '@/components/ui/Text';
 import { NoteEditor } from '@/components/NoteEditor';
 import { RecordCelebration } from '@/components/RecordCelebration';
+import { SharePreviewSheet } from '@/components/SharePreviewSheet';
+import { recordShareCard, type ShareCardData } from '@/lib/shareCard';
+import { loadWorkoutShareCard } from '@/lib/shareData';
 
 export default function WorkoutSummaryScreen() {
   const COLORS = useColors();
@@ -42,6 +45,14 @@ export default function WorkoutSummaryScreen() {
   const [summary, setSummary] = useState<LoadedSummary | null | undefined>(undefined);
   const [recordPage, setRecordPage] = useState<RecordPageData | null | undefined>(undefined);
   const [recordSeen, setRecordSeen] = useState(false);
+  // 0.13: paylaşım önizlemesi (rekor kartı ya da antrenman kartı)
+  const [shareCard, setShareCard] = useState<ShareCardData | null>(null);
+  const shareSheet = <SharePreviewSheet card={shareCard} onClose={() => setShareCard(null)} />;
+  const shareWorkout = () => {
+    loadWorkoutShareCard(db, id!)
+      .then((card) => setShareCard(card))
+      .catch((err) => console.error('[SHARE] Antrenman kartı okunamadı:', err));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -119,7 +130,12 @@ export default function WorkoutSummaryScreen() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-        <RecordCelebration page={page} onContinue={() => setRecordSeen(true)} />
+        <RecordCelebration
+          page={page}
+          onContinue={() => setRecordSeen(true)}
+          onShare={() => setShareCard(recordShareCard(page))}
+        />
+        {shareSheet}
       </>
     );
   }
@@ -222,10 +238,12 @@ export default function WorkoutSummaryScreen() {
           </>
         )}
 
-        <View className="mt-auto pt-6">
+        <View className="mt-auto pt-6 gap-2.5">
+          {summary && <SecondaryButton label="Paylaş" icon={Share2} onPress={shareWorkout} />}
           <PrimaryButton label="Kaydet ve kapat" icon={summary ? undefined : ChevronRight} onPress={close} />
         </View>
       </ScrollView>
+      {shareSheet}
     </View>
   );
 }

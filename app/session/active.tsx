@@ -39,7 +39,8 @@ import {
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
 import { getLastSessionForExercise, type LastSessionData } from '@/lib/lastSession';
 import { getPreviousBestE1rm } from '@/lib/exerciseHistory';
-import { findSessionRecordSetIds, isNewE1rmRecord, sessionRecordBaseline } from '@/lib/exerciseProgress';
+import { isNewE1rmRecord, sessionRecordBaseline } from '@/lib/exerciseProgress';
+import { loadPreviousExerciseBest, sessionRecordSetIds, type ExerciseBest } from '@/lib/recordEvents';
 import { saveSessionExerciseNote } from '@/lib/notes';
 import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
 import { afterSetCompleted, supersetPositions } from '@/lib/superset';
@@ -684,6 +685,25 @@ function useExerciseSessionData(sessionId: string, sessionExerciseId: string, ex
 
   const bestLoaded = previousBest?.exerciseId === exercise.id;
 
+  // 0.13: 🏆 rozeti rekor kuralının tek kaynağından (`recordEvents.ts`; en
+  // ağır kilo ya da tahmini 1RM). Yalnızca rozet; ✓ titreşimi yukarıdaki
+  // e1RM kontrolüyle aynı kaldı. Okunamazsa rozet gösterilmiyor.
+  const [badgeBest, setBadgeBest] = useState<{ exerciseId: string; value: ExerciseBest | null } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPreviousExerciseBest(db, exercise.id, sessionId)
+      .then((value) => {
+        if (!cancelled) setBadgeBest({ exerciseId: exercise.id, value });
+      })
+      .catch((err) => {
+        console.warn('[PR-CHECK] Rozet için önceki rekor okunamadı:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, exercise.id, sessionId]);
+
   // ── v2.1 ilerleme önerisi ─────────────────────────────────────────────
   // Hesap `progression.ts`'te; burada yalnızca okuma. Hangi harekete ait
   // olduğu tutuluyor. Okunamazsa öneri gösterilmiyor, ekran etkilenmiyor.
@@ -716,8 +736,11 @@ function useExerciseSessionData(sessionId: string, sessionExerciseId: string, ex
   // Rozetler setlerden türetiliyor: geri alınan setin rozeti kalkıyor,
   // egzersiz değiştirip dönünce rozetler duruyor.
   const recordSetIds = useMemo(
-    () => (bestLoaded ? findSessionRecordSetIds(setsData ?? [], previousBest.value) : new Set<string>()),
-    [bestLoaded, previousBest, setsData]
+    () =>
+      badgeBest?.exerciseId === exercise.id
+        ? sessionRecordSetIds(setsData ?? [], badgeBest.value)
+        : new Set<string>(),
+    [badgeBest, exercise.id, setsData]
   );
 
   /** ✓ anında: bu tamamlama rekor mu (başarı titreşimi için) */

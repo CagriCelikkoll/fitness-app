@@ -157,14 +157,15 @@ describe('ekran', () => {
     expect(summary).toContain('recordPage === undefined');
   });
 
-  it('içerik: görsel, altın rozet ve düğme; paylaşım yok', () => {
+  it('içerik: görsel, altın rozet, düğme ve paylaş', () => {
     expect(page).toContain('cover="rekor"');
     expect(page).toContain('YENİ REKOR');
     expect(page).toContain('Önceki en iyi');
     expect(page).toContain('recordComparison(page)');
     expect(page).toContain('recordBadgeText(page.kinds)');
     expect(page).toContain('label="Devam et" color="record"');
-    expect(page).not.toContain('Paylaş');
+    // 0.13: paylaşım açıldı (önizleme özet ekranında)
+    expect(page).toContain('label="Paylaş"');
   });
 
   it('active.tsx özete gitmeye devam ediyor', () => {

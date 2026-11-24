@@ -11,10 +11,10 @@ import { DarkSystemBars } from '@/components/DarkSystemBars';
 import { FALLBACK_REST_VIBRATE, useAppSettings } from '@/hooks/useAppSettings';
 import { haptic } from '@/lib/hapticsNative';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Trophy, X } from 'lucide-react-native';
+import { Share2, Trophy, X } from 'lucide-react-native';
 
 import { CoverImage } from '@/components/CoverImage';
-import { IconButton, PrimaryButton } from '@/components/ui';
+import { IconButton, PrimaryButton, SecondaryButton } from '@/components/ui';
 import { Text } from '@/components/ui/Text';
 import { DarkSurface, useContextTones } from '@/hooks/useTheme';
 import { formatDecimal } from '@/lib/format';
@@ -30,7 +30,14 @@ import { recordHeadlineSize } from '@/lib/typography';
 /** Sayfa kenarları (24 + 24) */
 const HEADLINE_INSET = 48;
 
-export function RecordCelebration(props: { page: RecordPageData; onContinue: () => void }) {
+interface RecordCelebrationProps {
+  page: RecordPageData;
+  onContinue: () => void;
+  /** 0.13: paylaşım önizlemesini açar (özet ekranındaki sayfa) */
+  onShare: () => void;
+}
+
+export function RecordCelebration(props: RecordCelebrationProps) {
   // v0.13: sayfa açılınca bir kez "başarı" titreşimi (ayar kapalıysa yok)
   const { settings, loaded } = useAppSettings();
   const buzzed = useRef(false);
@@ -48,7 +55,7 @@ export function RecordCelebration(props: { page: RecordPageData; onContinue: () 
   );
 }
 
-function RecordCelebrationBody({ page, onContinue }: { page: RecordPageData; onContinue: () => void }) {
+function RecordCelebrationBody({ page, onContinue, onShare }: RecordCelebrationProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const tones = useContextTones('record');
@@ -124,6 +131,7 @@ function RecordCelebrationBody({ page, onContinue }: { page: RecordPageData; onC
         </View>
 
         <PrimaryButton label="Devam et" color="record" size="lg" className="mt-1" onPress={onContinue} />
+        <SecondaryButton label="Paylaş" icon={Share2} onPress={onShare} />
       </ScrollView>
 
       <View pointerEvents="box-none" className="absolute right-4 top-0" style={{ paddingTop: insets.top + 8 }}>

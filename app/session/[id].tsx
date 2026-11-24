@@ -6,7 +6,7 @@
  * eder, o yüzden aktif antrenman ekranıyla çakışma olmaz.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +18,7 @@ import { Text } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { asc, eq, getTableColumns } from 'drizzle-orm';
-import { Trash2 } from 'lucide-react-native';
+import { MoreHorizontal, Share2, Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
 import { exerciseDisplayName } from '@/lib/exerciseCatalog';
@@ -44,7 +44,11 @@ import { saveSessionNote } from '@/lib/notes';
 import { effectiveDurationSql } from '@/lib/sessionDuration';
 import { rirLabel } from '@/lib/rir';
 import { supersetPositions, type SupersetPosition } from '@/lib/superset';
-import { Card, DangerButton } from '@/components/ui';
+import { Card, DangerButton, IconButton } from '@/components/ui';
+import { ActionMenu } from '@/components/ActionMenu';
+import { SharePreviewSheet } from '@/components/SharePreviewSheet';
+import type { ShareCardData } from '@/lib/shareCard';
+import { loadWorkoutShareCard } from '@/lib/shareData';
 import { NoteEditor } from '@/components/NoteEditor';
 
 interface ExerciseGroup {
@@ -139,6 +143,15 @@ export default function SessionDetailScreen() {
 
   const session = sessionQuery.data?.[0];
 
+  // 0.13: ⋯ → Paylaş (önizleme) / Sil
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [shareCard, setShareCard] = useState<ShareCardData | null>(null);
+  const openShare = () => {
+    loadWorkoutShareCard(db, id!)
+      .then((card) => setShareCard(card))
+      .catch((err) => console.error('[SHARE] Antrenman kartı okunamadı:', err));
+  };
+
   const handleDelete = () => {
     if (!session) return;
     Alert.alert(
@@ -189,7 +202,19 @@ export default function SessionDetailScreen() {
       className="flex-1 bg-bg"
       contentContainerClassName="px-5 pt-4 gap-3 pb-10"
     >
-      <Stack.Screen options={{ title: session.name }} />
+      <Stack.Screen
+        options={{
+          title: session.name,
+          headerRight: () => (
+            <IconButton
+              icon={MoreHorizontal}
+              variant="ghost"
+              accessibilityLabel="Antrenman işlemleri"
+              onPress={() => setMenuOpen(true)}
+            />
+          ),
+        }}
+      />
 
       {/* Özet */}
       <View className="mb-1">
@@ -268,6 +293,17 @@ export default function SessionDetailScreen() {
         icon={Trash2}
         className="mt-4"
       />
+
+      <ActionMenu
+        visible={menuOpen}
+        title={session.name}
+        onClose={() => setMenuOpen(false)}
+        items={[
+          { icon: Share2, label: 'Paylaş', onPress: openShare },
+          { icon: Trash2, label: 'Antrenmanı sil', danger: true, onPress: handleDelete },
+        ]}
+      />
+      <SharePreviewSheet card={shareCard} onClose={() => setShareCard(null)} />
     </ScrollView>
   );
 }
