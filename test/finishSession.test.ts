@@ -68,7 +68,8 @@ describe('finishSessionRecord — parametresiz (normal "Antrenmanı Bitir")', ()
 
     expect(await sessionRow(s.sessionId)).toMatchObject({
       endedAt: NOW,
-      durationSeconds: 4530,
+      // Son set 10:30, "Bitir" 45 dk sonra: süre son set + 10 dk (sessionDuration.ts)
+      durationSeconds: 2400,
     });
     expect(await setRows()).toEqual([
       { id: s.done, isCompleted: true, completedAt: '2026-10-08T10:30:00.000Z' },
@@ -85,7 +86,7 @@ describe('finishSessionRecord — parametresiz (normal "Antrenmanı Bitir")', ()
       mode: 'complete',
     });
 
-    expect(await sessionRow(s.sessionId)).toMatchObject({ endedAt: NOW, durationSeconds: 4530 });
+    expect(await sessionRow(s.sessionId)).toMatchObject({ endedAt: NOW, durationSeconds: 4530 }); // onaylanan set şimdi tamamlandı: kesilmez
     const rows = await setRows();
     expect(rows).toHaveLength(2);
     expect(rows.find((r) => r.id === s.pending)).toEqual({
@@ -105,7 +106,7 @@ describe('finishSessionRecord — parametresiz (normal "Antrenmanı Bitir")', ()
       mode: 'delete',
       endedAt: undefined,
     });
-    expect(await sessionRow(s.sessionId)).toMatchObject({ endedAt: NOW, durationSeconds: 4530 });
+    expect(await sessionRow(s.sessionId)).toMatchObject({ endedAt: NOW, durationSeconds: 2400 });
   });
 });
 

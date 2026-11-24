@@ -79,11 +79,23 @@ export async function getPreviousBestE1rm(
   exerciseId: string,
   excludeSessionId: string | null
 ): Promise<number | null> {
+  return (await getPreviousBestSet(db, exerciseId, excludeSessionId))?.e1rm ?? null;
+}
+
+/**
+ * Mevcut seans hariç en iyi e1RM'li set (rekor sayfasındaki "önceki").
+ * Hiç e1RM hesaplanabilen set yoksa null.
+ */
+export async function getPreviousBestSet(
+  db: Db,
+  exerciseId: string,
+  excludeSessionId: string | null
+): Promise<{ weightKg: number; reps: number; e1rm: number } | null> {
   const rows = await setHistoryQuery(db, exerciseId, excludeSessionId);
-  let best: number | null = null;
+  let best: { weightKg: number; reps: number; e1rm: number } | null = null;
   for (const row of rows) {
     const e1rm = epley(row.weightKg, row.reps);
-    if (e1rm != null && (best == null || e1rm > best)) best = e1rm;
+    if (e1rm != null && (best == null || e1rm > best.e1rm)) best = { weightKg: row.weightKg!, reps: row.reps!, e1rm };
   }
   return best;
 }

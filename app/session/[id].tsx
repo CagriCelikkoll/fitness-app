@@ -17,7 +17,7 @@ import {
 import { Text } from '@/components/ui/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { Trash2 } from 'lucide-react-native';
 
 import { useDb } from '@/hooks/useDb';
@@ -41,6 +41,7 @@ import {
   formatVolume,
 } from '@/lib/format';
 import { saveSessionNote } from '@/lib/notes';
+import { effectiveDurationSql } from '@/lib/sessionDuration';
 import { rirLabel } from '@/lib/rir';
 import { supersetPositions, type SupersetPosition } from '@/lib/superset';
 import { Card, DangerButton } from '@/components/ui';
@@ -61,7 +62,7 @@ export default function SessionDetailScreen() {
   // 1) Seans satırı
   const sessionQuery = useLiveQuery(
     db
-      .select()
+      .select({ ...getTableColumns(workoutSessions), durationSeconds: effectiveDurationSql })
       .from(workoutSessions)
       .where(eq(workoutSessions.id, id!))
       .limit(1),

@@ -1,7 +1,8 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, max, sum } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
-import { sets as setsTable, workoutSessions } from '@/db/schema';
+import { cardioSegments, sessionExercises, sets as setsTable, workoutSessions } from '@/db/schema';
+import { effectiveDurationSeconds } from '@/lib/sessionDuration';
 
 /**
  * Seansı kapatır. Tek transaction: onaylanmamış setlerin akıbeti,
@@ -41,7 +42,7 @@ export async function finishSessionRecord(
       .where(eq(workoutSessions.id, sessionId))
       .limit(1);
     const startedAt = session[0]?.startedAt;
-    const durationSeconds = startedAt
+    const rawDurationSeconds = startedAt
       ? endMs != null
         ? Math.max(0, Math.floor((endMs - new Date(startedAt).getTime()) / 1000))
         : Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
@@ -67,6 +68,33 @@ export async function finishSessionRecord(
           )
         );
     }
+
+    // Süre: "Bitir"e geç basıldıysa (son setten saatler sonra) şişmesin;
+    // okumadaki kuralın aynısı (`sessionDuration.ts`). endedAt gerçek bitiş.
+    const [last] = await tx
+      .select({ at: max(setsTable.completedAt) })
+      .from(setsTable)
+      .innerJoin(sessionExercises, eq(setsTable.sessionExerciseId, sessionExercises.id))
+      .where(
+        and(
+          eq(sessionExercises.sessionId, sessionId),
+          eq(setsTable.isCompleted, true),
+          isNotNull(setsTable.completedAt)
+        )
+      );
+    const [cardio] = await tx
+      .select({ total: sum(cardioSegments.durationSeconds) })
+      .from(cardioSegments)
+      .where(eq(cardioSegments.sessionId, sessionId));
+    const durationSeconds =
+      startedAt != null
+        ? effectiveDurationSeconds({
+            startedAt,
+            durationSeconds: rawDurationSeconds,
+            lastSetAt: last?.at ?? null,
+            cardioSeconds: Number(cardio?.total ?? 0) || 0,
+          })
+        : null;
 
     await tx
       .update(workoutSessions)

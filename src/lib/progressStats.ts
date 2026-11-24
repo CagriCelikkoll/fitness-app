@@ -18,6 +18,7 @@ import { sessionExercises, sets, workoutSessions } from '@/db/schema';
 import { LOWER_MUSCLES, UPPER_MUSCLES } from '@/lib/contextColor';
 import { SHORT_MONTHS_TR, toDateKey } from '@/lib/format';
 import { loadRecordHistory, recordEvents } from '@/lib/recordEvents';
+import { effectiveDurationSql } from '@/lib/sessionDuration';
 import { startOfWeek } from '@/lib/weeklyVolume';
 
 export type ProgressPeriod = 'week' | 'month' | 'year';
@@ -198,7 +199,10 @@ export function progressStats(data: ProgressData, period: ProgressPeriod, now: D
   const dayChange = countChange(days, metricValue('workouts', data, prev));
 
   const seconds = metricValue('duration', data, cur);
-  const sessionCount = data.sessions.filter((s) => inRange(s.startedAt, cur)).length;
+  // Ortalama yalnızca süresi bilinen antrenmanlara bölünür
+  const sessionCount = data.sessions.filter(
+    (s) => inRange(s.startedAt, cur) && s.durationSeconds != null
+  ).length;
   const avg = sessionCount > 0 ? seconds / sessionCount : null;
 
   const records = metricValue('records', data, cur);
@@ -304,7 +308,8 @@ export async function loadProgressData(db: Db): Promise<ProgressData> {
     .select({
       id: workoutSessions.id,
       startedAt: workoutSessions.startedAt,
-      durationSeconds: workoutSessions.durationSeconds,
+      // Unutulup saatler sonra bitirilen seans süreyi şişirmesin
+      durationSeconds: effectiveDurationSql,
     })
     .from(workoutSessions)
     .where(isNotNull(workoutSessions.endedAt));
