@@ -22,6 +22,7 @@ import { useClassScheduleTriggers } from '@/hooks/useClassSchedule';
 import { useClassReminderResponses } from '@/lib/classReminderNative';
 import { usePushRegistration, usePushResponses } from '@/lib/pushNative';
 import { usePrivacyAckSync } from '@/hooks/usePrivacyNotice';
+import { usePurchasesSync } from '@/hooks/usePremium';
 import { installRestNotifications } from '@/lib/restNative';
 import { connectRestTimerPersistence } from '@/lib/sessionRecovery';
 import { useActiveWorkoutStore } from '@/stores/activeWorkoutStore';
@@ -147,6 +148,8 @@ function SyncTriggers() {
   useVisitWorkoutLink();
   // Aydınlatma metni onayı (v3.7): girişte işaretleneni sunucuya yaz
   usePrivacyAckSync();
+  // Premium (0.13 Bölüm 7): bayrak kapalıyken hiçbir şey yapmaz
+  usePurchasesSync();
   return null;
 }
 
