@@ -238,4 +238,16 @@ describe('aydınlatma metni', () => {
       expect(t).not.toMatch(/yalnızca (cihazımda|cihazında işlenir|telefonunda kalır)/);
     }
   });
+
+  it('KVKK aktarım ve saklama süresi telefon yedeğiyle tutarlı (aynı sürüm)', () => {
+    const kvkk = text(KVKK_NOTICE);
+    expect(kvkk).toContain(
+      'Hesapsız kullanımda Dinç verilerini hiçbir kişi ya da kuruluşa aktarmaz. Telefonunun kendi yedeklemesi açıksa yedek, senin Google hesabında, telefonunun ayarlarına göre tutulur; veri sorumlusu bu yedeğe taraf değildir.'
+    );
+    expect(kvkk).toContain(
+      'Telefonunun kendi yedeğindeki kopya, yedekleme ayarlarına göre Google tarafından saklanır ve telefonunun ayarlarından silinebilir.'
+    );
+    expect(kvkk).not.toContain('Hesapsız kullanımda verilerin hiçbir kişi ya da kuruluşa aktarılmaz');
+    expect(PRIVACY_NOTICE_VERSION).toBe('2026-11-25');
+  });
 });
