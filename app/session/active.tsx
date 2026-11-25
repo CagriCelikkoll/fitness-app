@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -46,6 +46,7 @@ import { RIR_OPTIONS, formatSetSummary, rirLabel } from '@/lib/rir';
 import { afterSetCompleted, supersetPositions } from '@/lib/superset';
 import { restNotificationScheduler } from '@/lib/restNative';
 import { finishSessionRecord } from '@/lib/finishSession';
+import { shouldLeaveActiveScreen } from '@/lib/activeSessionGuard';
 import {
   PROGRESSION_HELP,
   applySuggestedWeight,
@@ -123,9 +124,16 @@ export default function ActiveSessionScreen() {
   // Dinlenme sayacının bitişi (titreşim, ses, 3 sn sonra kapanma) tek yerde
   const restController = useRestTimerController();
 
+  // Bu ekran antrenmanı kendisi bitirdi mi: o zaman özete yönlendirme
+  // bitirme akışında, aşağıdaki kapı özeti ezmesin (`activeSessionGuard.ts`)
+  const finishedHere = useRef(false);
+  const markFinishedHere = useCallback(() => {
+    finishedHere.current = true;
+  }, []);
+
   // Aktif session yoksa workout sayfasına yönlendir
   useEffect(() => {
-    if (!activeSessionId) {
+    if (shouldLeaveActiveScreen(activeSessionId, finishedHere.current)) {
       router.replace('/(tabs)/workout');
     }
   }, [activeSessionId, router]);
@@ -136,12 +144,20 @@ export default function ActiveSessionScreen() {
     <View className="flex-1 bg-bg">
       {/* Kendi üst satırı var (küçült · süre · Bitir) */}
       <Stack.Screen options={{ headerShown: false }} />
-      <SessionContent sessionId={activeSessionId} restController={restController} />
+      <SessionContent sessionId={activeSessionId} restController={restController} onFinishedHere={markFinishedHere} />
     </View>
   );
 }
 
-function SessionContent({ sessionId, restController }: { sessionId: string; restController: RestTimerController }) {
+function SessionContent({
+  sessionId,
+  restController,
+  onFinishedHere,
+}: {
+  sessionId: string;
+  restController: RestTimerController;
+  onFinishedHere: () => void;
+}) {
   const COLORS = useColors();
   const router = useRouter();
   const db = useDb();
@@ -371,6 +387,8 @@ function SessionContent({ sessionId, restController }: { sessionId: string; rest
       return;
     }
 
+    // Önce işaret, sonra endSession: kapı özeti Antrenman sekmesiyle ezmesin
+    onFinishedHere();
     endSession();
     // v4.0a: antrenman özeti ("Kaydet ve kapat" → Antrenman sekmesi)
     router.replace({ pathname: '/session/summary', params: { id: sessionId, planned: String(plannedSets) } });
