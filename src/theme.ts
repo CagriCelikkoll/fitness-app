@@ -236,3 +236,14 @@ export const DARK_COLORS: ThemeColors = buildColors('dark', DINC_ACCENT.dark);
  * zemin üstünde koyu modül bekliyor; koyu temada da afiş beyaz kalır.
  */
 export const QR_COLORS = { dark: '#000000', light: '#FFFFFF' } as const;
+
+/**
+ * "Google ile devam et" düğmesi (0.13): Google'ın marka kurallarındaki
+ * renkler (Sign in with Google branding guidelines), temadan bağımsız.
+ * Açık temada beyaz, koyu temada koyu düğme; "G" logosu dört renkli.
+ */
+export const GOOGLE_BUTTON_COLORS = {
+  light: { fill: '#FFFFFF', stroke: '#747775', text: '#1F1F1F' },
+  dark: { fill: '#131314', stroke: '#8E918F', text: '#E3E3E3' },
+  logo: { blue: '#4285F4', green: '#34A853', yellow: '#FBBC05', red: '#EA4335' },
+} as const;

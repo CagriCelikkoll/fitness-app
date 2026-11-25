@@ -17,6 +17,7 @@
     "test:integration": "vitest run --config vitest.integration.config.mts --reporter=verbose"
   },
   "dependencies": {
+    "@react-native-google-signin/google-signin": "17.0.0",
     "@react-navigation/bottom-tabs": "^7.4.7",
     "@react-navigation/native": "^7.1.18",
     "@supabase/supabase-js": "^2.117.3",

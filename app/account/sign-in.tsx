@@ -16,6 +16,10 @@
  *
  * `next=join-gym`: Ayarlar'daki "Salon koduyla katıl"dan gelindiyse giriş
  * sonrası salon kodu ekranı.
+ *
+ * 0.13: üstte "Google ile devam et" (`src/lib/googleAuth.ts`), altında
+ * e-postayla kod. Aydınlatma kutusu ikisi için ortak. Google'la girişte
+ * profilde ad yoksa Google'daki ad, ad ekranına öneri olarak gider.
  */
 
 import { useEffect, useReducer, useRef, useState } from 'react';
@@ -35,11 +39,16 @@ import {
   authFormReducer,
   canResend,
   canSubmit,
+  canUseGoogle,
   normalizeEmail,
   resendSecondsLeft,
   type AuthFormField,
 } from '@/lib/auth';
-import { sendSignInCode, verifySignInCode, type AccountResult } from '@/lib/account';
+import { sendSignInCode, signInWithGoogle, verifySignInCode, type AccountResult } from '@/lib/account';
+import { googleNameSuggestion } from '@/lib/googleAuth';
+import { googleSignInAvailable, startGoogleSignIn } from '@/lib/googleSignInNative';
+import { fetchMyDisplayName, wasNamePrompted } from '@/lib/profile';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import {
   PRIVACY_NOTICE_CHECKBOX,
   PRIVACY_NOTICE_VERSION,
@@ -115,6 +124,30 @@ export default function SignInScreen() {
     if (check(await verifySignInCode(getSupabase(), state.email, state.code))) done();
   };
 
+  const continueWithGoogle = async () => {
+    if (!canUseGoogle(state)) return;
+    dispatch({ type: 'googleStarted' });
+    const outcome = await startGoogleSignIn();
+    if (outcome.kind === 'cancelled') return dispatch({ type: 'cancelled' });
+    if (outcome.kind === 'error') return dispatch({ type: 'failed', message: outcome.message });
+    // Kodla girişteki gibi: onay oturum açılır açılmaz bulunsun
+    await savePendingAck(Storage, PRIVACY_NOTICE_VERSION);
+    const result = await signInWithGoogle(getSupabase(), outcome.idToken);
+    if (!check(result) || !result.ok) return;
+
+    // Profilde ad yoksa Google'daki ad öneri olarak ad ekranına
+    const userId = result.value;
+    const [profile, prompted] = await Promise.all([
+      fetchMyDisplayName(getSupabase(), userId),
+      wasNamePrompted(Storage, userId),
+    ]);
+    const suggest = profile.ok
+      ? googleNameSuggestion({ displayName: profile.value, googleName: outcome.name, prompted })
+      : null;
+    if (suggest == null) return done();
+    router.replace({ pathname: '/account/name', params: next ? { suggest, next } : { suggest } });
+  };
+
   const resend = async () => {
     dispatch({ type: 'started' });
     await sendCode();
@@ -131,6 +164,7 @@ export default function SignInScreen() {
   }
 
   const secondsLeft = resendSecondsLeft(state, now);
+  const google = googleSignInAvailable();
 
   return (
     <KeyboardAvoidingView
@@ -149,8 +183,9 @@ export default function SignInScreen() {
             Vücut ölçülerin yalnızca telefonunda kalır.
           </Text>
           <Text className="text-muted text-sm leading-5">
-            Şifre yok: her girişte e-postana 6 haneli bir kod gelir. Hesabın yoksa aynı kodla
-            açılır.
+            {google
+              ? 'Şifre yok: Google hesabınla ya da e-postana gelen 6 haneli kodla girersin. Hesabın yoksa açılır.'
+              : 'Şifre yok: her girişte e-postana 6 haneli bir kod gelir. Hesabın yoksa aynı kodla açılır.'}
           </Text>
         </Card>
 
@@ -158,6 +193,41 @@ export default function SignInScreen() {
           <Text className="text-fg text-lg font-semibold tracking-tight">
             {codeMode ? 'Kodu gir' : 'Giriş yap ya da hesap aç'}
           </Text>
+
+          {!codeMode && (
+            <View className="gap-2">
+              <Text className="text-muted text-sm leading-5">
+                Devam etmeden önce hesabınla ilgili bilgilerin nasıl işlendiğini oku.
+              </Text>
+              <TextLink
+                label="Aydınlatma Metni →"
+                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'kvkk' } })}
+              />
+              <LegalLink to="privacy" label="Gizlilik Politikası →" />
+              <View className="mt-1">
+                <ConsentCheckbox
+                  checked={state.noticeRead}
+                  label={PRIVACY_NOTICE_CHECKBOX}
+                  onToggle={() => dispatch({ type: 'noticeToggled' })}
+                />
+              </View>
+            </View>
+          )}
+
+          {!codeMode && google && (
+            <View className="gap-4">
+              <GoogleSignInButton
+                disabled={!state.noticeRead}
+                loading={state.google}
+                onPress={() => void continueWithGoogle()}
+              />
+              <View className="flex-row items-center gap-3">
+                <View className="flex-1 h-px bg-border" />
+                <Text className="text-muted text-xs">ya da e-postayla kod al</Text>
+                <View className="flex-1 h-px bg-border" />
+              </View>
+            </View>
+          )}
 
           <Field label="E-posta">
             <TextInput
@@ -175,26 +245,6 @@ export default function SignInScreen() {
               className={`${INPUT_CLASS} ${codeMode ? 'opacity-60' : ''}`}
             />
           </Field>
-
-          {!codeMode && (
-            <View className="gap-2">
-              <Text className="text-muted text-sm leading-5">
-                Kod göndermeden önce hesabınla ilgili bilgilerin nasıl işlendiğini oku.
-              </Text>
-              <TextLink
-                label="Aydınlatma Metni →"
-                onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: 'kvkk' } })}
-              />
-              <LegalLink to="privacy" label="Gizlilik Politikası →" />
-              <View className="mt-1">
-                <ConsentCheckbox
-                  checked={state.noticeRead}
-                  label={PRIVACY_NOTICE_CHECKBOX}
-                  onToggle={() => dispatch({ type: 'noticeToggled' })}
-                />
-              </View>
-            </View>
-          )}
 
           {codeMode && (
             <Text className="text-muted text-sm leading-5">
@@ -234,7 +284,7 @@ export default function SignInScreen() {
           <PrimaryButton
             label={codeMode ? 'Giriş yap' : 'Kodu gönder'}
             disabled={!canSubmit(state)}
-            loading={state.busy}
+            loading={state.busy && !state.google}
             onPress={() => void submit()}
           />
 

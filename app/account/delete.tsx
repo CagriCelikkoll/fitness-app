@@ -19,6 +19,7 @@ import { useDb } from '@/hooks/useDb';
 import { useSession } from '@/hooks/useSession';
 import { useColors } from '@/hooks/useTheme';
 import { deleteMyAccount } from '@/lib/account';
+import { googleSignOut } from '@/lib/googleSignInNative';
 import { forgetPushRegistration } from '@/lib/pushNative';
 import { getSupabase } from '@/lib/supabase';
 import { DELETE_ACCOUNT_TEXT, canConfirmAccountDeletion } from '@/lib/sync/ui';
@@ -62,6 +63,7 @@ export default function DeleteAccountScreen() {
     }
     // Push token'ı sunucuda hesapla birlikte silindi (cascade); telefondaki kayıt da
     void forgetPushRegistration();
+    void googleSignOut();
     try {
       await resetSyncAfterAccountDeleted(db);
     } catch (err) {

@@ -32,6 +32,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
 import { isInternalChannel } from '@/lib/appVariant';
+import { googleSignOut } from '@/lib/googleSignInNative';
 import Storage from 'expo-sqlite/kv-store';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { eq, sql } from 'drizzle-orm';
@@ -326,6 +327,7 @@ export function AccountSection() {
           // Push token'ı oturum varken silinir (v3.3)
           void unregisterPushBeforeSignOut()
             .then(() => signOut(getSupabase()))
+            .then(() => googleSignOut())
             .finally(() => setSigningOut(false));
         },
       },
@@ -505,6 +507,7 @@ function OwnerMismatchCard() {
     setSigningOut(true);
     void unregisterPushBeforeSignOut()
       .then(() => signOut(getSupabase()))
+      .then(() => googleSignOut())
       .finally(() => setSigningOut(false));
   };
 

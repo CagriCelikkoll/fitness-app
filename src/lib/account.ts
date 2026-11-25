@@ -83,6 +83,21 @@ export function verifySignInCode(client: SupabaseClient | null, email: string, c
 }
 
 /**
+ * Google ile giriş (0.13): hesap seçiciden gelen kimlik jetonuyla. Hesabı
+ * olmayana hesap açılır; aynı (doğrulanmış) e-postayla kodla açılmış hesap
+ * varsa Supabase Google kimliğini o hesaba bağlar. Şifre yok, nonce yok
+ * (Android'deki Google girişi nonce vermiyor). Dönen değer kullanıcı kimliği.
+ */
+export function signInWithGoogle(client: SupabaseClient | null, idToken: string) {
+  return run(client, async (c) => {
+    const { data, error } = await c.auth.signInWithIdToken({ provider: 'google', token: idToken });
+    if (error) return fail<string>(toAccountError(error));
+    const userId = data.user?.id;
+    return userId ? ok(userId) : fail<string>(accountError('unknown'));
+  });
+}
+
+/**
  * Yalnızca bu cihazdaki oturumu kapatır. Ağ hatasında da oturum yerelde
  * silinir (supabase-js böyle davranıyor); lokal antrenman verisine
  * dokunulmaz.

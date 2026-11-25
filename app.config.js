@@ -13,6 +13,15 @@
  * `eas update` bu değişkeni görmez (manifest temel ayarlarla üretilir); bu
  * yüzden uygulama test sürümü olduğunu buradan değil, derlemenin kanalından
  * anlar (`src/lib/appVariant.ts`).
+ *
+ * Google ile giriş (0.13): uygulamaya giren tek değer web istemci kimliği
+ * (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, EAS ortam değişkeni); iki varyantta
+ * aynı, çünkü jetonun hedefi (aud) Supabase'in tanıdığı web istemcisi.
+ * Dinç Test'in ayrı paketi (`com.dincapp.antrenman.dahili`) için Google
+ * Cloud'da ayrı bir Android istemcisi açılır (paket + SHA-1); onun kimliği
+ * uygulamaya girmez, Google paket adı ve imzayla eşleştirir. Bu yüzden
+ * burada varyanta göre bir ayar yok. OTA manifest'i `APP_VARIANT`'ı
+ * görmediği için (yukarıda) varyanta bağlı bir kimlik zaten güvenilir olmazdı.
  */
 
 const TEST_ICONS = './assets/brand/test';

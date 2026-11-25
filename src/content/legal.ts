@@ -15,7 +15,7 @@
 export const LEGAL_CONTACT = {
   name: 'Çağrı Çelikkol',
   email: 'dinc.destekk@gmail.com',
-  effectiveDate: '8 Kasım 2026',
+  effectiveDate: '25 Kasım 2026',
 } as const;
 
 /**
@@ -25,7 +25,7 @@ export const LEGAL_CONTACT = {
  * güncellenince bunu da güncelle: hesabı olanlara yeniden sorulur
  * (`test/privacyNotice.test.ts` ikisinin aynı günü gösterdiğini denetliyor).
  */
-export const PRIVACY_NOTICE_VERSION = '2026-11-08';
+export const PRIVACY_NOTICE_VERSION = '2026-11-25';
 
 /**
  * Yayındaki tam metinler (v3.4). Uygulama içi Gizlilik Politikası bunun
@@ -68,7 +68,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     ),
     p('**1. Hesap açarsan işlenen bilgiler**'),
     list(
-      'Hesap bilgileri: e-posta adresin ve uygulamada görünen adın. Giriş, e-postana gelen tek kullanımlık kodla yapılır; şifre tutulmaz.',
+      'Hesap bilgileri: e-posta adresin ve uygulamada görünen adın. Giriş, e-postana gelen tek kullanımlık kodla ya da Google hesabınla yapılır; şifre tutulmaz. Google ile girersen Google hesabındaki e-posta adresin ve adın alınır; ad yalnızca kaydedersen görünen adın olur, profil fotoğrafın alınmaz.',
       'Aydınlatma onayı: hesap açarken bu metni okuduğunu işaretlersin; işaretlediğin metnin sürümü ve tarihi hesabında saklanır.',
       'Eşitlenen antrenman verileri: rutinler, antrenmanlar, setler, ağırlık ve tekrarlar, RIR değerleri, kardiyo süreleri ve notlar',
       'Bildirim bilgileri: telefonunun bildirim kimliği (push token), cihaz platformu ve bildirim tercihlerin',
@@ -88,7 +88,7 @@ export const PRIVACY_POLICY: LegalDocument = {
     p('**3. Bilgileri kimler işler**'),
     list(
       'Supabase Inc.: hesap, eşitlenen antrenmanlar, salon üyeliği, salon girişleri, geri bildirimler ve fotoğrafları, bildirim bilgileri ve salon logoları; Frankfurt (Avrupa Birliği) sunucuları, yurt dışına aktarım sayılır',
-      "Google: giriş kodları (Gmail); Android'de telefon bildirimleri (Firebase Cloud Messaging)",
+      "Google: giriş kodları (Gmail) ve Google ile giriş; Android'de telefon bildirimleri (Firebase Cloud Messaging)",
       'Expo (650 Industries, Inc., ABD): uygulama güncelleme kontrolü ve telefon bildirimlerinin iletimi',
       'GitHub: egzersiz görselleri'
     ),
@@ -126,16 +126,16 @@ export const KVKK_NOTICE: LegalDocument = {
   blocks: [
     p(`**Veri sorumlusu:** ${NAME}, ${EMAIL}`),
     p(
-      '**İşlenen veriler:** Profil bilgileri (cinsiyet, doğum tarihi, boy), vücut ölçüleri (kilo, yağ oranı, çevre ölçüleri), antrenman kayıtları ve notlar. Hesap açarsan ayrıca e-posta adresin, görünen adın, bildirim kimliğin ve bildirim tercihlerin; salona katılırsan salon üyeliğin ve ders katılımların. Kilo ve vücut ölçüleri, KVKK md. 6 kapsamında sağlık verisi olarak değerlendirilebilecek özel nitelikli kişisel verilerdir.'
+      '**İşlenen veriler:** Profil bilgileri (cinsiyet, doğum tarihi, boy), vücut ölçüleri (kilo, yağ oranı, çevre ölçüleri), antrenman kayıtları ve notlar. Hesap açarsan ayrıca e-posta adresin, görünen adın (Google ile girersen Google hesabındaki adın ve e-posta adresin), bildirim kimliğin ve bildirim tercihlerin; salona katılırsan salon üyeliğin ve ders katılımların. Kilo ve vücut ölçüleri, KVKK md. 6 kapsamında sağlık verisi olarak değerlendirilebilecek özel nitelikli kişisel verilerdir.'
     ),
     p(
       '**İşleme amacı:** Antrenmanlarını kaydetmen, ilerlemeni grafik ve istatistiklerle görmen ve vücut ölçülerini takip etmen; hesap açarsan antrenmanlarının eşitlenmesi, salon üyeliği, ders programı ve salon bildirimleri.'
     ),
     p(
-      '**Toplama yöntemi ve hukuki sebep:** Veriler, uygulamaya senin girdiğin bilgilerden elde edilir. Genel nitelikli veriler, kullandığın hizmetin sunulması için gerekli olmasına (md. 5/2-c) dayanır. Sağlık verisi sayılabilecek vücut ölçüleri yalnızca açık rızana (md. 6/2) dayanılarak ve yalnızca cihazında işlenir; sunucuya gönderilmez. Rıza vermezsen bu alanları kullanmadan uygulamanın geri kalanını kullanmaya devam edebilirsin.'
+      '**Toplama yöntemi ve hukuki sebep:** Veriler, uygulamaya senin girdiğin bilgilerden elde edilir; Google ile girersen adın ve e-posta adresin, senin izninle Google hesabından alınır. Genel nitelikli veriler, kullandığın hizmetin sunulması için gerekli olmasına (md. 5/2-c) dayanır. Sağlık verisi sayılabilecek vücut ölçüleri yalnızca açık rızana (md. 6/2) dayanılarak ve yalnızca cihazında işlenir; sunucuya gönderilmez. Rıza vermezsen bu alanları kullanmadan uygulamanın geri kalanını kullanmaya devam edebilirsin.'
     ),
     p(
-      "**Aktarım:** Hesapsız kullanımda verilerin hiçbir kişi ya da kuruluşa aktarılmaz. Hesap açarsan hesap ve eşitlenen antrenman verilerin Supabase Inc.'in Frankfurt (Avrupa Birliği) sunucularında saklanır; e-postalar Google (Gmail), Android bildirimleri Google (Firebase Cloud Messaging) ve Expo (ABD) üzerinden iletilir. Bunlar yurt dışına aktarım sayılır; ayrıntılar Gizlilik Politikası'nda. Uygulama güncelleme kontrolünde Expo'ya yalnızca uygulama sürümü, platform bilgisi ve IP adresi ulaşır. Yedek dosyasını paylaşmak senin tercihindir; veri sorumlusu bu aktarıma taraf değildir."
+      "**Aktarım:** Hesapsız kullanımda verilerin hiçbir kişi ya da kuruluşa aktarılmaz. Hesap açarsan hesap ve eşitlenen antrenman verilerin Supabase Inc.'in Frankfurt (Avrupa Birliği) sunucularında saklanır; e-postalar Google (Gmail) üzerinden iletilir, Google ile girişte kimliğin Google tarafından doğrulanır; Android bildirimleri Google (Firebase Cloud Messaging) ve Expo (ABD) üzerinden iletilir. Bunlar yurt dışına aktarım sayılır; ayrıntılar Gizlilik Politikası'nda. Uygulama güncelleme kontrolünde Expo'ya yalnızca uygulama sürümü, platform bilgisi ve IP adresi ulaşır. Yedek dosyasını paylaşmak senin tercihindir; veri sorumlusu bu aktarıma taraf değildir."
     ),
     p(
       '**Saklama süresi:** Telefondaki veriler sen silene veya uygulamayı kaldırana kadar cihazında kalır. Sunucudaki veriler hesabını silene kadar saklanır; hesap silinince sunucu yedeklerinden de en geç 30 gün içinde silinir.'

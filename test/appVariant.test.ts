@@ -135,8 +135,10 @@ describe('yasal metinlerde yeni yollar (yazım düzeltmesi)', () => {
     expect(all).toContain("Profil → Gizlilik ve hesap'tan");
   });
 
-  it('aydınlatma sürümü ve yürürlük tarihi değişmedi: yeniden onay sorulmaz', () => {
-    expect(PRIVACY_NOTICE_VERSION).toBe('2026-11-08');
-    expect(LEGAL_CONTACT.effectiveDate).toBe('8 Kasım 2026');
+  // Yazım düzeltmesi sürümü artırmadı; 0.13'te Google ile giriş içerik
+  // değişikliği olduğu için bilerek arttı (bir kez yeniden sorulur)
+  it('aydınlatma sürümü ve yürürlük tarihi: 0.13 Google metni', () => {
+    expect(PRIVACY_NOTICE_VERSION).toBe('2026-11-25');
+    expect(LEGAL_CONTACT.effectiveDate).toBe('25 Kasım 2026');
   });
 });

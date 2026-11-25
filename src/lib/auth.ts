@@ -305,6 +305,8 @@ export interface AuthFormState {
   /** Son kod gönderiminin zamanı (ms) */
   sentAt: number | null;
   busy: boolean;
+  /** Meşgulken Google girişi mi sürüyor (0.13; düğmedeki gösterge için) */
+  google: boolean;
   error: string | null;
 }
 
@@ -315,6 +317,9 @@ export type AuthFormAction =
   | { type: 'noticeToggled' }
   | { type: 'editEmail' }
   | { type: 'started' }
+  | { type: 'googleStarted' }
+  /** Kullanıcı Google hesap seçicisini kapattı: hata yok */
+  | { type: 'cancelled' }
   | { type: 'failed'; message: string }
   | { type: 'codeSent'; now: number };
 
@@ -325,6 +330,7 @@ export const INITIAL_AUTH_FORM: AuthFormState = {
   noticeRead: false,
   sentAt: null,
   busy: false,
+  google: false,
   error: null,
 };
 
@@ -340,14 +346,26 @@ export function authFormReducer(state: AuthFormState, action: AuthFormAction): A
       return { ...state, noticeRead: !state.noticeRead, error: null };
     case 'editEmail':
       // E-posta ve işaret kalıyor; kod ve hata gidiyor
-      return { ...state, mode: 'email', code: '', sentAt: null, busy: false, error: null };
+      return { ...state, mode: 'email', code: '', sentAt: null, busy: false, google: false, error: null };
     case 'started':
-      return { ...state, busy: true, error: null };
+      return { ...state, busy: true, google: false, error: null };
+    case 'googleStarted':
+      return { ...state, busy: true, google: true, error: null };
+    case 'cancelled':
+      return { ...state, busy: false, google: false, error: null };
     case 'failed':
-      return { ...state, busy: false, error: action.message };
+      return { ...state, busy: false, google: false, error: action.message };
     case 'codeSent':
-      return { ...state, mode: 'code', code: '', sentAt: action.now, busy: false, error: null };
+      return { ...state, mode: 'code', code: '', sentAt: action.now, busy: false, google: false, error: null };
   }
+}
+
+/**
+ * "Google ile devam et" basılabilir mi (0.13): e-posta adımında ve
+ * aydınlatma kutusu işaretliyken (kodla girişteki kuralın aynısı).
+ */
+export function canUseGoogle(state: AuthFormState): boolean {
+  return !state.busy && state.mode === 'email' && state.noticeRead;
 }
 
 /** Ana düğme basılabilir mi */
