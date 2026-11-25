@@ -180,7 +180,7 @@ export default function SignInScreen() {
           <Text className="text-fg text-base leading-6">
             Hesap açarsan e-posta adresin, salon üyeliğin ve antrenmanların (rutinler,
             setler, notlar) Dinç'in sunucusunda saklanır; telefon değişince geri gelir.
-            Vücut ölçülerin yalnızca telefonunda kalır.
+            Vücut ölçülerin sunucuya gönderilmez; telefonunda (ve telefonunun kendi yedeğinde) kalır.
           </Text>
           <Text className="text-muted text-sm leading-5">
             {google

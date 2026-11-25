@@ -6,12 +6,15 @@ import { create } from 'zustand';
 import type { Db } from '@/db/client';
 import { CONSENT_WITHDRAW_PROMPT } from '@/content/legal';
 import {
+  CONSENT_KEY,
   canUseBodyMetrics,
+  consentLaunchPrompt,
   countBodyMetrics,
   deleteAllBodyMetrics,
   getConsentState,
+  needsConsentRenewal,
   saveConsent,
-  shouldAskExistingUser,
+  type ConsentLaunchPrompt,
   type ConsentState,
   type ConsentStatus,
 } from '@/lib/consent';
@@ -91,19 +94,22 @@ export function useHealthConsent(): {
 }
 
 /**
- * Açılışta, güncellemeyle gelen kullanıcıya bir kez: rıza hiç sorulmamış
- * ve ölçü kaydı varsa tam ekran rıza sorusu (`app/consent.tsx`).
- * Yarım antrenman kurtarmasından sonra çağrılıyor.
+ * Açılışta tam ekran rıza sorusu (`app/consent.tsx`): rıza hiç sorulmamış
+ * ve ölçü kaydı varsa (`ask`), ya da eski rıza metnine onay verilmişse
+ * (`renew`, 0.13). Yanıt verilene kadar her açılışta. Yarım antrenman
+ * kurtarmasından sonra çağrılıyor.
  */
 export async function runConsentLaunchCheck(
   db: Db,
-  openConsentScreen: () => void
+  openConsentScreen: (prompt: ConsentLaunchPrompt) => void
 ): Promise<void> {
   try {
     const state = await readHealthConsent();
     if (state !== 'unknown') return;
-    const bodyMetricCount = await countBodyMetrics(db);
-    if (shouldAskExistingUser({ state, bodyMetricCount })) openConsentScreen();
+    const raw = await Storage.getItem(CONSENT_KEY);
+    const bodyMetricCount = needsConsentRenewal(raw) ? 0 : await countBodyMetrics(db);
+    const prompt = consentLaunchPrompt({ raw, bodyMetricCount });
+    if (prompt) openConsentScreen(prompt);
   } catch (err) {
     // Sorulamazsa giriş yine kapalı; ilk ölçü girişinde kapı soruyor
     console.error('[CONSENT] Açılış kontrolü yapılamadı:', err);

@@ -3,6 +3,9 @@
  * "Hepsini sil" (gerçek SQLite).
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Db } from '@/db/client';
@@ -17,13 +20,16 @@ import {
 import {
   CONSENT_KEY,
   CONSENT_TEXT_VERSION,
+  canConfirmConsentScreen,
   canUseBodyMetrics,
+  consentLaunchPrompt,
   consentStateFromRaw,
   countBodyMetrics,
   deleteAllBodyMetrics,
   getConsentState,
   hideBackupWarning,
   isBackupWarningHidden,
+  needsConsentRenewal,
   parseConsentRecord,
   saveConsent,
   shouldAskExistingUser,
@@ -75,8 +81,10 @@ describe('rıza durumu', () => {
     expect(parseConsentRecord('[]')).toBeNull();
   });
 
-  it('eski rıza metnine verilmiş yanıt geçersiz → unknown (yeniden sorulur)', () => {
+  it('eski rıza metnine verilmiş onay geçersiz → unknown (yenilenir); ret ve geri alma geçerli', () => {
     expect(consentStateFromRaw(record('granted', CONSENT_TEXT_VERSION - 1))).toBe('unknown');
+    expect(consentStateFromRaw(record('declined', CONSENT_TEXT_VERSION - 1))).toBe('declined');
+    expect(consentStateFromRaw(record('withdrawn', CONSENT_TEXT_VERSION - 1))).toBe('withdrawn');
   });
 
   it('giriş yalnızca granted iken açık', () => {
@@ -95,7 +103,7 @@ describe('rıza durumu', () => {
     expect(saved).toEqual({
       status: 'granted',
       at: '2026-10-08T12:00:00.000Z',
-      textVersion: 1,
+      textVersion: 2,
     });
     expect(JSON.parse(store.data.get(CONSENT_KEY)!)).toEqual(saved);
     expect(await getConsentState(store)).toBe('granted');
@@ -118,6 +126,58 @@ describe('shouldAskExistingUser (açılış sorusu)', () => {
     for (const state of ['granted', 'declined', 'withdrawn'] as const) {
       expect(shouldAskExistingUser({ state, bodyMetricCount: 5 })).toBe(false);
     }
+  });
+});
+
+describe('0.13: rıza metni sürüm 2 (telefon yedeği)', () => {
+  const v1 = (status: string) => JSON.stringify({ status, at: '2026-10-08T10:00:00.000Z', textVersion: 1 });
+
+  it('sürüm 2; 0.12 öncesi onaylar yenilenecek', () => {
+    expect(CONSENT_TEXT_VERSION).toBe(2);
+    expect(needsConsentRenewal(v1('granted'))).toBe(true);
+    expect(needsConsentRenewal(v1('declined'))).toBe(false);
+    expect(needsConsentRenewal(v1('withdrawn'))).toBe(false);
+    expect(needsConsentRenewal(record('granted'))).toBe(false);
+    expect(needsConsentRenewal(null)).toBe(false);
+    expect(needsConsentRenewal('{bozuk')).toBe(false);
+  });
+
+  it('açılış sorusu: eski onay → renew (kayıt olmasa da), hiç sorulmamış + kayıt → ask', () => {
+    expect(consentLaunchPrompt({ raw: v1('granted'), bodyMetricCount: 0 })).toBe('renew');
+    expect(consentLaunchPrompt({ raw: v1('granted'), bodyMetricCount: 4 })).toBe('renew');
+    expect(consentLaunchPrompt({ raw: null, bodyMetricCount: 4 })).toBe('ask');
+    expect(consentLaunchPrompt({ raw: null, bodyMetricCount: 0 })).toBeNull();
+    expect(consentLaunchPrompt({ raw: v1('withdrawn'), bodyMetricCount: 4 })).toBeNull();
+    expect(consentLaunchPrompt({ raw: v1('declined'), bodyMetricCount: 4 })).toBeNull();
+    expect(consentLaunchPrompt({ raw: record('granted'), bodyMetricCount: 4 })).toBeNull();
+  });
+
+  it('yenileyince (yeni sürümle granted) bir daha sorulmaz; geri alınınca da', async () => {
+    const store = memoryStore();
+    store.data.set(CONSENT_KEY, v1('granted'));
+    expect(await getConsentState(store)).toBe('unknown');
+    await saveConsent(store, 'granted');
+    expect(consentLaunchPrompt({ raw: store.data.get(CONSENT_KEY)!, bodyMetricCount: 3 })).toBeNull();
+    await saveConsent(store, 'withdrawn');
+    expect(consentLaunchPrompt({ raw: store.data.get(CONSENT_KEY)!, bodyMetricCount: 3 })).toBeNull();
+  });
+
+  it('tek ekran: aydınlatma onayı bekliyorsa iki kutu da işaretli olmalı', () => {
+    expect(canConfirmConsentScreen({ consentChecked: true, noticeNeeded: false, noticeChecked: false })).toBe(true);
+    expect(canConfirmConsentScreen({ consentChecked: false, noticeNeeded: false, noticeChecked: false })).toBe(false);
+    expect(canConfirmConsentScreen({ consentChecked: true, noticeNeeded: true, noticeChecked: false })).toBe(false);
+    expect(canConfirmConsentScreen({ consentChecked: true, noticeNeeded: true, noticeChecked: true })).toBe(true);
+    expect(canConfirmConsentScreen({ consentChecked: false, noticeNeeded: true, noticeChecked: true })).toBe(false);
+  });
+
+  it('ekran: aydınlatma bölümü aynı ekranda, ret mevcut geri alma akışıyla', () => {
+    const screen = readFileSync(path.resolve(__dirname, '../app/consent.tsx'), 'utf8');
+    expect(screen).toContain('usePrivacyNotice()');
+    expect(screen).toContain('PRIVACY_NOTICE_CHECKBOX');
+    expect(screen).toContain('promptConsentWithdraw(db');
+    expect(screen).toContain("renew === '1'");
+    const home = readFileSync(path.resolve(__dirname, '../app/(tabs)/index.tsx'), 'utf8');
+    expect(home).toContain("prompt === 'renew' ? { renew: '1' }");
   });
 });
 

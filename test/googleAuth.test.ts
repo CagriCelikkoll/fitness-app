@@ -10,7 +10,7 @@ import path from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 
-import { KVKK_NOTICE, PRIVACY_NOTICE_VERSION, PRIVACY_POLICY } from '@/content/legal';
+import { HEALTH_CONSENT_TEXT, KVKK_NOTICE, PRIVACY_NOTICE_VERSION, PRIVACY_POLICY } from '@/content/legal';
 import { signInWithGoogle } from '@/lib/account';
 import { INITIAL_AUTH_FORM, authFormReducer, canSubmit, canUseGoogle, type AuthFormState } from '@/lib/auth';
 import {
@@ -228,5 +228,14 @@ describe('aydınlatma metni', () => {
     expect(text(KVKK_NOTICE)).toContain('Google ile girişte kimliğin Google tarafından doğrulanır');
     expect(text(PRIVACY_POLICY)).toContain('profil fotoğrafın alınmaz');
     expect(PRIVACY_NOTICE_VERSION > '2026-11-08').toBe(true);
+  });
+
+  it('telefon yedeği aynı sürümde: "yalnızca cihazımda / telefonunda" kalmadı', () => {
+    expect(text(KVKK_NOTICE)).toContain('Google hesabındaki cihaz yedeğine de girer');
+    expect(text(PRIVACY_POLICY)).toContain('Telefonunun kendi yedeklemesi (Android yedeği) açıksa');
+    expect(HEALTH_CONSENT_TEXT.body).toContain('telefonumun kendi yedeklemesi açıksa Google hesabımdaki cihaz yedeğinde de');
+    for (const t of [text(KVKK_NOTICE), text(PRIVACY_POLICY), HEALTH_CONSENT_TEXT.body, read('app/account/sign-in.tsx')]) {
+      expect(t).not.toMatch(/yalnızca (cihazımda|cihazında işlenir|telefonunda kalır)/);
+    }
   });
 });

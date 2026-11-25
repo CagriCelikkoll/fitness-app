@@ -7,7 +7,9 @@
  *
  * Durum kv-store'da (`consent.bodyMetrics`), şema değişmiyor. Kayıt yoksa
  * ya da okunamıyorsa `unknown`. `textVersion` rıza metni değişirse yeniden
- * sorabilmek için: kayıttaki sürüm güncel değilse durum `unknown` sayılır.
+ * sorabilmek için: eski metne verilmiş ONAY geçersiz (`unknown`, açılışta
+ * yenileme sorusu); eski metne verilmiş "vermiyorum" / "geri aldım" kararı
+ * geçerli kalır (yeni metin işlemeyi genişletmiyor, yeniden sorulmaz).
  *
  * Hook: `src/hooks/useHealthConsent.ts`. Metinler: `src/content/legal.ts`.
  */
@@ -21,8 +23,13 @@ import type { KeyValueStore } from '@/lib/onboarding';
 /** kv-store anahtarı. Değiştirme: verilen rızalar kaybolur. */
 export const CONSENT_KEY = 'consent.bodyMetrics';
 
-/** Rıza metninin (METİN 3) sürümü. Metin değişirse artır: herkese yeniden sorulur. */
-export const CONSENT_TEXT_VERSION = 1;
+/**
+ * Rıza metninin (METİN 3) sürümü. Metin değişirse artır: onay vermiş
+ * herkese yeniden sorulur.
+ * - 1: v2.2
+ * - 2: 0.13, telefonun kendi yedeği (Android yedeği) metne girdi
+ */
+export const CONSENT_TEXT_VERSION = 2;
 
 export type ConsentStatus = 'granted' | 'declined' | 'withdrawn';
 export type ConsentState = ConsentStatus | 'unknown';
@@ -51,11 +58,39 @@ export function parseConsentRecord(raw: string | null): ConsentRecord | null {
   }
 }
 
-/** Kayıt → durum. Eski metne verilmiş yanıt geçersiz: `unknown`. */
+/** Kayıt → durum. Eski metne verilmiş onay geçersiz: `unknown`. */
 export function consentStateFromRaw(raw: string | null): ConsentState {
   const record = parseConsentRecord(raw);
-  if (record == null || record.textVersion !== CONSENT_TEXT_VERSION) return 'unknown';
+  if (record == null) return 'unknown';
+  if (record.status === 'granted' && record.textVersion !== CONSENT_TEXT_VERSION) return 'unknown';
   return record.status;
+}
+
+/** Eski metne onay verilmiş: yenileme sorulur (ölçü kaydı olmasa da) */
+export function needsConsentRenewal(raw: string | null): boolean {
+  const record = parseConsentRecord(raw);
+  return record?.status === 'granted' && record.textVersion !== CONSENT_TEXT_VERSION;
+}
+
+export type ConsentLaunchPrompt = 'renew' | 'ask';
+
+/**
+ * Açılışta tam ekran rıza sorusu: eski metne onay verilmişse `renew`
+ * (0.13), hiç sorulmamış ve ölçü kaydı varsa `ask` (v2.2); yoksa null.
+ */
+export function consentLaunchPrompt(input: { raw: string | null; bodyMetricCount: number }): ConsentLaunchPrompt | null {
+  if (needsConsentRenewal(input.raw)) return 'renew';
+  return shouldAskExistingUser({ state: consentStateFromRaw(input.raw), bodyMetricCount: input.bodyMetricCount })
+    ? 'ask'
+    : null;
+}
+
+/**
+ * Rıza ekranında "Onayla" basılabilir mi: rıza kutusu işaretli ve hesabın
+ * aydınlatma onayı da bekliyorsa (aynı ekranda) o kutu da işaretli.
+ */
+export function canConfirmConsentScreen(input: { consentChecked: boolean; noticeNeeded: boolean; noticeChecked: boolean }): boolean {
+  return input.consentChecked && (!input.noticeNeeded || input.noticeChecked);
 }
 
 /** Ölçü girişi, grafiği ve geçmişi açık mı */

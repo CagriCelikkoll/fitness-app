@@ -64,7 +64,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       `Dinç, ${NAME} tarafından geliştirilen bir antrenman takip uygulamasıdır. Bu sayfa Gizlilik Politikası'nın özetidir; tam metin web sayfasındadır.`
     ),
     p(
-      '**Kısaca:** Hesap açmadan kullanırsan tüm bilgilerin yalnızca telefonunda kalır. Hesap açarsan antrenmanların ve rutinlerin hesabına yedeklenir; vücut ölçülerin ve profil bilgilerin yine yalnızca telefonunda kalır. Reklam ve analitik yoktur; verilerin satılmaz.'
+      "**Kısaca:** Hesap açmadan kullanırsan tüm bilgilerin telefonunda kalır; Dinç'in sunucusuna hiçbir şey gönderilmez. Hesap açarsan antrenmanların ve rutinlerin hesabına yedeklenir; vücut ölçülerin ve profil bilgilerin yine sunucuya gönderilmez. Telefonunun kendi yedeklemesi (Android yedeği) açıksa uygulama verilerin Google hesabındaki cihaz yedeğine de girer. Reklam ve analitik yoktur; verilerin satılmaz."
     ),
     p('**1. Hesap açarsan işlenen bilgiler**'),
     list(
@@ -132,7 +132,7 @@ export const KVKK_NOTICE: LegalDocument = {
       '**İşleme amacı:** Antrenmanlarını kaydetmen, ilerlemeni grafik ve istatistiklerle görmen ve vücut ölçülerini takip etmen; hesap açarsan antrenmanlarının eşitlenmesi, salon üyeliği, ders programı ve salon bildirimleri.'
     ),
     p(
-      '**Toplama yöntemi ve hukuki sebep:** Veriler, uygulamaya senin girdiğin bilgilerden elde edilir; Google ile girersen adın ve e-posta adresin, senin izninle Google hesabından alınır. Genel nitelikli veriler, kullandığın hizmetin sunulması için gerekli olmasına (md. 5/2-c) dayanır. Sağlık verisi sayılabilecek vücut ölçüleri yalnızca açık rızana (md. 6/2) dayanılarak ve yalnızca cihazında işlenir; sunucuya gönderilmez. Rıza vermezsen bu alanları kullanmadan uygulamanın geri kalanını kullanmaya devam edebilirsin.'
+      "**Toplama yöntemi ve hukuki sebep:** Veriler, uygulamaya senin girdiğin bilgilerden elde edilir; Google ile girersen adın ve e-posta adresin, senin izninle Google hesabından alınır. Genel nitelikli veriler, kullandığın hizmetin sunulması için gerekli olmasına (md. 5/2-c) dayanır. Sağlık verisi sayılabilecek vücut ölçüleri yalnızca açık rızana (md. 6/2) dayanılarak cihazında işlenir; Dinç'in sunucusuna gönderilmez. Telefonunun kendi yedeklemesi açıksa uygulama verilerinle birlikte Google hesabındaki cihaz yedeğine de girer. Rıza vermezsen bu alanları kullanmadan uygulamanın geri kalanını kullanmaya devam edebilirsin."
     ),
     p(
       "**Aktarım:** Hesapsız kullanımda verilerin hiçbir kişi ya da kuruluşa aktarılmaz. Hesap açarsan hesap ve eşitlenen antrenman verilerin Supabase Inc.'in Frankfurt (Avrupa Birliği) sunucularında saklanır; e-postalar Google (Gmail) üzerinden iletilir, Google ile girişte kimliğin Google tarafından doğrulanır; Android bildirimleri Google (Firebase Cloud Messaging) ve Expo (ABD) üzerinden iletilir. Bunlar yurt dışına aktarım sayılır; ayrıntılar Gizlilik Politikası'nda. Uygulama güncelleme kontrolünde Expo'ya yalnızca uygulama sürümü, platform bilgisi ve IP adresi ulaşır. Yedek dosyasını paylaşmak senin tercihindir; veri sorumlusu bu aktarıma taraf değildir."
@@ -157,7 +157,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
 
 export const HEALTH_CONSENT_TEXT = {
   title: 'Vücut ölçülerinin işlenmesine açık rıza',
-  body: "Kilo, yağ oranı ve çevre ölçülerimin, ilerlememi takip edebilmem amacıyla yalnızca cihazımda saklanarak işlenmesine, Aydınlatma Metni'ni okuyarak açık rıza veriyorum. Bu rızayı istediğim zaman Profil → Gizlilik ve hesap'tan geri alabileceğimi biliyorum.",
+  body: "Kilo, yağ oranı ve çevre ölçülerimin, ilerlememi takip edebilmem amacıyla cihazımda (telefonumun kendi yedeklemesi açıksa Google hesabımdaki cihaz yedeğinde de) saklanarak işlenmesine, Aydınlatma Metni'ni okuyarak açık rıza veriyorum. Bu rızayı istediğim zaman Profil → Gizlilik ve hesap'tan geri alabileceğimi biliyorum.",
   checkboxLabel: 'Onaylıyorum',
 } as const;
 

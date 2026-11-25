@@ -334,7 +334,9 @@ function HomeContent() {
   // sorusu onun üstüne açılmasın; bir sonraki açılışta sorulur.
   useSessionRecovery(({ navigated }) => {
     if (navigated) return;
-    void runConsentLaunchCheck(db, () => router.push('/consent'));
+    void runConsentLaunchCheck(db, (prompt) =>
+      router.push({ pathname: '/consent', params: prompt === 'renew' ? { renew: '1' } : {} })
+    );
   });
 
   const activeSessionId = useActiveWorkoutStore((s) => s.activeSessionId);
