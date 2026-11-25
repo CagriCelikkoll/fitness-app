@@ -34,6 +34,10 @@
       "android": {
         "buildType": "apk"
       },
+      "ios": {
+        "distribution": "store",
+        "autoIncrement": true
+      },
       "env": {
         "APP_VARIANT": "dahili"
       }
@@ -44,6 +48,9 @@
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "distribution": "store"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://iuugvgpcwqiwyrrouwrn.supabase.co",
@@ -56,7 +63,11 @@
       "android": {
         "track": "alpha",
         "releaseStatus": "draft"
-      }
+      },
+      "ios": {}
+    },
+    "dahili": {
+      "ios": {}
     }
   }
 }

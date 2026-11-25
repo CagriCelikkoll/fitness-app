@@ -307,6 +307,8 @@ export interface AuthFormState {
   busy: boolean;
   /** Meşgulken Google girişi mi sürüyor (0.13; düğmedeki gösterge için) */
   google: boolean;
+  /** Meşgulken Apple girişi mi sürüyor (0.13 Bölüm 5, iOS) */
+  apple: boolean;
   error: string | null;
 }
 
@@ -318,7 +320,8 @@ export type AuthFormAction =
   | { type: 'editEmail' }
   | { type: 'started' }
   | { type: 'googleStarted' }
-  /** Kullanıcı Google hesap seçicisini kapattı: hata yok */
+  | { type: 'appleStarted' }
+  /** Kullanıcı Google hesap seçicisini ya da Apple sayfasını kapattı: hata yok */
   | { type: 'cancelled' }
   | { type: 'failed'; message: string }
   | { type: 'codeSent'; now: number };
@@ -331,6 +334,7 @@ export const INITIAL_AUTH_FORM: AuthFormState = {
   sentAt: null,
   busy: false,
   google: false,
+  apple: false,
   error: null,
 };
 
@@ -346,17 +350,19 @@ export function authFormReducer(state: AuthFormState, action: AuthFormAction): A
       return { ...state, noticeRead: !state.noticeRead, error: null };
     case 'editEmail':
       // E-posta ve işaret kalıyor; kod ve hata gidiyor
-      return { ...state, mode: 'email', code: '', sentAt: null, busy: false, google: false, error: null };
+      return { ...state, mode: 'email', code: '', sentAt: null, busy: false, google: false, apple: false, error: null };
     case 'started':
-      return { ...state, busy: true, google: false, error: null };
+      return { ...state, busy: true, google: false, apple: false, error: null };
     case 'googleStarted':
-      return { ...state, busy: true, google: true, error: null };
+      return { ...state, busy: true, google: true, apple: false, error: null };
+    case 'appleStarted':
+      return { ...state, busy: true, google: false, apple: true, error: null };
     case 'cancelled':
-      return { ...state, busy: false, google: false, error: null };
+      return { ...state, busy: false, google: false, apple: false, error: null };
     case 'failed':
-      return { ...state, busy: false, google: false, error: action.message };
+      return { ...state, busy: false, google: false, apple: false, error: action.message };
     case 'codeSent':
-      return { ...state, mode: 'code', code: '', sentAt: action.now, busy: false, google: false, error: null };
+      return { ...state, mode: 'code', code: '', sentAt: action.now, busy: false, google: false, apple: false, error: null };
   }
 }
 
@@ -367,6 +373,9 @@ export function authFormReducer(state: AuthFormState, action: AuthFormAction): A
 export function canUseGoogle(state: AuthFormState): boolean {
   return !state.busy && state.mode === 'email' && state.noticeRead;
 }
+
+/** "Apple ile devam et" basılabilir mi (0.13 Bölüm 5): Google'la aynı kural */
+export const canUseApple = canUseGoogle;
 
 /** Ana düğme basılabilir mi */
 export function canSubmit(state: AuthFormState): boolean {

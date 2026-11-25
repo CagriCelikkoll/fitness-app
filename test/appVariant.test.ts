@@ -29,12 +29,15 @@ afterEach(() => {
 
 function dahili(): Base {
   vi.stubEnv('APP_VARIANT', 'dahili');
+  vi.stubEnv('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID_DAHILI', '');
   return appConfig({ config: base() });
 }
 
 describe('APP_VARIANT yok', () => {
   it('app.json olduğu gibi döner', () => {
     vi.stubEnv('APP_VARIANT', '');
+    // Google iOS kimliği yokken (0.13 Bölüm 5; varken: test/appleIos.test.ts)
+    vi.stubEnv('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID', '');
     const config = base();
     expect(appConfig({ config })).toBe(config);
     expect(config).toEqual(base());

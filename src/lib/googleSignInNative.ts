@@ -4,11 +4,21 @@
  *
  * Modül `require` ile yükleniyor: native modülü olmayan derlemede (Expo Go,
  * eski APK) açılışta çökmez, düğme gizlenir.
+ *
+ * iOS (0.13 Bölüm 5): ayrıca iOS istemci kimliği gerekir (`googleIosClientId`).
+ * URL şeması derlemeye `app.config.js`'ten girer; kimlik derlemeden önce EAS'e
+ * eklenmeli, yoksa iOS'ta düğme görünmez.
  */
+
+import { Platform } from 'react-native';
+import * as Updates from 'expo-updates';
+
+import { isInternalChannel } from '@/lib/appVariant';
 
 import {
   GOOGLE_ERROR_MESSAGES,
   googleErrorOutcome,
+  googleIosClientId,
   googleResponseOutcome,
   googleWebClientId,
   type GoogleSignInOutcome,
@@ -18,7 +28,7 @@ import {
 
 interface GoogleSigninModule {
   GoogleSignin: {
-    configure(options: { webClientId: string; scopes?: string[]; offlineAccess?: boolean }): void;
+    configure(options: { webClientId: string; iosClientId?: string; scopes?: string[]; offlineAccess?: boolean }): void;
     hasPlayServices(options?: { showPlayServicesUpdateDialog?: boolean }): Promise<boolean>;
     signIn(): Promise<GoogleSignInResponse>;
     signOut(): Promise<null>;
@@ -29,6 +39,17 @@ interface GoogleSigninModule {
 // process.env.EXPO_PUBLIC_* derleme sırasında yerine yazılıyor; tam bu
 // biçimde yazılmalı
 const WEB_CLIENT_ID = googleWebClientId(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
+const IOS_CLIENT_ID =
+  Platform.OS === 'ios'
+    ? googleIosClientId({
+        internal: isInternalChannel(Updates.channel),
+        main: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+        dahili: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID_DAHILI,
+      })
+    : null;
+
+/** Bu platformda giriş için gereken kimlikler tanımlı mı */
+const CONFIGURED = WEB_CLIENT_ID != null && (Platform.OS !== 'ios' || IOS_CLIENT_ID != null);
 
 let cached: GoogleSigninModule | null | undefined;
 let configured = false;
@@ -46,13 +67,17 @@ function load(): GoogleSigninModule | null {
 }
 
 function ready(): GoogleSigninModule | null {
-  if (!WEB_CLIENT_ID) return null;
+  if (!CONFIGURED || !WEB_CLIENT_ID) return null;
   const mod = load();
   if (!mod) return null;
   if (!configured) {
     // Yalnızca ad ve e-posta (varsayılan "profile email"); sunucuya
     // erişim kodu (offlineAccess) yok
-    mod.GoogleSignin.configure({ webClientId: WEB_CLIENT_ID, offlineAccess: false });
+    mod.GoogleSignin.configure({
+      webClientId: WEB_CLIENT_ID,
+      ...(IOS_CLIENT_ID ? { iosClientId: IOS_CLIENT_ID } : {}),
+      offlineAccess: false,
+    });
     configured = true;
   }
   return mod;
@@ -60,7 +85,7 @@ function ready(): GoogleSigninModule | null {
 
 /** Düğme gösterilsin mi: kimlik tanımlı ve native modül var */
 export function googleSignInAvailable(): boolean {
-  return WEB_CLIENT_ID != null && load() != null;
+  return CONFIGURED && load() != null;
 }
 
 /** Hesap seçiciyi açar; Supabase'e henüz bir şey gitmez */
@@ -68,7 +93,9 @@ export async function startGoogleSignIn(): Promise<GoogleSignInOutcome> {
   const mod = ready();
   if (!mod) return { kind: 'error', message: GOOGLE_ERROR_MESSAGES.unavailable };
   try {
-    await mod.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    if (Platform.OS === 'android') {
+      await mod.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    }
     return googleResponseOutcome(await mod.GoogleSignin.signIn());
   } catch (err) {
     console.error('[GOOGLE] Giriş hatası:', err);
@@ -81,7 +108,7 @@ export async function startGoogleSignIn(): Promise<GoogleSignInOutcome> {
  * Hata yutulur (Google ile hiç girilmediyse de sorun değil).
  */
 export async function googleSignOut(): Promise<void> {
-  const mod = WEB_CLIENT_ID ? load() : null;
+  const mod = CONFIGURED ? load() : null;
   if (!mod) return;
   try {
     ready();

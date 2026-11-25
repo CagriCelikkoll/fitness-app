@@ -16,7 +16,15 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.dincapp.antrenman",
-      "icon": "./assets/brand/icon.png"
+      "icon": "./assets/brand/icon.png",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "tr",
+        "CFBundleLocalizations": [
+          "tr"
+        ],
+        "NSPhotoLibraryAddUsageDescription": "Paylaşım kartını fotoğraflarına kaydetmek için."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -114,6 +122,7 @@
           "faceIDPermission": false
         }
       ],
+      "expo-apple-authentication",
       "./plugins/withBackupRules"
     ],
     "experiments": {

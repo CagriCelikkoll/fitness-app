@@ -31,6 +31,30 @@ export function googleWebClientId(value: string | undefined | null): string | nu
   return id && WEB_CLIENT_ID_PATTERN.test(id) ? id : null;
 }
 
+/**
+ * iOS istemci kimliği (0.13 Bölüm 5). iOS'ta Google SDK'sı kendi
+ * istemcisini ister (bundle id'ye bağlı); Dinç ve Dinç Test'in bundle
+ * id'leri ayrı olduğu için iki kimlik var:
+ * `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` ve `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID_DAHILI`.
+ * Hangisi kullanılacağı derlemenin kanalından (`appVariant.ts`; OTA'dan
+ * sonra da doğru). Yoksa ya da biçimi bozuksa null: iOS'ta düğme görünmez.
+ *
+ * Aynı kimlikten `app.config.js` iOS URL şemasını üretir (bkz.
+ * `googleIosUrlScheme`; test ikisinin aynı olduğunu denetliyor).
+ */
+export function googleIosClientId(input: {
+  internal: boolean;
+  main: string | undefined | null;
+  dahili: string | undefined | null;
+}): string | null {
+  return googleWebClientId(input.internal ? input.dahili : input.main);
+}
+
+/** iOS URL şeması: `<sayı>-<x>.apps.googleusercontent.com` → `com.googleusercontent.apps.<sayı>-<x>` */
+export function googleIosUrlScheme(clientId: string): string {
+  return `com.googleusercontent.apps.${clientId.replace(/\.apps\.googleusercontent\.com$/, '')}`;
+}
+
 // ── Hesap seçicinin sonucu ──────────────────────────────────────────────
 
 export type GoogleSignInOutcome =
@@ -47,6 +71,7 @@ export interface GoogleStatusCodes {
 
 export const GOOGLE_ERROR_MESSAGES = {
   unavailable: 'Google ile giriş bu sürümde kullanılamıyor. E-postayla kod alarak gir.',
+  // Android'e özgü; iOS'ta paket bu hatayı vermez
   playServices: "Google Play Hizmetleri bu telefonda yok ya da güncel değil. E-postayla kod alarak gir.",
   noToken: 'Google girişi tamamlanamadı. Tekrar dene ya da e-postayla kod al.',
   failed: 'Google ile giriş yapılamadı. Tekrar dene ya da e-postayla kod al.',

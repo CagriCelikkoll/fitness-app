@@ -20,6 +20,10 @@
  * 0.13: üstte "Google ile devam et" (`src/lib/googleAuth.ts`), altında
  * e-postayla kod. Aydınlatma kutusu ikisi için ortak. Google'la girişte
  * profilde ad yoksa Google'daki ad, ad ekranına öneri olarak gider.
+ *
+ * 0.13 Bölüm 5: iOS'ta Google'ın üstünde "Apple ile devam et"
+ * (`src/lib/appleAuth.ts`; Apple'ın kuralı, aynı önemde). Aynı kutu ve aynı
+ * ad önerisi.
  */
 
 import { useEffect, useReducer, useRef, useState } from 'react';
@@ -39,15 +43,25 @@ import {
   authFormReducer,
   canResend,
   canSubmit,
+  canUseApple,
   canUseGoogle,
   normalizeEmail,
   resendSecondsLeft,
   type AuthFormField,
 } from '@/lib/auth';
-import { sendSignInCode, signInWithGoogle, verifySignInCode, type AccountResult } from '@/lib/account';
+import {
+  sendSignInCode,
+  signInWithApple,
+  signInWithGoogle,
+  verifySignInCode,
+  type AccountResult,
+} from '@/lib/account';
+import { appleNameSuggestion } from '@/lib/appleAuth';
+import { appleSignInAvailable, startAppleSignIn } from '@/lib/appleSignInNative';
 import { googleNameSuggestion } from '@/lib/googleAuth';
 import { googleSignInAvailable, startGoogleSignIn } from '@/lib/googleSignInNative';
 import { fetchMyDisplayName, wasNamePrompted } from '@/lib/profile';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import {
   PRIVACY_NOTICE_CHECKBOX,
@@ -77,6 +91,18 @@ export default function SignInScreen() {
   useEffect(() => {
     if (available) startAccountClient();
   }, [available]);
+
+  // Apple yalnızca iOS'ta ve cihaz destekliyorsa (soru eşzamansız)
+  const [apple, setApple] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void appleSignInAvailable().then((ok) => {
+      if (alive) setApple(ok);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const setField = (field: AuthFormField) => (value: string) =>
     dispatch({ type: 'fieldChanged', field, value });
@@ -144,6 +170,34 @@ export default function SignInScreen() {
     const suggest = profile.ok
       ? googleNameSuggestion({ displayName: profile.value, googleName: outcome.name, prompted })
       : null;
+    finishWithName(suggest);
+  };
+
+  const continueWithApple = async () => {
+    if (!canUseApple(state)) return;
+    dispatch({ type: 'appleStarted' });
+    const { outcome, nonce } = await startAppleSignIn();
+    if (outcome.kind === 'cancelled') return dispatch({ type: 'cancelled' });
+    if (outcome.kind === 'error') return dispatch({ type: 'failed', message: outcome.message });
+    if (!nonce) return dispatch({ type: 'failed', message: 'Apple girişi tamamlanamadı. Tekrar dene.' });
+    await savePendingAck(Storage, PRIVACY_NOTICE_VERSION);
+    const result = await signInWithApple(getSupabase(), outcome.idToken, nonce);
+    if (!check(result) || !result.ok) return;
+
+    // Apple adı yalnızca ilk girişte verir; Google'la aynı öneri kuralı
+    const userId = result.value;
+    const [profile, prompted] = await Promise.all([
+      fetchMyDisplayName(getSupabase(), userId),
+      wasNamePrompted(Storage, userId),
+    ]);
+    const suggest = profile.ok
+      ? appleNameSuggestion({ displayName: profile.value, appleName: outcome.name, prompted })
+      : null;
+    finishWithName(suggest);
+  };
+
+  /** Öneri varsa ad ekranına, yoksa girişin normal bitişi */
+  const finishWithName = (suggest: string | null) => {
     if (suggest == null) return done();
     router.replace({ pathname: '/account/name', params: next ? { suggest, next } : { suggest } });
   };
@@ -165,6 +219,7 @@ export default function SignInScreen() {
 
   const secondsLeft = resendSecondsLeft(state, now);
   const google = googleSignInAvailable();
+  const social = google || apple;
 
   return (
     <KeyboardAvoidingView
@@ -183,8 +238,8 @@ export default function SignInScreen() {
             Vücut ölçülerin sunucuya gönderilmez; telefonunda (ve telefonunun kendi yedeğinde) kalır.
           </Text>
           <Text className="text-muted text-sm leading-5">
-            {google
-              ? 'Şifre yok: Google hesabınla ya da e-postana gelen 6 haneli kodla girersin. Hesabın yoksa açılır.'
+            {social
+              ? `Şifre yok: ${socialNames(apple, google)} ya da e-postana gelen 6 haneli kodla girersin. Hesabın yoksa açılır.`
               : 'Şifre yok: her girişte e-postana 6 haneli bir kod gelir. Hesabın yoksa aynı kodla açılır.'}
           </Text>
         </Card>
@@ -214,13 +269,22 @@ export default function SignInScreen() {
             </View>
           )}
 
-          {!codeMode && google && (
+          {!codeMode && social && (
             <View className="gap-4">
-              <GoogleSignInButton
-                disabled={!state.noticeRead}
-                loading={state.google}
-                onPress={() => void continueWithGoogle()}
-              />
+              {apple && (
+                <AppleSignInButton
+                  disabled={!state.noticeRead}
+                  loading={state.apple}
+                  onPress={() => void continueWithApple()}
+                />
+              )}
+              {google && (
+                <GoogleSignInButton
+                  disabled={!state.noticeRead}
+                  loading={state.google}
+                  onPress={() => void continueWithGoogle()}
+                />
+              )}
               <View className="flex-row items-center gap-3">
                 <View className="flex-1 h-px bg-border" />
                 <Text className="text-muted text-xs">ya da e-postayla kod al</Text>
@@ -284,7 +348,7 @@ export default function SignInScreen() {
           <PrimaryButton
             label={codeMode ? 'Giriş yap' : 'Kodu gönder'}
             disabled={!canSubmit(state)}
-            loading={state.busy && !state.google}
+            loading={state.busy && !state.google && !state.apple}
             onPress={() => void submit()}
           />
 
@@ -312,6 +376,12 @@ export default function SignInScreen() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+/** Bilgi kartındaki giriş yolları: "Apple hesabınla", "Google hesabınla" ya da ikisi */
+function socialNames(apple: boolean, google: boolean): string {
+  if (apple && google) return 'Apple ya da Google hesabınla';
+  return apple ? 'Apple hesabınla' : 'Google hesabınla';
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

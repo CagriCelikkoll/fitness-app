@@ -98,6 +98,20 @@ export function signInWithGoogle(client: SupabaseClient | null, idToken: string)
 }
 
 /**
+ * Apple ile giriş (0.13 Bölüm 5, yalnızca iOS): `nonce` Apple'a özeti
+ * gönderilen ham değer. Aynı e-postayla hesap varsa Supabase o hesaba
+ * bağlar; "E-postamı gizle" adresi farklı olduğu için yeni hesap açılır.
+ */
+export function signInWithApple(client: SupabaseClient | null, idToken: string, nonce: string) {
+  return run(client, async (c) => {
+    const { data, error } = await c.auth.signInWithIdToken({ provider: 'apple', token: idToken, nonce });
+    if (error) return fail<string>(toAccountError(error));
+    const userId = data.user?.id;
+    return userId ? ok(userId) : fail<string>(accountError('unknown'));
+  });
+}
+
+/**
  * Yalnızca bu cihazdaki oturumu kapatır. Ağ hatasında da oturum yerelde
  * silinir (supabase-js böyle davranıyor); lokal antrenman verisine
  * dokunulmaz.

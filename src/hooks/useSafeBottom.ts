@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Keyboard, StatusBar } from 'react-native';
+import { Keyboard, Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { floatingTabBarLayout, screenBottomInset, screenTopInset, sheetBottomPadding } from '@/lib/safeArea';
@@ -11,11 +11,21 @@ import { floatingTabBarLayout, screenBottomInset, screenTopInset, sheetBottomPad
  * `useSheetBottomPadding()` kullanır.
  */
 
+/**
+ * Klavye açık mı. iOS'ta "Will" olayları (0.13 Bölüm 5): boşluk klavyenin
+ * açılma animasyonuyla birlikte değişsin, "Did" sonrası zıplamasın. Android
+ * yalnızca "Did" olaylarını gönderiyor.
+ */
+const KEYBOARD_EVENTS =
+  Platform.OS === 'ios'
+    ? ({ show: 'keyboardWillShow', hide: 'keyboardWillHide' } as const)
+    : ({ show: 'keyboardDidShow', hide: 'keyboardDidHide' } as const);
+
 export function useKeyboardVisible(): boolean {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setVisible(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setVisible(false));
+    const show = Keyboard.addListener(KEYBOARD_EVENTS.show, () => setVisible(true));
+    const hide = Keyboard.addListener(KEYBOARD_EVENTS.hide, () => setVisible(false));
     return () => {
       show.remove();
       hide.remove();
