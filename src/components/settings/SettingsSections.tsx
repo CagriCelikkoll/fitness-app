@@ -32,6 +32,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
 import { isInternalChannel } from '@/lib/appVariant';
+import { openStorePage, storePageAvailable } from '@/lib/storeReviewNative';
 import { googleSignOut } from '@/lib/googleSignInNative';
 import Storage from 'expo-sqlite/kv-store';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
@@ -1395,6 +1396,12 @@ export function AboutSection() {
             <Text className="text-muted text-base">{row.label}</Text>
           </ListRow>
         ))}
+        {/* 0.13 Bölüm 6: mağaza sayfası (iOS'ta App Store kimliği gelene kadar yok) */}
+        {storePageAvailable && (
+          <ListRow divider chevron onPress={openStorePage}>
+            <Text className="text-fg text-base">Uygulamayı değerlendir</Text>
+          </ListRow>
+        )}
         <ListRow divider chevron onPress={() => router.push('/onboarding')}>
           <Text className="text-fg text-base">Tanıtımı tekrar göster</Text>
         </ListRow>

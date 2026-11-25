@@ -209,6 +209,8 @@ describe('iOS ayarları', () => {
     expect(ios.infoPlist.CFBundleLocalizations).toEqual(['tr']);
     // Paylaşım sayfasında "Görüntüyü kaydet": metin yoksa uygulama kapanır
     expect(ios.infoPlist.NSPhotoLibraryAddUsageDescription).toMatch(/Paylaşım kartını/);
+    // Yalnızca HTTPS (muaf şifreleme): TestFlight her yüklemede sormasın
+    expect(ios.infoPlist.ITSAppUsesNonExemptEncryption).toBe(false);
     const plugins = base().plugins as Base[];
     const opts = (name: string) => plugins.find((p) => Array.isArray(p) && p[0] === name)[1];
     expect(opts('expo-image-picker').photosPermission).toMatch(/fotoğraflarına/);

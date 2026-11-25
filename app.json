@@ -23,7 +23,8 @@
         "CFBundleLocalizations": [
           "tr"
         ],
-        "NSPhotoLibraryAddUsageDescription": "Paylaşım kartını fotoğraflarına kaydetmek için."
+        "NSPhotoLibraryAddUsageDescription": "Paylaşım kartını fotoğraflarına kaydetmek için.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

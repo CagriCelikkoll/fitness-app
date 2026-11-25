@@ -34,6 +34,8 @@ import { NoteEditor } from '@/components/NoteEditor';
 import { RecordCelebration } from '@/components/RecordCelebration';
 import { SharePreviewSheet } from '@/components/SharePreviewSheet';
 import { recordShareCard, type ShareCardData } from '@/lib/shareCard';
+import { isGoodWorkout } from '@/lib/storeReview';
+import { maybeRequestReview } from '@/lib/storeReviewNative';
 import { loadWorkoutShareCard } from '@/lib/shareData';
 
 export default function WorkoutSummaryScreen() {
@@ -102,14 +104,33 @@ export default function WorkoutSummaryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summary, recordPage]);
 
-  const close = () => router.replace('/(tabs)/workout');
+  // 0.13 Bölüm 6: iyi geçen antrenmanın özetinden çıkarken değerlendirme
+  // isteği (koşullar ve 90 günlük sınır `storeReview.ts`'te)
+  const close = () => {
+    if (
+      summary &&
+      isGoodWorkout({
+        completedSets: summary.completedSets,
+        plannedSets: plannedSetCount(summary.completedSets, planned != null ? Number(planned) : null),
+      })
+    ) {
+      void maybeRequestReview(db, 'summary-exit');
+    }
+    router.replace('/(tabs)/workout');
+  };
   const showRecord = page != null && !recordSeen;
+
+  /** Rekor sayfası kapanınca özete geçilir; değerlendirme isteği de burada */
+  const closeRecord = () => {
+    setRecordSeen(true);
+    void maybeRequestReview(db, 'record-closed');
+  };
 
   // Geri tuşu da "Kaydet ve kapat" gibi (aktif antrenman ekranı artık yok);
   // rekor sayfasındayken özete geçer, not ve ayrıntılar atlanmasın
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showRecord) setRecordSeen(true);
+      if (showRecord) closeRecord();
       else close();
       return true;
     });
@@ -132,7 +153,7 @@ export default function WorkoutSummaryScreen() {
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <RecordCelebration
           page={page}
-          onContinue={() => setRecordSeen(true)}
+          onContinue={closeRecord}
           onShare={() => setShareCard(recordShareCard(page))}
         />
         {shareSheet}
